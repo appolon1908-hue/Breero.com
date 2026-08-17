@@ -13,7 +13,7 @@ from app.config import settings
 from app.core.errors import install_error_handlers
 from app.db.session import engine
 
-EXPECTED_SCHEMA_REVISION = "017_provider_credentials"
+EXPECTED_SCHEMA_REVISION = "018_booking_capacity_foundation"
 logger = structlog.get_logger()
 app = FastAPI(title=settings.app_name, version="1.0.0")
 app.add_middleware(

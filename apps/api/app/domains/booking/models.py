@@ -61,14 +61,19 @@ class Address(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "addresses"
     formatted_address: Mapped[str] = mapped_column(String(500), nullable=False)
     line1: Mapped[str] = mapped_column(String(200), nullable=False)
+    line2: Mapped[str | None] = mapped_column(String(200))
     city: Mapped[str] = mapped_column(String(120), nullable=False)
     state_code: Mapped[str | None] = mapped_column(String(3))
     postal_code: Mapped[str] = mapped_column(String(32), nullable=False)
+    postal_code_plus4: Mapped[str | None] = mapped_column(String(4))
     country_code: Mapped[str] = mapped_column(String(2), nullable=False)
     location: Mapped[object] = mapped_column(Geometry("POINT", srid=4326), nullable=False)
     service_area_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("service_areas.id"))
     geocoding_provider: Mapped[str] = mapped_column(String(40), default="provided")
     timezone_name: Mapped[str] = mapped_column(String(64), nullable=False, default="UTC")
+    timezone_source: Mapped[str] = mapped_column(String(40), nullable=False, default="geocoding")
+    address_validation_status: Mapped[str] = mapped_column(String(32), nullable=False, default="VALIDATED")
+    service_zone_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("service_zones.id"), index=True)
     customer_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("customers.id", ondelete="CASCADE"), index=True
     )
@@ -117,6 +122,8 @@ class Customer(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     user_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), unique=True
     )
+    preferred_language: Mapped[str] = mapped_column(String(12), nullable=False, default="en-US")
+    default_address_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
 
 
 class Booking(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -129,6 +136,11 @@ class Booking(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     legal_entity_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("legal_entities.id"))
     service_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True)
     provider_worker_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("workers.id"), index=True)
+    service_timezone_id: Mapped[str] = mapped_column(String(64), nullable=False, default="UTC")
+    recommended_provider_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("vendors.id"), index=True)
+    recommended_professional_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("workers.id"), index=True)
+    assignment_score: Mapped[int | None] = mapped_column(Integer)
+    assignment_reason: Mapped[str | None] = mapped_column(String(500))
     window_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     window_end: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     status: Mapped[BookingStatus] = mapped_column(

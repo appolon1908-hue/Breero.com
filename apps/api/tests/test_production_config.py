@@ -116,6 +116,14 @@ def test_stripe_keys_cannot_mix_test_and_live_modes():
         "automatic_refunds_enabled",
         "automatic_booking_enabled",
         "automatic_confirmed_bookings",
+        "auto_assign_provider",
+        "auto_confirm_booking",
+        "live_provider_dispatch",
+        "live_email_delivery",
+        "live_sms_delivery",
+        "live_callbacks",
+        "odoo_delivery_enabled",
+        "odoo_write_enabled",
     ],
 )
 def test_request_only_production_rejects_payment_and_booking_flags(flag):
@@ -130,6 +138,19 @@ def test_request_only_production_rejects_payment_and_booking_flags(flag):
     }
     with pytest.raises(ValidationError, match="request-service release"):
         Settings(**values)
+
+
+def test_provider_assignment_defaults_remain_manual_and_inactive():
+    settings = Settings()
+    assert settings.provider_assignment_mode == "MANUAL"
+    assert settings.auto_assign_provider is False
+    assert settings.auto_confirm_booking is False
+    assert settings.live_provider_dispatch is False
+
+
+def test_automatic_assignment_mode_requires_explicit_flag():
+    with pytest.raises(ValidationError, match="requires AUTO_ASSIGN_PROVIDER"):
+        Settings(provider_assignment_mode="AUTOMATIC")
 
 
 def test_staging_allows_canonical_breero_middleware_tenant():

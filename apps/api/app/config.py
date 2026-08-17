@@ -40,6 +40,15 @@ class Settings(BaseSettings):
     scheduling_enabled: bool = True
     automatic_provider_assignment_enabled: bool = False
     automatic_confirmed_bookings: bool = False
+    provider_assignment_mode: str = "MANUAL"
+    auto_assign_provider: bool = False
+    auto_confirm_booking: bool = False
+    live_provider_dispatch: bool = False
+    live_email_delivery: bool = False
+    live_sms_delivery: bool = False
+    live_callbacks: bool = False
+    odoo_delivery_enabled: bool = False
+    odoo_write_enabled: bool = False
     transactional_email_mode: str = "controlled_canary"
     transactional_sms_mode: str = "controlled_canary"
     marketing_email_enabled: bool = False
@@ -144,6 +153,14 @@ class Settings(BaseSettings):
             "AUTOMATIC_CONFIRMED_BOOKINGS": self.automatic_confirmed_bookings,
             "MARKETING_EMAIL_ENABLED": self.marketing_email_enabled,
             "MARKETING_SMS_ENABLED": self.marketing_sms_enabled,
+            "AUTO_ASSIGN_PROVIDER": self.auto_assign_provider,
+            "AUTO_CONFIRM_BOOKING": self.auto_confirm_booking,
+            "LIVE_PROVIDER_DISPATCH": self.live_provider_dispatch,
+            "LIVE_EMAIL_DELIVERY": self.live_email_delivery,
+            "LIVE_SMS_DELIVERY": self.live_sms_delivery,
+            "LIVE_CALLBACKS": self.live_callbacks,
+            "ODOO_DELIVERY_ENABLED": self.odoo_delivery_enabled,
+            "ODOO_WRITE_ENABLED": self.odoo_write_enabled,
         }
         enabled_release_flags = [name for name, enabled in release_payment_flags.items() if enabled]
         if self.app_env.lower() == "production" and enabled_release_flags:
@@ -153,6 +170,10 @@ class Settings(BaseSettings):
             )
         if self.app_env.lower() == "production" and not self.scheduling_enabled:
             raise ValueError("SCHEDULING_ENABLED must remain enabled for this release")
+        if self.provider_assignment_mode not in {"MANUAL", "SUGGESTED", "AUTOMATIC"}:
+            raise ValueError("PROVIDER_ASSIGNMENT_MODE must be MANUAL, SUGGESTED, or AUTOMATIC")
+        if self.provider_assignment_mode == "AUTOMATIC" and not self.auto_assign_provider:
+            raise ValueError("AUTOMATIC provider assignment mode requires AUTO_ASSIGN_PROVIDER")
         if self.transactional_email_mode not in {"disabled", "controlled_canary"}:
             raise ValueError("TRANSACTIONAL_EMAIL_MODE must be disabled or controlled_canary")
         if self.transactional_sms_mode not in {"disabled", "controlled_canary"}:
