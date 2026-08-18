@@ -10,6 +10,8 @@ const required = {
   "/api/v1/auth/password/forgot": ["post"],
   "/api/v1/auth/password/reset": ["post"],
   "/api/v1/auth/email/verify": ["post"],
+  "/api/v1/auth/email/resend": ["post"],
+  "/api/v1/auth/phone/verify": ["post"],
   "/api/v1/services": ["get"],
   "/api/v1/services/{service_id}": ["get"],
   "/api/v1/services/{service_id}/questions": ["get"],
@@ -24,16 +26,29 @@ const required = {
   "/api/v1/customer/bookings": ["get"],
   "/api/v1/customer/bookings/{booking_id}": ["get"],
   "/api/v1/customer/bookings/{booking_id}/cancel": ["post"],
+  "/api/v1/client/bookings/{booking_id}/reschedule": ["post"],
   "/api/v1/customer/quotes": ["get"],
   "/api/v1/customer/quotes/{quote_id}": ["get"],
   "/api/v1/customer/quotes/{quote_id}/decision": ["post"],
+  "/api/v1/booking/address/validate": ["post"],
+  "/api/v1/booking/service-area/check": ["post"],
+  "/api/v1/booking/timezone/resolve": ["post"],
+  "/api/v1/booking/availability": ["post"],
+  "/api/v1/booking/holds": ["post"],
+  "/api/v1/booking/holds/{hold_id}": ["get", "delete"],
+  "/api/v1/booking/requests": ["post"],
+  "/api/v1/provider/profile": ["get"],
+  "/api/v1/provider/jobs": ["get"],
+  "/api/v1/provider/availability": ["get", "put"],
+  "/api/v1/provider/capacity": ["get", "patch"],
+  "/api/v1/admin/bookings": ["get"],
+  "/api/v1/admin/provider-applications": ["get"],
+  "/api/v1/admin/feature-flags": ["get"],
+  "/api/v1/admin/audit-events": ["get"],
 };
 
 const forbidden = {
-  "/api/v1/availability/search": ["post"],
-  "/api/v1/bookings": ["post"],
   "/api/v1/bookings/{booking_id}/payment": ["post"],
-  "/api/v1/bookings/{booking_id}/confirmation": ["get"],
   "/api/v1/payments/intents": ["post"],
   "/api/v1/payments/webhooks/stripe": ["post"],
 };
@@ -71,4 +86,4 @@ if (missing.length) {
   process.exit(1);
 }
 
-console.log(`Request-only frontend API contract verified: ${Object.keys(required).length} required paths; zero booking/payment mutation routes.`);
+console.log(`BREERO application API contract verified: ${Object.keys(required).length} required paths; payments remain disabled.`);

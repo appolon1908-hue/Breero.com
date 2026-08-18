@@ -12,7 +12,7 @@ export interface PortalConfig {
 }
 
 type User = { email: string; full_name: string; role: string };
-type Session = { access_token: string; user: User };
+type Session = { access_token: string; refresh_token: string; user: User };
 
 const apiBase = () => {
   const value = process.env.NEXT_PUBLIC_API_BASE_URL;
@@ -27,8 +27,8 @@ async function request<T>(path: string, token?: string, init?: RequestInit): Pro
   if (token) headers.set("Authorization", `Bearer ${token}`);
   const response = await fetch(`${apiBase()}${path}`, { ...init, headers, cache: "no-store" });
   if (!response.ok) {
-    const body = await response.json().catch(() => ({})) as { message?: string; detail?: string };
-    throw new Error(body.message ?? body.detail ?? `Request failed (${response.status})`);
+    const body = await response.json().catch(() => ({})) as { message?: string; detail?: string; error?: { message?: string } };
+    throw new Error(body.error?.message ?? body.message ?? body.detail ?? `Request failed (${response.status})`);
   }
   return response.status === 204 ? undefined as T : response.json() as Promise<T>;
 }
@@ -73,6 +73,22 @@ export function PortalApp({ config }: { config: PortalConfig }) {
     finally { setLoading(false); }
   }
 
+  async function logout() {
+    if (!session) return;
+    setError("");
+    try {
+      await request<void>("/auth/logout", session.access_token, {
+        method: "POST",
+        body: JSON.stringify({ refresh_token: session.refresh_token }),
+      });
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Unable to sign out securely");
+      return;
+    }
+    sessionStorage.removeItem("breero-portal-session");
+    setSession(null);
+  }
+
   if (!session) return <main className="portal-login"><section className="portal-login__card" aria-labelledby="login-title">
     <p className="portal-eyebrow">{config.eyebrow}</p><h1 id="login-title">{config.name}</h1>
     <p>Sign in with an authorized BREERO account. This portal uses the live BREERO API and never displays fixture data.</p>
@@ -84,7 +100,7 @@ export function PortalApp({ config }: { config: PortalConfig }) {
 
   return <div className="portal-shell"><aside><a className="portal-brand" href="https://breero.com" aria-label="BREERO home">BREERO</a>
     <p>{config.name}</p><nav aria-label="Portal navigation">{config.sections.map((section) => <button key={section.label} className={active.label === section.label ? "is-active" : ""} onClick={() => void load(section)}>{section.label}</button>)}</nav>
-    <button className="portal-signout" onClick={() => { sessionStorage.removeItem("breero-portal-session"); setSession(null); }}>Sign out</button></aside>
+    <button className="portal-signout" onClick={() => void logout()}>Sign out</button></aside>
     <main><header><div><p className="portal-eyebrow">{config.eyebrow}</p><h1>{active.label}</h1></div><p>{session.user.full_name}<br/><small>{session.user.email}</small></p></header>
       <section className="portal-panel"><h2>{active.label}</h2><p>{active.description}</p>
         {!active.path && <div className="portal-notice">This capability is not exposed by the canonical API yet. No placeholder data is shown.</div>}

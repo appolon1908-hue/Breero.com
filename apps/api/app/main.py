@@ -13,7 +13,7 @@ from app.config import settings
 from app.core.errors import install_error_handlers
 from app.db.session import engine
 
-EXPECTED_SCHEMA_REVISION = "018_booking_capacity_foundation"
+EXPECTED_SCHEMA_REVISION = "025_phone_verification"
 logger = structlog.get_logger()
 app = FastAPI(title=settings.app_name, version="1.0.0")
 app.add_middleware(
@@ -31,6 +31,9 @@ app.include_router(internal_odoo_router)
 @app.middleware("http")
 async def request_context(request: Request, call_next):
     request_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
+    correlation_id = request.headers.get("X-Correlation-ID", request_id)
+    request.state.request_id = request_id
+    request.state.correlation_id = correlation_id
     started = time.perf_counter()
     try:
         response = await call_next(request)
@@ -39,6 +42,7 @@ async def request_context(request: Request, call_next):
         raise
     duration_ms = round((time.perf_counter() - started) * 1000, 2)
     response.headers["X-Request-ID"] = request_id
+    response.headers["X-Correlation-ID"] = correlation_id
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "no-referrer"
@@ -46,6 +50,7 @@ async def request_context(request: Request, call_next):
     logger.info(
         "request_completed",
         request_id=request_id,
+        correlation_id=correlation_id,
         method=request.method,
         path=request.url.path,
         status=response.status_code,

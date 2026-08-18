@@ -3,7 +3,13 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domains.auth.models import EmailVerificationToken, PasswordResetToken, Session, User
+from app.domains.auth.models import (
+    EmailVerificationToken,
+    PasswordResetToken,
+    PhoneVerificationToken,
+    Session,
+    User,
+)
 
 
 class UserRepository:
@@ -38,5 +44,12 @@ class UserRepository:
         return await self.session.scalar(
             select(EmailVerificationToken)
             .where(EmailVerificationToken.token_hash == token_hash)
+            .with_for_update()
+        )
+
+    async def phone_verification_by_hash(self, token_hash: str) -> PhoneVerificationToken | None:
+        return await self.session.scalar(
+            select(PhoneVerificationToken)
+            .where(PhoneVerificationToken.token_hash == token_hash)
             .with_for_update()
         )

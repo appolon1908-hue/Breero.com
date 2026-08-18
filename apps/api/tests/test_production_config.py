@@ -124,6 +124,7 @@ def test_stripe_keys_cannot_mix_test_and_live_modes():
         "live_callbacks",
         "odoo_delivery_enabled",
         "odoo_write_enabled",
+        "public_booking_api_enabled",
     ],
 )
 def test_request_only_production_rejects_payment_and_booking_flags(flag):
@@ -151,6 +152,11 @@ def test_provider_assignment_defaults_remain_manual_and_inactive():
 def test_automatic_assignment_mode_requires_explicit_flag():
     with pytest.raises(ValidationError, match="requires AUTO_ASSIGN_PROVIDER"):
         Settings(provider_assignment_mode="AUTOMATIC")
+
+
+def test_public_booking_api_requires_geocoding() -> None:
+    with pytest.raises(ValidationError, match="requires GEOCODING_ENABLED"):
+        Settings(public_booking_api_enabled=True)
 
 
 def test_staging_allows_canonical_breero_middleware_tenant():

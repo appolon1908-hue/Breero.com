@@ -66,10 +66,14 @@ def enforce_breero_hours(
     *,
     service_emergency_eligible: bool,
     provider_sunday_emergency_enabled: bool,
+    open_local: time = OPEN_LOCAL,
+    close_local: time = CLOSE_LOCAL,
+    emergency_only: bool | None = None,
 ) -> None:
-    if start_local.date() != end_local.date() or start_local.time() < OPEN_LOCAL or end_local.time() > CLOSE_LOCAL:
-        raise DomainError("OUTSIDE_OPERATING_HOURS", "BREERO operates from 7:00 AM to 7:00 PM local time", 422)
-    if start_local.weekday() == 6 and not (
+    if start_local.date() != end_local.date() or start_local.time() < open_local or end_local.time() > close_local:
+        raise DomainError("OUTSIDE_OPERATING_HOURS", "The requested time is outside BREERO operating hours", 422)
+    restricted = start_local.weekday() == 6 if emergency_only is None else emergency_only
+    if restricted and not (
         service_emergency_eligible and provider_sunday_emergency_enabled
     ):
         raise DomainError("SUNDAY_EMERGENCY_ONLY", "Sunday scheduling is limited to eligible emergency service", 422)

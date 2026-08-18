@@ -3,15 +3,16 @@ from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from geoalchemy2.elements import WKTElement
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.bookings import to_response
 from app.db.session import get_db
 from app.domains.auth.dependencies import current_user
 from app.domains.auth.models import User
+from app.domains.booking.capacity_models import BookingCapacityHold, CapacityHoldStatus
+from app.domains.booking.hold_service import owner_fingerprint
 from app.domains.booking.models import Address, Booking, BookingStatus, Customer
 from app.domains.booking.schemas import BookingResponse
 from app.domains.common.outbox import AuditLog
@@ -39,21 +40,30 @@ class ProfileRead(BaseModel):
 
 
 class AddressInput(BaseModel):
+    label: str = Field(default="Home", pattern="^(Home|Rental property|Office|Other)$")
     line1: str = Field(min_length=1, max_length=200)
+    line2: str | None = Field(default=None, max_length=200)
     city: str = Field(min_length=1, max_length=120)
-    postal_code: str = Field(min_length=1, max_length=32)
-    country_code: str = Field(min_length=2, max_length=2)
-    latitude: float = Field(ge=-90, le=90)
-    longitude: float = Field(ge=-180, le=180)
+    state: str = Field(min_length=2, max_length=3)
+    postal_code: str = Field(pattern=r"^\d{5}(?:-\d{4})?$")
+    country_code: str = Field(default="US", pattern="^US$")
+    is_default: bool = False
 
 
 class AddressRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID
+    label: str
     line1: str
+    line2: str | None
     city: str
+    state_code: str | None
     postal_code: str
+    postal_code_plus4: str | None
     country_code: str
+    timezone_name: str
+    address_validation_status: str
+    is_default: bool
 
 
 class Page(BaseModel):
@@ -61,6 +71,11 @@ class Page(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+class BookingRescheduleRequest(BaseModel):
+    hold_id: uuid.UUID
+    booking_session: str = Field(min_length=16, max_length=512)
 
 
 class CustomerPaymentRead(BaseModel):
@@ -145,18 +160,32 @@ async def add_address(
     user: Annotated[User, Depends(current_user)],
     session: Annotated[AsyncSession, Depends(get_db)],
 ) -> Address:
+    from app.domains.booking.schemas import AddressValidateRequest
+    from app.domains.booking.service import AddressService
+
     customer = await customer_for(session, user)
-    address = Address(
-        customer_id=customer.id,
-        formatted_address=f"{data.line1}, {data.postal_code} {data.city}",
-        line1=data.line1,
-        city=data.city,
-        postal_code=data.postal_code,
-        country_code=data.country_code.upper(),
-        location=WKTElement(f"POINT({data.longitude} {data.latitude})", srid=4326),
-        geocoding_provider="customer",
+    validated = await AddressService(session).validate(
+        AddressValidateRequest(
+            address=", ".join(
+                value for value in (data.line1, data.line2, data.city, data.state, data.postal_code, "US") if value
+            )
+        )
     )
-    session.add(address)
+    if not validated.serviceable or not validated.address_id:
+        raise HTTPException(422, "Address is outside an active service area")
+    address = await session.get(Address, validated.address_id)
+    if not address:
+        raise HTTPException(500, "Validated address was not persisted")
+    if data.is_default:
+        await session.execute(
+            update(Address)
+            .where(Address.customer_id == customer.id)
+            .values(is_default=False)
+        )
+    address.customer_id = customer.id
+    address.label = data.label
+    address.line2 = data.line2
+    address.is_default = data.is_default
     await session.commit()
     await session.refresh(address)
     return address
@@ -173,6 +202,15 @@ async def owned_address(
     return address
 
 
+@router.get("/addresses/{address_id}", response_model=AddressRead)
+async def get_address(
+    address_id: uuid.UUID,
+    user: Annotated[User, Depends(current_user)],
+    session: Annotated[AsyncSession, Depends(get_db)],
+) -> Address:
+    return await owned_address(session, await customer_for(session, user), address_id)
+
+
 @router.patch("/addresses/{address_id}", response_model=AddressRead)
 async def update_address(
     address_id: uuid.UUID,
@@ -180,12 +218,61 @@ async def update_address(
     user: Annotated[User, Depends(current_user)],
     session: Annotated[AsyncSession, Depends(get_db)],
 ) -> Address:
+    from app.domains.booking.schemas import AddressValidateRequest
+    from app.domains.booking.service import AddressService
+
     address = await owned_address(session, await customer_for(session, user), address_id)
-    for field in ("line1", "city", "postal_code"):
-        setattr(address, field, getattr(data, field))
-    address.country_code = data.country_code.upper()
-    address.formatted_address = f"{data.line1}, {data.postal_code} {data.city}"
-    address.location = WKTElement(f"POINT({data.longitude} {data.latitude})", srid=4326)
+    if await session.scalar(select(Booking.id).where(Booking.address_id == address.id).limit(1)):
+        raise HTTPException(409, "Booked addresses are immutable; add a new address instead")
+    validated = await AddressService(session).validate(
+        AddressValidateRequest(
+            address=", ".join(
+                value
+                for value in (
+                    data.line1,
+                    data.line2,
+                    data.city,
+                    data.state,
+                    data.postal_code,
+                    "US",
+                )
+                if value
+            )
+        )
+    )
+    if not validated.serviceable or not validated.address_id:
+        raise HTTPException(422, "Address is outside an active service area")
+    replacement = await session.get(Address, validated.address_id)
+    if not replacement:
+        raise HTTPException(500, "Validated address was not persisted")
+    if data.is_default:
+        customer = await customer_for(session, user)
+        await session.execute(
+            update(Address)
+            .where(Address.customer_id == customer.id, Address.id != address.id)
+            .values(is_default=False)
+        )
+    for field in (
+        "formatted_address",
+        "line1",
+        "city",
+        "state_code",
+        "postal_code",
+        "postal_code_plus4",
+        "country_code",
+        "location",
+        "service_area_id",
+        "service_zone_id",
+        "geocoding_provider",
+        "timezone_name",
+        "timezone_source",
+        "address_validation_status",
+    ):
+        setattr(address, field, getattr(replacement, field))
+    address.line2 = data.line2
+    address.label = data.label
+    address.is_default = data.is_default
+    await session.delete(replacement)
     await session.commit()
     return address
 
@@ -269,6 +356,12 @@ async def cancel_booking(
     if item.status == BookingStatus.CANCELLED:
         return to_response(item)
     if item.status not in {
+        BookingStatus.REQUESTED,
+        BookingStatus.PENDING_REVIEW,
+        BookingStatus.CAPACITY_HELD,
+        BookingStatus.AWAITING_ASSIGNMENT,
+        BookingStatus.PENDING_MANUAL_DISPATCH,
+        BookingStatus.PROVIDER_ASSIGNED,
         BookingStatus.PENDING_PAYMENT,
         BookingStatus.PENDING_PROVIDER_CONFIRMATION,
         BookingStatus.CONFIRMED,
@@ -284,6 +377,14 @@ async def cancel_booking(
         JobService(session).apply_transition(
             job, JobStatus.CANCELLED, user.id, "customer", "customer_cancelled_booking"
         )
+    await session.execute(
+        update(BookingCapacityHold)
+        .where(
+            BookingCapacityHold.booking_id == item.id,
+            BookingCapacityHold.status == CapacityHoldStatus.HELD,
+        )
+        .values(status=CapacityHoldStatus.RELEASED, released_at=datetime.now(UTC))
+    )
     session.add(
         AuditLog(
             actor_id=user.id,
@@ -293,6 +394,80 @@ async def cancel_booking(
             resource_id=item.id,
             metadata_json={"from_status": previous, "refund_automatic": False},
             created_at=datetime.now(UTC),
+        )
+    )
+    await session.commit()
+    return to_response(item)
+
+
+@router.post("/bookings/{booking_id}/reschedule", response_model=BookingResponse)
+async def reschedule_booking(
+    booking_id: uuid.UUID,
+    data: BookingRescheduleRequest,
+    user: Annotated[User, Depends(current_user)],
+    session: Annotated[AsyncSession, Depends(get_db)],
+) -> BookingResponse:
+    customer = await customer_for(session, user)
+    item = await session.scalar(
+        select(Booking)
+        .where(Booking.id == booking_id, Booking.customer_id == customer.id)
+        .with_for_update()
+    )
+    if not item:
+        raise HTTPException(404, "Booking not found")
+    if item.status not in {
+        BookingStatus.REQUESTED,
+        BookingStatus.PENDING_MANUAL_DISPATCH,
+        BookingStatus.PROVIDER_ASSIGNED,
+        BookingStatus.CONFIRMED,
+    }:
+        raise HTTPException(409, "Booking cannot be rescheduled in its current state")
+    hold = await session.scalar(
+        select(BookingCapacityHold)
+        .where(BookingCapacityHold.id == data.hold_id)
+        .with_for_update()
+    )
+    now = datetime.now(UTC)
+    if (
+        not hold
+        or hold.owner_fingerprint_hash != owner_fingerprint(data.booking_session)
+        or hold.status != CapacityHoldStatus.HELD
+        or hold.expires_at <= now
+        or hold.service_id != item.service_id
+        or hold.address_id != item.address_id
+    ):
+        raise HTTPException(409, "A valid hold for this booking is required")
+    await session.execute(
+        update(BookingCapacityHold)
+        .where(
+            BookingCapacityHold.booking_id == item.id,
+            BookingCapacityHold.id != hold.id,
+            BookingCapacityHold.status == CapacityHoldStatus.HELD,
+        )
+        .values(status=CapacityHoldStatus.RELEASED, released_at=now)
+    )
+    previous = {"start": item.window_start.isoformat(), "end": item.window_end.isoformat()}
+    item.window_start = hold.slot_start_utc
+    item.window_end = hold.slot_end_utc
+    item.service_timezone_id = hold.timezone_id
+    item.provider_worker_id = None
+    item.status = BookingStatus.PENDING_MANUAL_DISPATCH
+    hold.booking_id = item.id
+    hold.status = CapacityHoldStatus.CONVERTED
+    hold.converted_at = now
+    session.add(
+        AuditLog(
+            actor_id=user.id,
+            actor_type="customer",
+            action="booking.rescheduled",
+            resource_type="booking",
+            resource_id=item.id,
+            metadata_json={
+                "previous": previous,
+                "new_start": item.window_start.isoformat(),
+                "timezone_id": item.service_timezone_id,
+            },
+            created_at=now,
         )
     )
     await session.commit()

@@ -54,6 +54,15 @@ async def current_user(
     return user
 
 
+async def optional_current_user(
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
+    session: Annotated[AsyncSession, Depends(get_db)],
+) -> User | None:
+    if not credentials:
+        return None
+    return await current_user(credentials, session)
+
+
 def require_roles(*roles: UserRole) -> Callable:
     async def dependency(user: Annotated[User, Depends(current_user)]) -> User:
         if user.role not in roles:

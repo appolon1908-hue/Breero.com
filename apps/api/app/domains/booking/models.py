@@ -25,12 +25,29 @@ from app.domains.common.models import TimestampMixin, UUIDPrimaryKeyMixin
 
 
 class BookingStatus(str, enum.Enum):
+    DRAFT = "DRAFT"
     REQUESTED = "REQUESTED"
+    PENDING_REVIEW = "PENDING_REVIEW"
+    ADDRESS_VALIDATED = "ADDRESS_VALIDATED"
+    COVERAGE_CONFIRMED = "COVERAGE_CONFIRMED"
+    AVAILABILITY_FOUND = "AVAILABILITY_FOUND"
+    CAPACITY_HELD = "CAPACITY_HELD"
+    AWAITING_ASSIGNMENT = "AWAITING_ASSIGNMENT"
+    PROVIDER_ASSIGNED = "PROVIDER_ASSIGNED"
     PENDING_MANUAL_DISPATCH = "PENDING_MANUAL_DISPATCH"
     TENTATIVE_HOLD = "TENTATIVE_HOLD"
     PENDING_PAYMENT = "PENDING_PAYMENT"
     PENDING_PROVIDER_CONFIRMATION = "PENDING_PROVIDER_CONFIRMATION"
     CONFIRMED = "CONFIRMED"
+    EN_ROUTE = "EN_ROUTE"
+    IN_PROGRESS = "IN_PROGRESS"
+    COMPLETED = "COMPLETED"
+    NO_COVERAGE = "NO_COVERAGE"
+    NO_CAPACITY = "NO_CAPACITY"
+    QUOTE_REQUIRED = "QUOTE_REQUIRED"
+    PROVIDER_DECLINED = "PROVIDER_DECLINED"
+    REASSIGNMENT_REQUIRED = "REASSIGNMENT_REQUIRED"
+    RESCHEDULED = "RESCHEDULED"
     CANCELLED = "CANCELLED"
     EXPIRED = "EXPIRED"
 
@@ -60,6 +77,7 @@ class ServiceArea(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 class Address(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "addresses"
     formatted_address: Mapped[str] = mapped_column(String(500), nullable=False)
+    label: Mapped[str] = mapped_column(String(40), nullable=False, default="Home")
     line1: Mapped[str] = mapped_column(String(200), nullable=False)
     line2: Mapped[str | None] = mapped_column(String(200))
     city: Mapped[str] = mapped_column(String(120), nullable=False)
@@ -77,6 +95,7 @@ class Address(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     customer_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("customers.id", ondelete="CASCADE"), index=True
     )
+    is_default: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
 
 class AvailabilityRule(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -141,6 +160,7 @@ class Booking(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     recommended_professional_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("workers.id"), index=True)
     assignment_score: Mapped[int | None] = mapped_column(Integer)
     assignment_reason: Mapped[str | None] = mapped_column(String(500))
+    request_note: Mapped[str | None] = mapped_column(Text)
     window_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     window_end: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     status: Mapped[BookingStatus] = mapped_column(

@@ -13,9 +13,12 @@ from app.domains.auth.schemas import (
     ForgotPasswordRequest,
     LoginRequest,
     MessageResponse,
+    ProviderRegisterRequest,
+    ProviderRegistrationResponse,
     RefreshRequest,
     RegisterRequest,
     ResetPasswordRequest,
+    SetPasswordRequest,
     TokenRequest,
     TokenResponse,
     UserRead,
@@ -42,6 +45,35 @@ async def register(
             detail="Public account registration is disabled",
         )
     return await AuthService(session).register(data, *client(request))
+
+
+@router.post("/register/client", response_model=TokenResponse, status_code=201)
+async def register_client(
+    data: RegisterRequest,
+    request: Request,
+    session: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[None, Depends(rate_limit("register-client", 5, 60))],
+) -> TokenResponse:
+    if settings.keycloak_enabled:
+        raise HTTPException(status_code=403, detail="Public account registration is disabled")
+    return await AuthService(session).register(data, *client(request))
+
+
+@router.post("/register/provider", response_model=ProviderRegistrationResponse, status_code=201)
+async def register_provider(
+    data: ProviderRegisterRequest,
+    request: Request,
+    session: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[None, Depends(rate_limit("register-provider", 3, 300))],
+) -> ProviderRegistrationResponse:
+    if settings.keycloak_enabled:
+        raise HTTPException(status_code=403, detail="Public provider registration is disabled")
+    token, vendor = await AuthService(session).register_provider(data, *client(request))
+    return ProviderRegistrationResponse(
+        **token.model_dump(),
+        provider_organization_id=vendor.id,
+        onboarding_status=vendor.onboarding_status,
+    )
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -103,6 +135,16 @@ async def change(
     return MessageResponse(message="Password changed; active sessions revoked")
 
 
+@router.post("/password/set", response_model=MessageResponse)
+async def set_password(
+    data: SetPasswordRequest,
+    user: Annotated[User, Depends(current_user)],
+    session: Annotated[AsyncSession, Depends(get_db)],
+) -> MessageResponse:
+    await AuthService(session).set_initial_password(user, data.new_password)
+    return MessageResponse(message="Password set; active sessions revoked")
+
+
 @router.post("/email/verify", response_model=MessageResponse)
 async def verify(
     data: TokenRequest, session: Annotated[AsyncSession, Depends(get_db)]
@@ -117,6 +159,23 @@ async def resend(
 ) -> MessageResponse:
     await AuthService(session).resend_verification(user)
     return MessageResponse(message="Verification sent if required")
+
+
+@router.post("/email/resend", response_model=MessageResponse)
+async def resend_alias(
+    user: Annotated[User, Depends(current_user)], session: Annotated[AsyncSession, Depends(get_db)]
+) -> MessageResponse:
+    return await resend(user, session)
+
+
+@router.post("/phone/verify", response_model=MessageResponse)
+async def verify_phone(
+    data: TokenRequest,
+    user: Annotated[User, Depends(current_user)],
+    session: Annotated[AsyncSession, Depends(get_db)],
+) -> MessageResponse:
+    await AuthService(session).verify_phone(user, data.token)
+    return MessageResponse(message="Phone verified")
 
 
 @router.get("/me", response_model=UserRead)

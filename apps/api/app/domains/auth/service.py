@@ -9,12 +9,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.domains.auth.models import (
     EmailVerificationToken,
     PasswordResetToken,
+    PhoneVerificationToken,
     Session,
     User,
     UserRole,
 )
 from app.domains.auth.repository import UserRepository
-from app.domains.auth.schemas import LoginRequest, RegisterRequest, TokenResponse, UserRead
+from app.domains.auth.schemas import (
+    LoginRequest,
+    ProviderRegisterRequest,
+    RegisterRequest,
+    TokenResponse,
+    UserRead,
+)
 from app.domains.auth.security import (
     REFRESH_TOKEN_TTL_SECONDS,
     TOKEN_TTL_SECONDS,
@@ -24,8 +31,13 @@ from app.domains.auth.security import (
     new_opaque_token,
     verify_password,
 )
-from app.domains.booking.models import Address, Booking, Customer
-from app.domains.common.outbox import EventStatus, IntegrationEvent
+from app.domains.booking.models import Address, Booking, Customer, ProviderServiceCoverage
+from app.domains.booking.timezones import timezone
+from app.domains.catalog.models import Service
+from app.domains.common.outbox import AuditLog, EventStatus, IntegrationEvent
+from app.domains.common.us import US_STATES_AND_DC
+from app.domains.workforce.models import Vendor, VendorStatus, Worker, WorkerStatus
+from app.domains.workforce.provider_models import ProviderService, ProviderServiceArea
 
 
 class AuthService:
@@ -43,12 +55,27 @@ class AuthService:
             user = await self.users.add(
                 User(
                     email=email,
+                    phone=data.phone,
                     full_name=data.full_name.strip(),
                     password_hash=hash_password(data.password),
                     role=UserRole.customer,
                 )
             )
+            await self._link_customer(user)
+            self.session.add(
+                AuditLog(
+                    actor_id=user.id,
+                    actor_type="user",
+                    action="client.created",
+                    resource_type="user",
+                    resource_id=user.id,
+                    metadata_json={},
+                    created_at=datetime.now(UTC),
+                )
+            )
             await self._issue_verification(user)
+            if user.phone:
+                await self._issue_phone_verification(user)
             token = await self._tokens(user, user_agent, ip)
             await self.session.commit()
         except IntegrityError as exc:
@@ -57,6 +84,131 @@ class AuthService:
         await self.session.refresh(user)
         token.user = UserRead.model_validate(user)
         return token
+
+    async def register_provider(
+        self,
+        data: ProviderRegisterRequest,
+        user_agent: str | None = None,
+        ip: str | None = None,
+    ) -> tuple[TokenResponse, Vendor]:
+        email = str(data.email).strip().lower()
+        state_code = data.state.strip().upper()
+        if state_code not in US_STATES_AND_DC:
+            raise HTTPException(422, "A valid U.S. state or DC is required")
+        timezone(data.timezone_id)
+        postal_codes = sorted({postal.split("-", 1)[0] for postal in data.service_postal_codes})
+        if any(len(postal) != 5 or not postal.isdigit() for postal in postal_codes):
+            raise HTTPException(422, "Service ZIP codes must contain five digits")
+        services = list(
+            (
+                await self.session.scalars(
+                    select(Service).where(
+                        Service.slug.in_(set(data.service_slugs)), Service.is_active.is_(True)
+                    )
+                )
+            ).all()
+        )
+        if len(services) != len(set(data.service_slugs)):
+            raise HTTPException(422, "Provider services must use active BREERO catalog entries")
+        if await self.users.by_email(email):
+            raise HTTPException(409, "Account already registered")
+        try:
+            user = await self.users.add(
+                User(
+                    email=email,
+                    phone=data.phone,
+                    full_name=data.contact_name.strip(),
+                    password_hash=hash_password(data.password),
+                    role=UserRole.vendor_admin,
+                )
+            )
+            vendor = Vendor(
+                legal_name=data.legal_name.strip(),
+                display_name=data.display_name.strip(),
+                provider_type=data.provider_type,
+                email=email,
+                phone=data.phone,
+                business_address=data.business_address.strip(),
+                city=data.city.strip(),
+                state=state_code,
+                postal_code=data.postal_code,
+                timezone_id=data.timezone_id,
+                status=VendorStatus.PENDING,
+                onboarding_status="PENDING",
+                compliance_status="PENDING",
+                owner_user_id=user.id,
+                capabilities=sorted({service.slug for service in services}),
+            )
+            self.session.add(vendor)
+            await self.session.flush()
+            names = data.contact_name.strip().split(maxsplit=1)
+            worker = Worker(
+                vendor_id=vendor.id,
+                user_id=user.id,
+                first_name=names[0],
+                last_name=names[1] if len(names) > 1 else "",
+                email=email,
+                phone=data.phone,
+                status=WorkerStatus.INVITED,
+                available=False,
+                default_timezone_id=data.timezone_id,
+                skills=sorted({service.slug for service in services}),
+            )
+            self.session.add(worker)
+            await self.session.flush()
+            self.session.add_all(
+                ProviderServiceCoverage(
+                    worker_id=worker.id,
+                    service_id=service.id,
+                    postal_code=postal_code,
+                    active=False,
+                )
+                for service in services
+                for postal_code in postal_codes
+            )
+            self.session.add_all(
+                ProviderService(
+                    provider_id=vendor.id,
+                    service_id=service.id,
+                    active=False,
+                    approval_status="PENDING",
+                )
+                for service in services
+            )
+            self.session.add_all(
+                ProviderServiceArea(
+                    provider_id=vendor.id,
+                    professional_id=worker.id,
+                    area_type="ZIP",
+                    postal_code=postal_code,
+                    state=state_code,
+                    active=False,
+                    approval_status="PENDING",
+                )
+                for postal_code in postal_codes
+            )
+            self.session.add(
+                AuditLog(
+                    actor_id=user.id,
+                    actor_type="user",
+                    action="provider.registered",
+                    resource_type="vendor",
+                    resource_id=vendor.id,
+                    metadata_json={"status": "PENDING", "service_count": len(services)},
+                    created_at=datetime.now(UTC),
+                )
+            )
+            await self._issue_verification(user)
+            await self._issue_phone_verification(user)
+            token = await self._tokens(user, user_agent, ip)
+            await self.session.commit()
+        except IntegrityError as exc:
+            await self.session.rollback()
+            raise HTTPException(409, "Account or provider already registered") from exc
+        await self.session.refresh(user)
+        await self.session.refresh(vendor)
+        token.user = UserRead.model_validate(user)
+        return token, vendor
 
     async def login(
         self, data: LoginRequest, user_agent: str | None = None, ip: str | None = None
@@ -67,6 +219,7 @@ class AuthService:
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials"
             )
         token = await self._tokens(user, user_agent, ip)
+        user.last_login_at = datetime.now(UTC)
         await self.session.commit()
         return token
 
@@ -139,6 +292,12 @@ class AuthService:
             raise HTTPException(400, "Current password is incorrect")
         await self._set_password(user, new, datetime.now(UTC))
 
+    async def set_initial_password(self, user: User, new: str) -> None:
+        if not user.password_set_required:
+            raise HTTPException(409, "Account password is already set")
+        user.password_set_required = False
+        await self._set_password(user, new, datetime.now(UTC))
+
     async def verify_email(self, raw: str) -> None:
         token = await self.users.verification_by_hash(hash_token(raw))
         now = datetime.now(UTC)
@@ -149,6 +308,7 @@ class AuthService:
             raise HTTPException(400, "Invalid or expired verification token")
         token.used_at = now
         user.email_verified = True
+        user.email_verified_at = now
         await self._link_customer(user)
         await self.session.commit()
 
@@ -156,6 +316,26 @@ class AuthService:
         if not user.email_verified:
             await self._issue_verification(user)
             await self.session.commit()
+
+    async def verify_phone(self, user: User, raw: str) -> None:
+        token = await self.users.phone_verification_by_hash(hash_token(raw))
+        now = datetime.now(UTC)
+        if not token or token.user_id != user.id or token.used_at or token.expires_at <= now:
+            raise HTTPException(400, "Invalid or expired phone verification token")
+        token.used_at = now
+        user.phone_verified_at = now
+        self.session.add(
+            AuditLog(
+                actor_id=user.id,
+                actor_type="user",
+                action="phone.verified",
+                resource_type="user",
+                resource_id=user.id,
+                metadata_json={},
+                created_at=now,
+            )
+        )
+        await self.session.commit()
 
     async def _set_password(self, user: User, password: str, now: datetime) -> None:
         user.password_hash = hash_password(password)
@@ -210,6 +390,19 @@ class AuthService:
             )
         )
         self._event(user, "email_verification_requested", {"token": raw})
+
+    async def _issue_phone_verification(self, user: User) -> None:
+        if not user.phone:
+            return
+        raw = new_opaque_token()
+        self.session.add(
+            PhoneVerificationToken(
+                user_id=user.id,
+                token_hash=hash_token(raw),
+                expires_at=datetime.now(UTC) + timedelta(minutes=15),
+            )
+        )
+        self._event(user, "phone_verification_requested", {"token": raw})
 
     async def _link_customer(self, user: User) -> None:
         customer = await self.session.scalar(

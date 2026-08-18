@@ -38,6 +38,7 @@ class Settings(BaseSettings):
     automatic_refunds_enabled: bool = False
     automatic_booking_enabled: bool = False
     scheduling_enabled: bool = True
+    public_booking_api_enabled: bool = False
     automatic_provider_assignment_enabled: bool = False
     automatic_confirmed_bookings: bool = False
     provider_assignment_mode: str = "MANUAL"
@@ -161,6 +162,7 @@ class Settings(BaseSettings):
             "LIVE_CALLBACKS": self.live_callbacks,
             "ODOO_DELIVERY_ENABLED": self.odoo_delivery_enabled,
             "ODOO_WRITE_ENABLED": self.odoo_write_enabled,
+            "PUBLIC_BOOKING_API_ENABLED": self.public_booking_api_enabled,
         }
         enabled_release_flags = [name for name, enabled in release_payment_flags.items() if enabled]
         if self.app_env.lower() == "production" and enabled_release_flags:
@@ -174,6 +176,10 @@ class Settings(BaseSettings):
             raise ValueError("PROVIDER_ASSIGNMENT_MODE must be MANUAL, SUGGESTED, or AUTOMATIC")
         if self.provider_assignment_mode == "AUTOMATIC" and not self.auto_assign_provider:
             raise ValueError("AUTOMATIC provider assignment mode requires AUTO_ASSIGN_PROVIDER")
+        if self.public_booking_api_enabled and not self.geocoding_enabled:
+            raise ValueError("PUBLIC_BOOKING_API_ENABLED requires GEOCODING_ENABLED")
+        if self.public_booking_api_enabled and not self.scheduling_enabled:
+            raise ValueError("PUBLIC_BOOKING_API_ENABLED requires SCHEDULING_ENABLED")
         if self.transactional_email_mode not in {"disabled", "controlled_canary"}:
             raise ValueError("TRANSACTIONAL_EMAIL_MODE must be disabled or controlled_canary")
         if self.transactional_sms_mode not in {"disabled", "controlled_canary"}:

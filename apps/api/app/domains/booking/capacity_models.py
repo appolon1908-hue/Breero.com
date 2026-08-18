@@ -131,6 +131,8 @@ class BookingCapacityHold(UUIDPrimaryKeyMixin, Base):
     booking_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("bookings.id", ondelete="CASCADE"), index=True
     )
+    service_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("services.id"), index=True)
+    address_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("addresses.id"), index=True)
     provider_candidate_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("vendors.id"), index=True)
     professional_candidate_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("workers.id"), index=True
