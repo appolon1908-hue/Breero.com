@@ -20,9 +20,8 @@ export function AccountNav() {
       keycloak.logout();
       return;
     }
-    const refreshToken = window.sessionStorage.getItem("breero_refresh_token");
     try {
-      if (refreshToken) await customerApi.auth.logout({ refresh_token: refreshToken });
+      await customerApi.auth.logout({ refresh_token: "cookie-session-not-readable-by-javascript" });
     } finally {
       customerSession.clear();
       window.location.assign("/account/login");

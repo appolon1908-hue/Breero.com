@@ -89,5 +89,9 @@ class TokenResponse(BaseModel):
     user: UserRead
 
 
+class BrowserSessionResponse(BaseModel):
+    user: UserRead
+
+
 class MessageResponse(BaseModel):
     message: str

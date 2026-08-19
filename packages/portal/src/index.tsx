@@ -12,11 +12,16 @@ export interface PortalConfig {
 }
 
 type User = { email: string; full_name: string; role: string };
-type Session = { access_token: string; refresh_token: string; user: User };
+type Session = { user: User };
 
 const apiBase = () => {
   const value = process.env.NEXT_PUBLIC_API_BASE_URL;
-  if (!value || !/^https:\/\//.test(value)) throw new Error("A secure API origin is required");
+  if (!value) throw new Error("A secure API origin is required");
+  const origin = new URL(value);
+  const loopback = ["localhost", "127.0.0.1", "::1"].includes(origin.hostname);
+  if (origin.protocol !== "https:" && !(origin.protocol === "http:" && loopback)) {
+    throw new Error("A secure API origin is required");
+  }
   return value.replace(/\/$/, "");
 };
 
@@ -25,7 +30,11 @@ async function request<T>(path: string, token?: string, init?: RequestInit): Pro
   headers.set("Accept", "application/json");
   if (init?.body) headers.set("Content-Type", "application/json");
   if (token) headers.set("Authorization", `Bearer ${token}`);
-  const response = await fetch(`${apiBase()}${path}`, { ...init, headers, cache: "no-store" });
+  if (init?.method && !["GET", "HEAD", "OPTIONS"].includes(init.method)) {
+    const csrf = document.cookie.split("; ").find((item) => item.startsWith("breero_csrf="))?.split("=")[1];
+    if (csrf) headers.set("X-CSRF-Token", decodeURIComponent(csrf));
+  }
+  const response = await fetch(`${apiBase()}${path}`, { ...init, headers, cache: "no-store", credentials: "include" });
   if (!response.ok) {
     const body = await response.json().catch(() => ({})) as { message?: string; detail?: string; error?: { message?: string } };
     throw new Error(body.error?.message ?? body.message ?? body.detail ?? `Request failed (${response.status})`);
@@ -51,16 +60,15 @@ export function PortalApp({ config }: { config: PortalConfig }) {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const raw = sessionStorage.getItem("breero-portal-session");
-    if (raw) try { setSession(JSON.parse(raw) as Session); } catch { sessionStorage.removeItem("breero-portal-session"); }
+    request<User>("/auth/me").then((user) => setSession({ user })).catch(() => setSession(null));
   }, []);
 
   async function login(event: FormEvent) {
     event.preventDefault(); setError("");
     try {
-      const next = await request<Session>("/auth/login", undefined, { method: "POST", body: JSON.stringify({ email, password }) });
+      const next = await request<Session>("/auth/browser/login", undefined, { method: "POST", body: JSON.stringify({ email, password }) });
       if (!config.allowedRoles.includes(next.user.role as PortalRole)) throw new Error("This account is not authorized for this portal.");
-      sessionStorage.setItem("breero-portal-session", JSON.stringify(next)); setSession(next);
+      setSession(next);
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Sign in failed"); }
   }
 
@@ -68,7 +76,7 @@ export function PortalApp({ config }: { config: PortalConfig }) {
     setActive(section); setRows([]); setError("");
     if (!section.path || !session) return;
     setLoading(true);
-    try { setRows(safeRows(await request<unknown>(section.path, session.access_token))); }
+    try { setRows(safeRows(await request<unknown>(section.path))); }
     catch (reason) { setError(reason instanceof Error ? reason.message : "Unable to load data"); }
     finally { setLoading(false); }
   }
@@ -77,15 +85,13 @@ export function PortalApp({ config }: { config: PortalConfig }) {
     if (!session) return;
     setError("");
     try {
-      await request<void>("/auth/logout", session.access_token, {
+      await request<void>("/auth/browser/logout", undefined, {
         method: "POST",
-        body: JSON.stringify({ refresh_token: session.refresh_token }),
       });
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Unable to sign out securely");
       return;
     }
-    sessionStorage.removeItem("breero-portal-session");
     setSession(null);
   }
 

@@ -31,6 +31,22 @@ class FakeGeocodingAdapter:
 
 class GeocodingAdapter:
     async def geocode(self, address: str) -> GeocodedAddress:
+        if settings.app_env.lower() == "test" and settings.geocoding_provider == "deterministic_test":
+            return GeocodedAddress(
+                formatted_address="100 Main St, Houston, TX 77001, US",
+                line1="100 Main St",
+                city="Houston",
+                state_code="TX",
+                postal_code="77001",
+                country_code="US",
+                latitude=29.7604,
+                longitude=-95.3698,
+                provider="deterministic_test",
+                provider_reference="certification-fixture",
+                confidence=1.0,
+                quality="exact",
+                timezone_name="America/Chicago",
+            )
         if not settings.geocoding_enabled or not settings.geocoding_api_key:
             raise DomainError(
                 "GEOCODING_UNAVAILABLE",

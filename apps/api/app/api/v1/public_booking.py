@@ -3,12 +3,13 @@ from datetime import UTC, datetime
 from typing import Annotated
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Depends, Header, Request, status
+from fastapi import APIRouter, Depends, Header, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.rate_limit import rate_limit
 from app.core.responses import ApiResponse
 from app.db.session import get_db
+from app.domains.auth.browser_session import set_browser_tokens
 from app.domains.auth.dependencies import optional_current_user
 from app.domains.auth.models import User
 from app.domains.booking.hold_service import CapacityHoldService
@@ -138,11 +139,16 @@ async def release_hold(
 @router.post("/requests", response_model=ApiResponse[BookingRequestRead], status_code=201)
 async def create_request(
     data: BookingRequestCreate,
+    response: Response,
     session: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User | None, Depends(optional_current_user)],
     _: Annotated[None, Depends(rate_limit("booking-requests", 5, 300))],
 ) -> ApiResponse[BookingRequestRead]:
-    return ApiResponse(data=await BookingRequestService(session).create(data, user))
+    result = await BookingRequestService(session).create(data, user)
+    if result.access_token and result.refresh_token:
+        set_browser_tokens(response, result.access_token, result.refresh_token)
+        result = result.model_copy(update={"access_token": None, "refresh_token": None})
+    return ApiResponse(data=result)
 
 
 @router.get("/requests/{public_reference}", response_model=ApiResponse[dict])

@@ -1,14 +1,21 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.core.rate_limit import rate_limit
 from app.db.session import get_db
+from app.domains.auth.browser_session import (
+    REFRESH_COOKIE,
+    clear_browser_session,
+    set_browser_session,
+    validate_csrf,
+)
 from app.domains.auth.dependencies import current_user
 from app.domains.auth.models import User
 from app.domains.auth.schemas import (
+    BrowserSessionResponse,
     ChangePasswordRequest,
     ForgotPasswordRequest,
     LoginRequest,
@@ -145,6 +152,22 @@ async def set_password(
     return MessageResponse(message="Password set; active sessions revoked")
 
 
+@router.post("/browser/password/set", response_model=BrowserSessionResponse)
+async def browser_set_password(
+    data: SetPasswordRequest,
+    request: Request,
+    response: Response,
+    user: Annotated[User, Depends(current_user)],
+    session: Annotated[AsyncSession, Depends(get_db)],
+) -> BrowserSessionResponse:
+    """Complete an auto-created account without leaving a revoked browser session."""
+    service = AuthService(session)
+    await service.set_initial_password(user, data.new_password)
+    tokens = await service.login(LoginRequest(email=user.email, password=data.new_password), *client(request))
+    set_browser_session(response, tokens)
+    return BrowserSessionResponse(user=tokens.user)
+
+
 @router.post("/email/verify", response_model=MessageResponse)
 async def verify(
     data: TokenRequest, session: Annotated[AsyncSession, Depends(get_db)]
@@ -181,3 +204,74 @@ async def verify_phone(
 @router.get("/me", response_model=UserRead)
 async def me(user: Annotated[User, Depends(current_user)]) -> User:
     return user
+
+
+@router.post("/browser/login", response_model=BrowserSessionResponse)
+async def browser_login(
+    data: LoginRequest,
+    request: Request,
+    response: Response,
+    session: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[None, Depends(rate_limit("browser-login", 10, 60))],
+) -> BrowserSessionResponse:
+    tokens = await AuthService(session).login(data, *client(request))
+    set_browser_session(response, tokens)
+    return BrowserSessionResponse(user=tokens.user)
+
+
+@router.post("/browser/register/client", response_model=BrowserSessionResponse, status_code=201)
+async def browser_register_client(
+    data: RegisterRequest,
+    request: Request,
+    response: Response,
+    session: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[None, Depends(rate_limit("browser-register-client", 5, 60))],
+) -> BrowserSessionResponse:
+    if settings.keycloak_enabled:
+        raise HTTPException(status_code=403, detail="Public account registration is disabled")
+    tokens = await AuthService(session).register(data, *client(request))
+    set_browser_session(response, tokens)
+    return BrowserSessionResponse(user=tokens.user)
+
+
+@router.post("/browser/register/provider", response_model=BrowserSessionResponse, status_code=201)
+async def browser_register_provider(
+    data: ProviderRegisterRequest,
+    request: Request,
+    response: Response,
+    session: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[None, Depends(rate_limit("browser-register-provider", 3, 300))],
+) -> BrowserSessionResponse:
+    if settings.keycloak_enabled:
+        raise HTTPException(status_code=403, detail="Public provider registration is disabled")
+    tokens, _vendor = await AuthService(session).register_provider(data, *client(request))
+    set_browser_session(response, tokens)
+    return BrowserSessionResponse(user=tokens.user)
+
+
+@router.post("/browser/refresh", response_model=BrowserSessionResponse)
+async def browser_refresh(
+    request: Request,
+    response: Response,
+    session: Annotated[AsyncSession, Depends(get_db)],
+) -> BrowserSessionResponse:
+    validate_csrf(request)
+    refresh_token = request.cookies.get(REFRESH_COOKIE)
+    if not refresh_token:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    tokens = await AuthService(session).refresh(refresh_token, *client(request))
+    set_browser_session(response, tokens)
+    return BrowserSessionResponse(user=tokens.user)
+
+
+@router.post("/browser/logout", status_code=status.HTTP_204_NO_CONTENT)
+async def browser_logout(
+    request: Request,
+    response: Response,
+    session: Annotated[AsyncSession, Depends(get_db)],
+) -> None:
+    validate_csrf(request)
+    refresh_token = request.cookies.get(REFRESH_COOKIE)
+    if refresh_token:
+        await AuthService(session).logout(refresh_token)
+    clear_browser_session(response)

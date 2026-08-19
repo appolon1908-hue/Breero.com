@@ -12,6 +12,7 @@ from app.api.v1.router import api_router
 from app.config import settings
 from app.core.errors import install_error_handlers
 from app.db.session import engine
+from app.domains.auth.browser_session import ACCESS_COOKIE, validate_csrf
 
 EXPECTED_SCHEMA_REVISION = "025_phone_verification"
 logger = structlog.get_logger()
@@ -35,6 +36,16 @@ async def request_context(request: Request, call_next):
     request.state.request_id = request_id
     request.state.correlation_id = correlation_id
     started = time.perf_counter()
+    if (
+        request.method not in {"GET", "HEAD", "OPTIONS"}
+        and request.cookies.get(ACCESS_COOKIE)
+        and request.url.path not in {
+            "/api/v1/auth/browser/login",
+            "/api/v1/auth/browser/register/client",
+            "/api/v1/auth/browser/register/provider",
+        }
+    ):
+        validate_csrf(request)
     try:
         response = await call_next(request)
     except Exception:

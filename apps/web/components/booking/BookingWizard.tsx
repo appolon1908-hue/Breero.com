@@ -12,6 +12,7 @@ const apiBase = () => (process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api/v1").replac
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${apiBase()}${path}`, {
     ...init,
+    credentials: "include",
     headers: { Accept: "application/json", "Content-Type": "application/json", ...init?.headers },
   });
   const body = (await response.json().catch(() => ({}))) as Envelope<T> & { detail?: string };
@@ -76,7 +77,6 @@ export function BookingWizard() {
         method: "POST",
         body: JSON.stringify({ hold_id: holdId, booking_session: bookingSession, customer: { first_name: data.get("first_name"), last_name: data.get("last_name"), email: data.get("email"), phone: data.get("phone") }, notes: data.get("notes") || null }),
       });
-      if (result.access_token && result.refresh_token) sessionStorage.setItem("breero-session", JSON.stringify({ access_token: result.access_token, refresh_token: result.refresh_token }));
       setComplete({ reference: result.public_reference, status: result.status });
     } catch (reason) { setError(reason instanceof Error ? reason.message : "The booking request could not be submitted."); }
     finally { setBusy(false); }

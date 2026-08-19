@@ -48,10 +48,10 @@ export function createBreeroApi(options: TransportOptions): BreeroApi { return c
 export function createApiClient(http: Transport): BreeroApi {
   return {
     auth: {
-      login: (body) => http.request("/auth/login", { method: "POST", body, retry: false }),
-      register: (body) => http.request("/auth/register", { method: "POST", body, retry: false }),
-      refresh: (body) => http.request("/auth/refresh", { method: "POST", body, retry: false }),
-      logout: (body) => http.request("/auth/logout", { method: "POST", body, retry: false }),
+      login: (body) => http.request("/auth/browser/login", { method: "POST", body, retry: false }),
+      register: (body) => http.request("/auth/browser/register/client", { method: "POST", body, retry: false }),
+      refresh: (_body) => http.request("/auth/browser/refresh", { method: "POST", retry: false }),
+      logout: (_body) => http.request("/auth/browser/logout", { method: "POST", retry: false }),
       logoutAll: (signal) => http.request("/auth/logout-all", { method: "POST", signal, retry: false }),
       forgotPassword: (body) => http.request("/auth/password/forgot", { method: "POST", body, retry: false }),
       resetPassword: (body) => http.request("/auth/password/reset", { method: "POST", body, retry: false }),

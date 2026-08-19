@@ -17,12 +17,12 @@ export function ProviderRegistrationForm() {
     const data = new FormData(event.currentTarget);
     const selected = data.getAll("service_slugs").map(String);
     try {
-      const response = await fetch(`${base}/auth/register/provider`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
+      const response = await fetch(`${base}/auth/browser/register/provider`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
         email: data.get("email"), password: data.get("password"), contact_name: data.get("contact_name"), phone: data.get("phone"), legal_name: data.get("legal_name"), display_name: data.get("display_name"), provider_type: data.get("provider_type"), business_address: data.get("business_address"), city: data.get("city"), state: data.get("state"), postal_code: data.get("postal_code"), timezone_id: data.get("timezone_id"), service_slugs: selected, service_postal_codes: String(data.get("service_postal_codes")).split(/[\s,]+/).filter(Boolean),
       }) });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body.error?.message ?? body.detail ?? "Application could not be submitted.");
-      sessionStorage.setItem("breero-portal-session", JSON.stringify(body)); setComplete(true);
+      setComplete(true);
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Application could not be submitted."); }
     finally { setBusy(false); }
   }

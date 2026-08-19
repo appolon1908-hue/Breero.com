@@ -2,12 +2,13 @@ import uuid
 from collections.abc import Callable
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.db.session import get_db
+from app.domains.auth.browser_session import ACCESS_COOKIE
 from app.domains.auth.models import User, UserRole
 from app.domains.auth.repository import UserRepository
 from app.domains.auth.security import decode_access_token
@@ -16,14 +17,16 @@ bearer = HTTPBearer(auto_error=False)
 
 
 async def current_user(
+    request: Request,
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
     session: Annotated[AsyncSession, Depends(get_db)],
 ) -> User:
-    if not credentials:
+    token = credentials.credentials if credentials else request.cookies.get(ACCESS_COOKIE)
+    if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required"
         )
-    claims = decode_access_token(credentials.credentials)
+    claims = decode_access_token(token)
     repository = UserRepository(session)
     if settings.keycloak_enabled:
         email = str(claims.get("email") or "").strip().lower()
@@ -55,12 +58,13 @@ async def current_user(
 
 
 async def optional_current_user(
+    request: Request,
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
     session: Annotated[AsyncSession, Depends(get_db)],
 ) -> User | None:
-    if not credentials:
+    if not credentials and not request.cookies.get(ACCESS_COOKIE):
         return None
-    return await current_user(credentials, session)
+    return await current_user(request, credentials, session)
 
 
 def require_roles(*roles: UserRole) -> Callable:
