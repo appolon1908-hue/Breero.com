@@ -1,19 +1,23 @@
 import uuid
+from datetime import date
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.errors import DomainError
 from app.core.rate_limit import rate_limit
 from app.db.session import get_db
 from app.domains.auth.dependencies import require_roles
 from app.domains.auth.models import User, UserRole
 from app.domains.jobs.schemas import JobRead
 from app.domains.workforce.provider_schemas import (
+    AvailabilityExceptionPatch,
     AvailabilityExceptionRead,
     AvailabilityExceptionWrite,
     AvailabilityRuleRead,
     AvailabilityRuleWrite,
+    CapacityDay,
     CapacityRuleRead,
     CapacityRuleWrite,
     ProviderServiceAreaRead,
@@ -165,6 +169,16 @@ async def add_exception(
     return await ProviderPortalService(session, user).add_exception(data)
 
 
+@router.patch("/availability/exceptions/{item_id}", response_model=AvailabilityExceptionRead)
+async def update_exception(
+    item_id: uuid.UUID,
+    data: AvailabilityExceptionPatch,
+    session: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(require_roles(UserRole.vendor_admin))],
+):
+    return await ProviderPortalService(session, user).update_exception(item_id, data)
+
+
 @router.delete("/availability/exceptions/{item_id}", status_code=204)
 async def remove_exception(
     item_id: uuid.UUID,
@@ -190,3 +204,15 @@ async def set_capacity(
     _: Annotated[None, Depends(rate_limit("provider-capacity", 30, 60))],
 ):
     return await ProviderPortalService(session, user).set_capacity(data)
+
+
+@router.get("/capacity/calendar", response_model=list[CapacityDay])
+async def capacity_calendar(
+    session: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(provider_user)],
+    start: date | None = None,
+    days: int = 7,
+):
+    if days < 1 or days > 31:
+        raise DomainError("INVALID_DATE_RANGE", "Capacity calendar supports 1 to 31 days", 422)
+    return await ProviderPortalService(session, user).capacity_calendar(start or date.today(), days)

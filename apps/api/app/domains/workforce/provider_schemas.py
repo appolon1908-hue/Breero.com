@@ -100,6 +100,27 @@ class AvailabilityExceptionWrite(BaseModel):
         return self
 
 
+class AvailabilityExceptionPatch(BaseModel):
+    start_at: datetime | None = None
+    end_at: datetime | None = None
+    timezone_id: str | None = Field(default=None, min_length=3, max_length=64)
+    reason: str | None = Field(
+        default=None,
+        pattern="^(VACATION|SICK|PERSONAL|TRAINING|VEHICLE|HOLIDAY|MANUAL_BLOCK|OTHER)$",
+    )
+
+    @model_validator(mode="after")
+    def valid_interval(self) -> "AvailabilityExceptionPatch":
+        for value in (self.start_at, self.end_at):
+            if value is not None and value.tzinfo is None:
+                raise ValueError("Availability exception timestamps must be timezone-aware")
+        if self.start_at is not None and self.end_at is not None and self.end_at <= self.start_at:
+            raise ValueError("A timezone-aware increasing exception interval is required")
+        if not self.model_fields_set:
+            raise ValueError("At least one availability exception field is required")
+        return self
+
+
 class AvailabilityExceptionRead(AvailabilityExceptionWrite):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID

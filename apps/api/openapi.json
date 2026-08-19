@@ -547,6 +547,61 @@
         "title": "AuditEventRead",
         "type": "object"
       },
+      "AvailabilityExceptionPatch": {
+        "properties": {
+          "end_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End At"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "pattern": "^(VACATION|SICK|PERSONAL|TRAINING|VEHICLE|HOLIDAY|MANUAL_BLOCK|OTHER)$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "start_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start At"
+          },
+          "timezone_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 3,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timezone Id"
+          }
+        },
+        "title": "AvailabilityExceptionPatch",
+        "type": "object"
+      },
       "AvailabilityExceptionRead": {
         "properties": {
           "end_at": {
@@ -1353,6 +1408,55 @@
           "warnings"
         ],
         "title": "CandidateRead",
+        "type": "object"
+      },
+      "CapacityDay": {
+        "properties": {
+          "booking_minutes": {
+            "title": "Booking Minutes",
+            "type": "integer"
+          },
+          "buffer_minutes": {
+            "title": "Buffer Minutes",
+            "type": "integer"
+          },
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "job_count": {
+            "title": "Job Count",
+            "type": "integer"
+          },
+          "max_job_count": {
+            "title": "Max Job Count",
+            "type": "integer"
+          },
+          "remaining_minutes": {
+            "title": "Remaining Minutes",
+            "type": "integer"
+          },
+          "reserved_minutes": {
+            "title": "Reserved Minutes",
+            "type": "integer"
+          },
+          "total_minutes": {
+            "title": "Total Minutes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "date",
+          "total_minutes",
+          "reserved_minutes",
+          "booking_minutes",
+          "buffer_minutes",
+          "remaining_minutes",
+          "job_count",
+          "max_job_count"
+        ],
+        "title": "CapacityDay",
         "type": "object"
       },
       "CapacityHoldCreate": {
@@ -10481,6 +10585,62 @@
         "tags": [
           "provider"
         ]
+      },
+      "patch": {
+        "operationId": "update_exception_api_v1_provider_availability_exceptions__item_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AvailabilityExceptionPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AvailabilityExceptionRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Update Exception",
+        "tags": [
+          "provider"
+        ]
       }
     },
     "/api/v1/provider/capacity": {
@@ -10552,6 +10712,75 @@
           }
         ],
         "summary": "Set Capacity",
+        "tags": [
+          "provider"
+        ]
+      }
+    },
+    "/api/v1/provider/capacity/calendar": {
+      "get": {
+        "operationId": "capacity_calendar_api_v1_provider_capacity_calendar_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "start",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Start"
+            }
+          },
+          {
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 7,
+              "title": "Days",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CapacityDay"
+                  },
+                  "title": "Response Capacity Calendar Api V1 Provider Capacity Calendar Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Capacity Calendar",
         "tags": [
           "provider"
         ]

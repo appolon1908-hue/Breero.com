@@ -1,6 +1,7 @@
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from pydantic import ValidationError
 
 from app.core.errors import DomainError
 from app.domains.booking.capacity import (
@@ -11,6 +12,7 @@ from app.domains.booking.capacity import (
     hold_is_active,
     snapshot,
 )
+from app.domains.workforce.provider_schemas import AvailabilityExceptionPatch
 
 
 def test_capacity_consumes_service_buffers_and_travel() -> None:
@@ -54,3 +56,12 @@ def test_concurrency_limit_rejects_overlapping_interval() -> None:
     with pytest.raises(DomainError) as conflict:
         ensure_capacity(CapacityLimit(6, 600), CapacityUsage(), 60, overlapping_jobs=1)
     assert conflict.value.code == "HOLD_CONFLICT"
+
+
+def test_availability_exception_patch_requires_a_change_and_aware_timestamps() -> None:
+    with pytest.raises(ValidationError):
+        AvailabilityExceptionPatch()
+    with pytest.raises(ValidationError):
+        AvailabilityExceptionPatch(start_at=datetime(2026, 8, 18, 12))
+    patch = AvailabilityExceptionPatch(reason="TRAINING")
+    assert patch.reason == "TRAINING"

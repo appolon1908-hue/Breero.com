@@ -1,8 +1,8 @@
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, time, timedelta
 
 from geoalchemy2.elements import WKTElement
-from sqlalchemy import delete, select
+from sqlalchemy import delete, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,6 +10,8 @@ from app.core.errors import DomainError
 from app.domains.auth.models import User, UserRole
 from app.domains.booking.capacity_models import (
     AvailabilityExceptionReason,
+    BookingCapacityHold,
+    CapacityHoldStatus,
     ProviderAvailabilityException,
     ProviderAvailabilityRule,
     ProviderCapacityRule,
@@ -21,8 +23,10 @@ from app.domains.jobs.models import Job
 from app.domains.workforce.models import Vendor, Worker
 from app.domains.workforce.provider_models import ProviderService, ProviderServiceArea
 from app.domains.workforce.provider_schemas import (
+    AvailabilityExceptionPatch,
     AvailabilityExceptionWrite,
     AvailabilityRuleWrite,
+    CapacityDay,
     CapacityRuleWrite,
     ProviderServiceAreaWrite,
 )
@@ -233,6 +237,37 @@ class ProviderPortalService:
         await self.session.refresh(item)
         return item
 
+    async def update_exception(
+        self, item_id: uuid.UUID, data: AvailabilityExceptionPatch
+    ) -> ProviderAvailabilityException:
+        vendor, _ = await self.context()
+        item = await self.session.scalar(
+            select(ProviderAvailabilityException)
+            .join(Worker, Worker.id == ProviderAvailabilityException.provider_professional_id)
+            .where(ProviderAvailabilityException.id == item_id, Worker.vendor_id == vendor.id)
+        )
+        if not item:
+            raise DomainError("FORBIDDEN", "Availability exception is outside this provider", 403)
+        start_at = data.start_at or item.start_at
+        end_at = data.end_at or item.end_at
+        if end_at <= start_at:
+            raise DomainError(
+                "INVALID_AVAILABILITY_EXCEPTION",
+                "Availability exception end must follow start",
+                422,
+            )
+        if data.timezone_id is not None:
+            timezone(data.timezone_id)
+            item.timezone_id = data.timezone_id
+        item.start_at = start_at.astimezone(UTC)
+        item.end_at = end_at.astimezone(UTC)
+        if data.reason is not None:
+            item.reason = AvailabilityExceptionReason(data.reason)
+        self._audit("provider.availability_exception.changed", "availability_exception", item.id)
+        await self.session.commit()
+        await self.session.refresh(item)
+        return item
+
     async def remove_exception(self, item_id: uuid.UUID) -> None:
         vendor, _ = await self.context()
         item = await self.session.scalar(
@@ -267,6 +302,91 @@ class ProviderPortalService:
         await self.session.commit()
         await self.session.refresh(item)
         return item
+
+    async def capacity_calendar(self, start: date, days: int) -> list[CapacityDay]:
+        vendor, _ = await self.context()
+        end = start + timedelta(days=days)
+        start_at = datetime.combine(start, time.min, tzinfo=UTC)
+        end_at = datetime.combine(end, time.min, tzinfo=UTC)
+        rules = list(
+            (
+                await self.session.scalars(
+                    select(ProviderCapacityRule)
+                    .where(
+                        ProviderCapacityRule.provider_id == vendor.id,
+                        ProviderCapacityRule.effective_from < end,
+                        or_(
+                            ProviderCapacityRule.effective_until.is_(None),
+                            ProviderCapacityRule.effective_until >= start,
+                        ),
+                    )
+                    .order_by(ProviderCapacityRule.effective_from.desc())
+                )
+            ).all()
+        )
+        jobs = list(
+            (
+                await self.session.scalars(
+                    select(Job).where(
+                        Job.vendor_id == vendor.id,
+                        Job.scheduled_start >= start_at,
+                        Job.scheduled_start < end_at,
+                        Job.status != "CANCELLED",
+                    )
+                )
+            ).all()
+        )
+        professional_ids = {rule.professional_id for rule in rules if rule.professional_id}
+        holds = (
+            list(
+                (
+                    await self.session.scalars(
+                        select(BookingCapacityHold).where(
+                            BookingCapacityHold.provider_candidate_id == vendor.id,
+                            BookingCapacityHold.professional_candidate_id.in_(professional_ids),
+                            BookingCapacityHold.slot_start_utc >= start_at,
+                            BookingCapacityHold.slot_start_utc < end_at,
+                            BookingCapacityHold.status == CapacityHoldStatus.HELD,
+                            BookingCapacityHold.expires_at > datetime.now(UTC),
+                        )
+                    )
+                ).all()
+            )
+            if professional_ids
+            else []
+        )
+        result: list[CapacityDay] = []
+        for offset in range(days):
+            day = start + timedelta(days=offset)
+            active_rules = [
+                rule
+                for rule in rules
+                if rule.effective_from <= day
+                and (rule.effective_until is None or rule.effective_until >= day)
+            ]
+            total_minutes = sum(rule.max_minutes_daily for rule in active_rules)
+            max_jobs = sum(rule.max_jobs_daily for rule in active_rules)
+            day_jobs = [job for job in jobs if job.scheduled_start.date() == day]
+            booking_minutes = sum(
+                max(int((job.scheduled_end - job.scheduled_start).total_seconds() // 60), 0)
+                for job in day_jobs
+            )
+            day_holds = [hold for hold in holds if hold.slot_start_utc.date() == day]
+            hold_minutes = sum(hold.capacity_minutes for hold in day_holds)
+            reserved_minutes = booking_minutes + hold_minutes
+            result.append(
+                CapacityDay(
+                    date=day,
+                    total_minutes=total_minutes,
+                    reserved_minutes=reserved_minutes,
+                    booking_minutes=booking_minutes,
+                    buffer_minutes=hold_minutes,
+                    remaining_minutes=max(total_minutes - reserved_minutes, 0),
+                    job_count=len(day_jobs) + len(day_holds),
+                    max_job_count=max_jobs,
+                )
+            )
+        return result
 
     async def _owned(self, model, item_id: uuid.UUID):
         vendor, _ = await self.context()
