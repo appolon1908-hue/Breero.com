@@ -1,31 +1,23 @@
-from dataclasses import dataclass
-
 import httpx
 
 from app.config import settings
 from app.core.errors import DomainError
+from app.integrations.contracts import GeocodedAddress, GeocodingGateway
 
-
-@dataclass(frozen=True)
-class GeocodedAddress:
-    formatted_address: str
-    line1: str
-    city: str
-    postal_code: str
-    country_code: str
-    latitude: float
-    longitude: float
-    provider: str
-    provider_reference: str | None = None
-    confidence: float | None = None
-    quality: str | None = None
-    state_code: str | None = None
-    timezone_name: str | None = None
+__all__ = [
+    "FakeGeocodingAdapter",
+    "GeocodedAddress",
+    "GeocodingAdapter",
+    "GeocodingGateway",
+]
 
 
 class FakeGeocodingAdapter:
-    def __init__(self, result: GeocodedAddress): self.result = result
-    async def geocode(self, address: str) -> GeocodedAddress: return self.result
+    def __init__(self, result: GeocodedAddress) -> None:
+        self.result = result
+
+    async def geocode(self, address: str) -> GeocodedAddress:
+        return self.result
 
 
 class GeocodingAdapter:
@@ -104,7 +96,8 @@ class GeocodingAdapter:
             formatted_address=props.get("formatted", address),
             line1=props.get("address_line1", address),
             city=props.get("city", props.get("county", "")),
-            state_code=str(props.get("state_code") or props.get("state") or "").upper() or None,
+            state_code=str(props.get("state_code") or props.get("state") or "").upper()
+            or None,
             postal_code=postal_code,
             country_code=country_code,
             latitude=latitude,
