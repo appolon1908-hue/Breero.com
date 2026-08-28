@@ -120,6 +120,10 @@ async def _provider_fixture(session, marker: str, suffix: str):
 async def test_provider_services_and_skills_are_scoped_versioned_and_approved_together() -> None:
     marker = uuid.uuid4().hex
     async with SessionLocal() as session:
+        # This test drives several service calls that commit internally while it
+        # keeps long-lived ORM references and reads their attributes from sync
+        # query-construction contexts; keep those instances usable after a commit.
+        session.expire_on_commit = False
         owner, vendor, worker, application = await _provider_fixture(
             session, marker, "one"
         )
@@ -223,16 +227,29 @@ async def test_provider_services_and_skills_are_scoped_versioned_and_approved_to
         assert updated.version == selected_service_version + 1
         with pytest.raises(DomainError) as stale:
             await catalog.update_service(
-                selected_service.id,
+                selected_service_id,
                 owner,
                 ProviderServiceUpdate(display_order=11),
-                expected_version=selected_service.version,
+                expected_version=selected_service_version,
             )
         assert stale.value.code == "VERSION_CONFLICT"
-        # This rollback also expires every loaded instance; refresh the ones the rest
-        # of the test still uses before touching them in async service calls.
+        # A rollback expires every loaded instance regardless of expire_on_commit;
+        # refresh the ones the rest of the test still uses before touching them in
+        # async service calls or sync query construction.
         await session.rollback()
-        for instance in (owner, admin, application, vendor, worker, service, skill):
+        for instance in (
+            owner,
+            other_owner,
+            other_vendor,
+            admin,
+            application,
+            vendor,
+            worker,
+            service,
+            skill,
+            selected_service,
+            selected_skill,
+        ):
             await session.refresh(instance)
 
         submitted = await ProviderOnboardingService(session).submit(owner)
