@@ -8,7 +8,7 @@ bootstrap=false
 while IFS= read -r path; do
   [[ -n "$path" ]] || continue
   case "$path" in
-    apps/api/*|deploy/production/*|deploy/staging/*|docker-compose.production.yml|.github/workflows/backend-production.yml)
+    apps/api/*|deploy/staging/*|docker-compose.production.yml|docker-compose.middleware.yml|.env.production.example|.github/workflows/backend-production.yml)
       backend=true
       ;;
   esac

@@ -40,17 +40,20 @@ jobs:
       - name: Validate production and staging Compose secret contracts
         working-directory: .
         env:
-          BREERO_PROD_API_IMAGE: ghcr.io/example/breero-api@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-          BREERO_PROD_API_ENV: api.env.example
-          BREERO_PROD_POSTGRES_ENV: postgres.env.example
-          BREERO_PROD_REDIS_ENV: redis.env.example
+          BREERO_IMAGE: ghcr.io/example/breero-api@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          BREERO_ENV_FILE: .env.production.example
+          CADDY_NETWORK: codestra-caddy-shared
           DATABASE_URL_REFERENCE: /tmp/breero-database-url
           REDIS_URL_REFERENCE: /tmp/breero-redis-url
           JWT_SECRET_REFERENCE: /tmp/breero-jwt-access
           JWT_REFRESH_SECRET_REFERENCE: /tmp/breero-jwt-refresh
           GEOAPIFY_API_KEY_REFERENCE: /tmp/breero-geoapify
           POSTGRES_PASSWORD_REFERENCE: /tmp/breero-postgres-password
-          REDIS_PASSWORD_REFERENCE: /tmp/breero-redis-password
+          REDIS_ACL_FILE_REFERENCE: /tmp/breero-redis-acl
+          BREERO_PROD_MIDDLEWARE_CA_FILE: /tmp/breero-middleware-ca
+          BREERO_PROD_MIDDLEWARE_HMAC_FILE: /tmp/breero-middleware-hmac
+          BREERO_PROD_MIDDLEWARE_CLIENT_CERT_FILE: /tmp/breero-middleware-client-cert
+          BREERO_PROD_MIDDLEWARE_CLIENT_KEY_FILE: /tmp/breero-middleware-client-key
           BREERO_STAGING_API_IMAGE: ghcr.io/example/breero-api@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
           BREERO_STAGING_API_ENV: api.env.example
           BREERO_STAGING_POSTGRES_ENV: postgres.env.example
@@ -68,14 +71,19 @@ jobs:
                 /tmp/breero-jwt-refresh \
                 /tmp/breero-geoapify \
                 /tmp/breero-postgres-password \
-                /tmp/breero-redis-password \
+                /tmp/breero-redis-acl \
+                /tmp/breero-middleware-ca \
+                /tmp/breero-middleware-hmac \
+                /tmp/breero-middleware-client-cert \
+                /tmp/breero-middleware-client-key \
                 /tmp/breero-staging-database-url \
                 /tmp/breero-staging-redis-url \
                 /tmp/breero-staging-jwt-access \
                 /tmp/breero-staging-jwt-refresh \
                 /tmp/breero-staging-postgres-password \
                 /tmp/breero-staging-redis-password
-          docker compose -f deploy/production/docker-compose.backend.yml config --quiet
+          docker compose -f docker-compose.production.yml config --quiet
+          docker compose -f docker-compose.production.yml -f docker-compose.middleware.yml config --quiet
           docker compose -f deploy/staging/docker-compose.backend.yml config --quiet
       - run: ruff check .
       - run: mypy app
