@@ -2,6 +2,7 @@ import json
 import uuid
 
 import pytest
+from fastapi import HTTPException
 from pydantic import ValidationError
 
 from app.domains.auth.models import User, UserRole
@@ -153,10 +154,10 @@ def test_provider_application_decision_requires_reason() -> None:
 
 @pytest.mark.asyncio
 async def test_update_onboarding_serializes_uuid_list_fields_to_strings() -> None:
-    # Regression test: `services`/`compliance_documents` are typed list[uuid.UUID] on
-    # the request schema, but the ORM column is a plain JSONB list with no custom
-    # json_serializer on the engine. Writing raw UUID objects onto it crashes at
-    # commit with "TypeError: Object of type UUID is not JSON serializable".
+    # Regression test: `compliance_documents` is typed list[uuid.UUID] on the request
+    # schema, but the ORM column is a plain JSONB list with no custom json_serializer
+    # on the engine. Writing raw UUID objects onto it crashes at commit with
+    # "TypeError: Object of type UUID is not JSON serializable".
     vendor = Vendor(id=uuid.uuid4())
     application = ProviderApplication(
         id=uuid.uuid4(),
@@ -167,19 +168,40 @@ async def test_update_onboarding_serializes_uuid_list_fields_to_strings() -> Non
     session = SequentialScalarSession([vendor, application])
     service = ProviderOnboardingService(session)  # type: ignore[arg-type]
 
-    service_id = uuid.uuid4()
     document_id = uuid.uuid4()
     result = await service.update_onboarding(
         make_user(),
-        ProviderOnboardingUpdate(services=[service_id], compliance_documents=[document_id]),
+        ProviderOnboardingUpdate(compliance_documents=[document_id]),
     )
 
-    assert result.services == [str(service_id)]
     assert result.compliance_documents == [str(document_id)]
     # Would raise TypeError before the fix if UUID objects had leaked through.
-    json.dumps(result.services)
     json.dumps(result.compliance_documents)
     assert session.commits == 1
+
+
+@pytest.mark.asyncio
+async def test_update_onboarding_rejects_catalog_selections() -> None:
+    # `services`/`skills` selections are owned by the dedicated provider services and
+    # skills APIs (they carry an approval workflow); the generic onboarding PATCH must
+    # refuse them rather than silently write an unapproved selection.
+    vendor = Vendor(id=uuid.uuid4())
+    application = ProviderApplication(
+        id=uuid.uuid4(),
+        vendor_id=vendor.id,
+        status=ProviderApplicationStatus.DRAFT,
+        version=1,
+    )
+    session = SequentialScalarSession([vendor, application])
+    service = ProviderOnboardingService(session)  # type: ignore[arg-type]
+
+    with pytest.raises(HTTPException) as excinfo:
+        await service.update_onboarding(
+            make_user(),
+            ProviderOnboardingUpdate(services=[uuid.uuid4()]),
+        )
+    assert excinfo.value.status_code == 422
+    assert session.commits == 0
 
 
 def test_provider_application_events_are_pending_not_pending_configuration() -> None:
