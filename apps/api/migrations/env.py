@@ -15,6 +15,7 @@ from app.domains.common import outbox as outbox_models  # noqa: F401
 from app.domains.compliance import models as compliance_models  # noqa: F401
 from app.domains.dispatch import models as dispatch_models  # noqa: F401
 from app.domains.finance import models as finance_models  # noqa: F401
+from app.domains.geography import models as geography_models  # noqa: F401
 from app.domains.jobs import models as job_models  # noqa: F401
 from app.domains.payments import models as payment_models  # noqa: F401
 from app.domains.professional_leads import models as professional_lead_models  # noqa: F401

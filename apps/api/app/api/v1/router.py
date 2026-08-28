@@ -3,9 +3,11 @@ from fastapi import APIRouter
 from app.api.v1 import (
     access,
     addresses,
+    admin_geography,
     admin_users,
     auth,
     availability,
+    booking_geography,
     booking_intents,
     bookings,
     capabilities,
@@ -35,6 +37,16 @@ api_router.include_router(
 api_router.include_router(access.router, prefix="/auth/access", tags=["auth-access"])
 api_router.include_router(admin_users.router, prefix="/admin/users", tags=["admin-users"])
 api_router.include_router(
+    admin_geography.service_zones_router,
+    prefix="/admin/service-zones",
+    tags=["admin-service-zones"],
+)
+api_router.include_router(
+    admin_geography.postal_codes_router,
+    prefix="/admin/postal-codes",
+    tags=["admin-postal-codes"],
+)
+api_router.include_router(
     provider_onboarding.provider_router,
     prefix="/provider",
     tags=["provider-onboarding"],
@@ -49,6 +61,14 @@ api_router.include_router(customers.router, prefix="/customer", tags=["customer"
 api_router.include_router(compliance.router, tags=["compliance"])
 if settings.geocoding_enabled:
     api_router.include_router(addresses.router, prefix="/addresses", tags=["addresses"])
+    # /booking/address/validate and /booking/service-area/check both call the same
+    # geocoder as /addresses/validate; /booking/timezone/resolve is bundled with them
+    # rather than exposed alone with geocoding off.
+    api_router.include_router(
+        booking_geography.router,
+        prefix="/booking",
+        tags=["booking-geography"],
+    )
 if settings.scheduling_enabled:
     api_router.include_router(availability.router, prefix="/availability", tags=["availability"])
     api_router.include_router(bookings.router, prefix="/bookings", tags=["bookings"])

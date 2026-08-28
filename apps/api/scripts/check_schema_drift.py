@@ -18,6 +18,7 @@ from app.domains.common import outbox as _outbox  # noqa: F401
 from app.domains.compliance import models as _compliance  # noqa: F401
 from app.domains.dispatch import models as _dispatch  # noqa: F401
 from app.domains.finance import models as _finance  # noqa: F401
+from app.domains.geography import models as _geography  # noqa: F401
 from app.domains.jobs import models as _jobs  # noqa: F401
 from app.domains.payments import models as _payments  # noqa: F401
 from app.domains.professional_leads import models as _professional_leads  # noqa: F401
@@ -39,22 +40,37 @@ def compare(connection) -> list[str]:
             )
         ).scalars()
     )
-    database_tables = set(inspector.get_table_names()) - extension_owned - {"alembic_version"}
+    database_tables = set(inspector.get_table_names()) - extension_owned - {
+        "alembic_version"
+    }
     model_tables = set(Base.metadata.tables)
-    errors = [f"unexpected table: {name}" for name in sorted(database_tables - model_tables)]
-    errors += [f"missing table: {name}" for name in sorted(model_tables - database_tables)]
+    errors = [
+        f"unexpected table: {name}"
+        for name in sorted(database_tables - model_tables)
+    ]
+    errors += [
+        f"missing table: {name}"
+        for name in sorted(model_tables - database_tables)
+    ]
     for table_name in sorted(model_tables & database_tables):
         expected = Base.metadata.tables[table_name]
-        actual = {column["name"]: column for column in inspector.get_columns(table_name)}
+        actual = {
+            column["name"]: column
+            for column in inspector.get_columns(table_name)
+        }
         expected_names = set(expected.columns.keys())
         errors += [
-            f"{table_name}: unexpected column {name}" for name in sorted(set(actual) - expected_names)
+            f"{table_name}: unexpected column {name}"
+            for name in sorted(set(actual) - expected_names)
         ]
         errors += [
-            f"{table_name}: missing column {name}" for name in sorted(expected_names - set(actual))
+            f"{table_name}: missing column {name}"
+            for name in sorted(expected_names - set(actual))
         ]
         for name in sorted(expected_names & set(actual)):
-            if bool(expected.columns[name].nullable) != bool(actual[name]["nullable"]):
+            if bool(expected.columns[name].nullable) != bool(
+                actual[name]["nullable"]
+            ):
                 errors.append(f"{table_name}.{name}: nullability differs")
         expected_unique = {
             tuple(sorted(constraint.columns.keys()))
@@ -62,20 +78,28 @@ def compare(connection) -> list[str]:
             if constraint.__class__.__name__ == "UniqueConstraint"
         }
         actual_unique = {
-            tuple(sorted(item["column_names"])) for item in inspector.get_unique_constraints(table_name)
+            tuple(sorted(item["column_names"]))
+            for item in inspector.get_unique_constraints(table_name)
         }
-        # PostgreSQL may represent a unique=True column as either a constraint or unique index.
+        # PostgreSQL may represent a unique=True column as either a
+        # constraint or unique index.
         actual_unique |= {
             tuple(sorted(item["column_names"]))
             for item in inspector.get_indexes(table_name)
             if item.get("unique")
         }
         if not expected_unique.issubset(actual_unique):
-            errors.append(f"{table_name}: missing unique sets {sorted(expected_unique - actual_unique)}")
+            errors.append(
+                f"{table_name}: missing unique sets "
+                f"{sorted(expected_unique - actual_unique)}"
+            )
         expected_fks = {
             (
                 tuple(constraint.column_keys),
-                tuple(element.target_fullname for element in constraint.elements),
+                tuple(
+                    element.target_fullname
+                    for element in constraint.elements
+                ),
                 (constraint.ondelete or "").upper(),
             )
             for constraint in expected.foreign_key_constraints
@@ -84,7 +108,8 @@ def compare(connection) -> list[str]:
             (
                 tuple(item["constrained_columns"]),
                 tuple(
-                    f"{item['referred_table']}.{column}" for column in item["referred_columns"]
+                    f"{item['referred_table']}.{column}"
+                    for column in item["referred_columns"]
                 ),
                 (item.get("options", {}).get("ondelete") or "").upper(),
             )
