@@ -264,7 +264,17 @@ async def test_provider_services_and_skills_are_scoped_versioned_and_approved_to
             )
         assert locked.value.code == "PROVIDER_APPLICATION_UNDER_REVIEW"
         await session.rollback()
-        for instance in (owner, admin, application, vendor, worker, service, skill):
+        for instance in (
+            owner,
+            other_owner,
+            other_vendor,
+            admin,
+            application,
+            vendor,
+            worker,
+            service,
+            skill,
+        ):
             await session.refresh(instance)
 
         service_version_before = await session.scalar(
