@@ -1,4 +1,6 @@
+import enum
 import uuid
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
 
@@ -22,6 +24,10 @@ class RefreshRequest(BaseModel):
 
 class TokenRequest(BaseModel):
     token: str = Field(min_length=32, max_length=512)
+
+
+class SetPasswordRequest(TokenRequest):
+    password: str = Field(min_length=10, max_length=128)
 
 
 class ForgotPasswordRequest(BaseModel):
@@ -77,7 +83,12 @@ class AccessAssignmentInput(BaseModel):
 
 
 class AccessProfileUpdate(BaseModel):
-    brand_key: str = Field(default="breero", min_length=1, max_length=64, pattern=r"^[a-z0-9_-]+$")
+    brand_key: str = Field(
+        default="breero",
+        min_length=1,
+        max_length=64,
+        pattern=r"^[a-z0-9_-]+$",
+    )
     assignments: list[AccessAssignmentInput] = Field(max_length=32)
 
     @model_validator(mode="after")
@@ -107,3 +118,32 @@ class PortalContext(BaseModel):
     permissions: list[str]
     assignments: list[AccessAssignmentRead]
     identity_mode: str
+
+
+class InternalAccountRole(enum.StrEnum):
+    BREERO_SUPPORT = "BREERO_SUPPORT"
+    BREERO_DISPATCH = "BREERO_DISPATCH"
+    BREERO_ADMIN = "BREERO_ADMIN"
+
+
+class InternalUserProvisionRequest(BaseModel):
+    email: EmailStr
+    full_name: str = Field(min_length=1, max_length=160)
+    role: InternalAccountRole
+    brand_key: str = Field(
+        default="breero",
+        min_length=1,
+        max_length=64,
+        pattern=r"^[a-z0-9_-]+$",
+    )
+
+
+class InternalUserProvisionResponse(BaseModel):
+    user: UserRead
+    access: PortalContext
+    credential_mode: Literal["keycloak", "invitation"]
+    invitation_state: Literal[
+        "not_required",
+        "pending_configuration",
+        "pending_delivery",
+    ]
