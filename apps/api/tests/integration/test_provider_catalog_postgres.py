@@ -229,9 +229,12 @@ async def test_provider_services_and_skills_are_scoped_versioned_and_approved_to
                 expected_version=selected_service.version,
             )
         assert stale.value.code == "VERSION_CONFLICT"
+        # This rollback also expires every loaded instance; refresh the ones the rest
+        # of the test still uses before touching them in async service calls.
         await session.rollback()
+        for instance in (owner, admin, application, vendor, worker, service, skill):
+            await session.refresh(instance)
 
-        await session.refresh(application)
         submitted = await ProviderOnboardingService(session).submit(owner)
         assert submitted.status == ProviderApplicationStatus.PENDING
         approved = await ProviderOnboardingService(session).approve(
