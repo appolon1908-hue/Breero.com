@@ -237,6 +237,8 @@ async def test_provider_services_and_skills_are_scoped_versioned_and_approved_to
         # refresh the ones the rest of the test still uses before touching them in
         # async service calls or sync query construction.
         await session.rollback()
+        # (selected_service / selected_skill are Pydantic read models, not ORM
+        # instances -- their plain attributes survive session state changes.)
         for instance in (
             owner,
             other_owner,
@@ -247,8 +249,6 @@ async def test_provider_services_and_skills_are_scoped_versioned_and_approved_to
             worker,
             service,
             skill,
-            selected_service,
-            selected_skill,
         ):
             await session.refresh(instance)
 
