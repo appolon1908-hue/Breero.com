@@ -19,7 +19,7 @@ from app.core.errors import (
 )
 from app.db.session import engine
 
-EXPECTED_SCHEMA_REVISION = "019_provider_onboarding"
+EXPECTED_SCHEMA_REVISION = "020_booking_intents"
 TRACE_ID_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}")
 logger = structlog.get_logger()
 app = FastAPI(title=settings.app_name, version="2.0.0")
@@ -80,7 +80,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["X-Request-ID", "X-Correlation-ID"],
+    expose_headers=["X-Request-ID", "X-Correlation-ID", "ETag"],
 )
 
 

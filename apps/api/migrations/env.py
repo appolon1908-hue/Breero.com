@@ -9,6 +9,7 @@ from app.config import settings
 from app.db.base import Base
 from app.domains.auth import models as auth_models  # noqa: F401
 from app.domains.booking import models as booking_models  # noqa: F401
+from app.domains.booking_intents import models as booking_intent_models  # noqa: F401
 from app.domains.catalog import models as catalog_models  # noqa: F401
 from app.domains.common import outbox as outbox_models  # noqa: F401
 from app.domains.compliance import models as compliance_models  # noqa: F401
