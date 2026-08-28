@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
 from app.api.internal_odoo import router as internal_odoo_router
+from app.api.policy_registry import install_endpoint_registry
 from app.api.v1.router import api_router as api_v1_router
 from app.api.v2.router import api_router as api_v2_router
 from app.config import settings
@@ -114,3 +115,8 @@ async def ready() -> dict[str, str]:
     if checks.get("schema") != "ok":
         raise HTTPException(503, detail={"status": "not_ready", "checks": checks})
     return {"status": "ready", **checks}
+
+
+# Build after every application route has been mounted. Any unowned runtime
+# operation fails import and therefore fails CI before an image can be built.
+install_endpoint_registry(app)
