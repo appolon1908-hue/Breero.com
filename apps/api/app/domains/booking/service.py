@@ -92,6 +92,17 @@ class AvailabilityService:
             raise DomainError(
                 "ADDRESS_NOT_SERVICEABLE", "Address is outside an active service area", 422
             )
+        # Opt-in, same as the ProviderService check in eligible_provider_hours: a
+        # zone with no explicit per-service offering configured behaves exactly as
+        # before (covered by the zone generally). Once an offering row exists for
+        # this zone+service, it becomes authoritative for regular-service bookings.
+        offering = await self.repository.zone_offering(address.service_area_id, payload.service_id)
+        if offering is not None and not (offering.active and offering.regular_service_enabled):
+            raise DomainError(
+                "SERVICE_NOT_OFFERED_IN_ZONE",
+                "This service is not offered at the selected address.",
+                422,
+            )
         slots: list[AvailabilitySlot] = []
         try:
             local_zone = ZoneInfo(address.timezone_name)
