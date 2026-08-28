@@ -8,7 +8,8 @@
     "lint": "turbo lint",
     "typecheck": "turbo typecheck",
     "test": "turbo test",
-    "contract:check": "node scripts/check-frontend-openapi.mjs"
+    "contract:check": "node scripts/check-frontend-openapi.mjs",
+    "test:design": "node scripts/check-design-system.mjs"
   },
   "devDependencies": {
     "turbo": "^2.3.0"
