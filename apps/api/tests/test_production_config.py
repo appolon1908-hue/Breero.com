@@ -153,6 +153,55 @@ def test_request_only_production_rejects_prohibited_capability_flags(flag):
         Settings(**values)
 
 
+@pytest.mark.parametrize("bad_value", ["prod", "Production", "live", "PRODUCTION ", ""])
+def test_app_env_rejects_anything_outside_the_known_set(bad_value):
+    # Regression test: app_env used to be a free string, and every production
+    # safety check (default JWT secret, default DB credentials, wildcard CORS)
+    # only fires when it's spelled exactly "production"/"staging" -- a typo or
+    # unset value silently fell through to permissive development defaults with
+    # no warning. It must now be rejected outright at startup instead.
+    with pytest.raises(ValidationError):
+        Settings(app_env=bad_value)
+
+
+@pytest.mark.parametrize("good_value", ["development", "test"])
+def test_app_env_accepts_the_known_set(good_value):
+    assert Settings(app_env=good_value).app_env == good_value
+
+
+def test_app_env_accepts_staging_with_secure_settings():
+    settings = Settings(
+        app_env="staging",
+        database_url="postgresql+psycopg://staging:strong-password@postgres:5432/staging",
+        redis_url="redis://:strong-password@redis:6379/0",
+        jwt_secret="a" * 32,
+        jwt_refresh_secret="b" * 32,
+        cors_origins="https://staging.breero.com",
+    )
+    assert settings.app_env == "staging"
+
+
+def test_app_env_accepts_production_with_secret_file_bindings(tmp_path):
+    database_url = tmp_path / "database-url"
+    redis_url = tmp_path / "redis-url"
+    jwt_secret = tmp_path / "jwt-secret"
+    jwt_refresh_secret = tmp_path / "jwt-refresh-secret"
+    database_url.write_text("postgresql+psycopg://prod:strong-password@postgres/prod", encoding="ascii")
+    redis_url.write_text("redis://:strong-password@redis:6379/0", encoding="ascii")
+    jwt_secret.write_text("a" * 32, encoding="ascii")
+    jwt_refresh_secret.write_text("b" * 32, encoding="ascii")
+
+    settings = Settings(
+        app_env="production",
+        database_url_file=str(database_url),
+        redis_url_file=str(redis_url),
+        jwt_secret_file=str(jwt_secret),
+        jwt_refresh_secret_file=str(jwt_refresh_secret),
+        cors_origins="https://breero.com",
+    )
+    assert settings.app_env == "production"
+
+
 def test_staging_allows_canonical_breero_middleware_tenant():
     settings = Settings(
         app_env="staging",

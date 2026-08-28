@@ -1,5 +1,6 @@
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -8,7 +9,13 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    app_env: str = "development"
+    # A free string here means every production safety check below -- default
+    # JWT secret, default DB credentials, wildcard CORS -- only fires when this
+    # is spelled exactly "production"/"staging". A deploy-time typo (APP_ENV=prod)
+    # or an unset value used to fall through to the permissive development
+    # defaults with no warning. Pydantic now rejects anything outside this set
+    # at startup instead.
+    app_env: Literal["development", "test", "staging", "production"] = "development"
     app_name: str = "BREERO API"
     api_v1_prefix: str = "/api/v1"
     database_url: str = "postgresql+psycopg://breero:breero@postgres:5432/breero"
