@@ -181,7 +181,14 @@ def test_app_env_accepts_staging_with_secure_settings():
     assert settings.app_env == "staging"
 
 
-def test_app_env_accepts_production_with_secret_file_bindings(tmp_path):
+def test_app_env_accepts_production_with_secret_file_bindings(tmp_path, monkeypatch):
+    # The CI job exports DATABASE_URL/REDIS_URL/JWT_SECRET/JWT_REFRESH_SECRET so the
+    # rest of the suite can reach the test database; pydantic-settings would pick
+    # those up as "explicitly set" alongside the *_FILE bindings below and trip the
+    # only-one-of-value-or-file validator. Isolate from that ambient environment the
+    # same way test_secret_file_bindings_are_resolved_without_environment_values does.
+    for variable in ("DATABASE_URL", "REDIS_URL", "JWT_SECRET", "JWT_REFRESH_SECRET"):
+        monkeypatch.delenv(variable, raising=False)
     database_url = tmp_path / "database-url"
     redis_url = tmp_path / "redis-url"
     jwt_secret = tmp_path / "jwt-secret"
