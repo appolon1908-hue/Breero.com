@@ -46,6 +46,34 @@ async def effective_roles(session: AsyncSession, user: User) -> set[AccessRole]:
     return set(context.roles)
 
 
+async def _job_visible_to_nonprivileged(
+    session: AsyncSession, job, user: User, roles: set[AccessRole]
+) -> bool:
+    """True if any of the caller's non-privileged roles grants access to this job.
+
+    Checked as a union rather than a first-match chain: a user assigned several
+    roles (e.g. customer and technician) must be allowed in when *any* assigned
+    role has the required relationship to the job.
+    """
+    if AccessRole.customer in roles:
+        customer = await session.scalar(
+            select(Customer).where(Customer.user_id == user.id)
+        )
+        if customer and job.customer_id == customer.id:
+            return True
+    if AccessRole.technician in roles:
+        worker = await session.scalar(select(Worker).where(Worker.user_id == user.id))
+        if worker and job.worker_id == worker.id:
+            return True
+    if AccessRole.vendor_admin in roles:
+        vendor = await session.scalar(
+            select(Vendor).where(Vendor.owner_user_id == user.id)
+        )
+        if vendor and job.vendor_id == vendor.id:
+            return True
+    return False
+
+
 @router.get("", response_model=list[JobRead])
 async def list_jobs(
     status: JobStatus | None = None,
@@ -77,16 +105,8 @@ async def get_job(
         raise HTTPException(404, "Job not found")
     roles = await effective_roles(session, user)
     if not roles & PRIVILEGED_JOB_ROLES:
-        if AccessRole.technician in roles:
-            worker = await worker_for_user(session, user.id)
-            if job.worker_id != worker.id:
-                raise HTTPException(403, "Technician is not assigned to this job")
-        elif AccessRole.vendor_admin in roles:
-            vendor = await session.scalar(select(Vendor).where(Vendor.owner_user_id == user.id))
-            if not vendor or job.vendor_id != vendor.id:
-                raise HTTPException(403, "Job belongs to another vendor")
-        else:
-            raise HTTPException(403, "Insufficient permissions")
+        if not await _job_visible_to_nonprivileged(session, job, user, roles):
+            raise HTTPException(403, "Job is not visible to this account")
     return job
 
 
@@ -184,20 +204,8 @@ async def list_work_requests(
         raise HTTPException(404, "Job not found")
     roles = await effective_roles(session, user)
     if not roles & PRIVILEGED_JOB_ROLES:
-        if AccessRole.customer in roles:
-            customer = await session.scalar(select(Customer).where(Customer.user_id == user.id))
-            if not customer or job.customer_id != customer.id:
-                raise HTTPException(403, "Job belongs to another customer")
-        elif AccessRole.technician in roles:
-            worker = await worker_for_user(session, user.id)
-            if job.worker_id != worker.id:
-                raise HTTPException(403, "Technician is not assigned to this job")
-        elif AccessRole.vendor_admin in roles:
-            vendor = await session.scalar(select(Vendor).where(Vendor.owner_user_id == user.id))
-            if not vendor or job.vendor_id != vendor.id:
-                raise HTTPException(403, "Job belongs to another vendor")
-        else:
-            raise HTTPException(403, "Insufficient permissions")
+        if not await _job_visible_to_nonprivileged(session, job, user, roles):
+            raise HTTPException(403, "Job is not visible to this account")
     return await JobRepository(session).list_work_requests(job_id)
 
 

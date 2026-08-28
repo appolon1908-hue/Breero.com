@@ -254,6 +254,26 @@ async def test_provider_services_and_skills_are_scoped_versioned_and_approved_to
 
         submitted = await ProviderOnboardingService(session).submit(owner)
         assert submitted.status == ProviderApplicationStatus.PENDING
+
+        # Catalog selections are locked while the application is under review.
+        with pytest.raises(DomainError) as locked:
+            await ProviderCatalogService(session).add_service(
+                owner,
+                ProviderServiceCreate(service_id=service.id, display_order=9),
+                correlation_id=f"provider-catalog-locked-{marker}",
+            )
+        assert locked.value.code == "PROVIDER_APPLICATION_UNDER_REVIEW"
+        await session.rollback()
+        for instance in (owner, admin, application, vendor, worker, service, skill):
+            await session.refresh(instance)
+
+        service_version_before = await session.scalar(
+            select(ProviderService.version).where(
+                ProviderService.vendor_id == vendor.id,
+                ProviderService.service_id == service.id,
+            )
+        )
+
         approved = await ProviderOnboardingService(session).approve(
             application.id,
             admin,
@@ -280,6 +300,9 @@ async def test_provider_services_and_skills_are_scoped_versioned_and_approved_to
         assert worker.available is True
         assert provider_service and provider_service.status == ApprovalStatus.APPROVED
         assert provider_skill and provider_skill.status == ApprovalStatus.APPROVED
+        # Approval bumps the optimistic-lock version so a pre-approval ETag can't
+        # replay a stale PATCH/DELETE against the now-approved selection.
+        assert provider_service.version > service_version_before
         assert other_vendor.status == VendorStatus.PENDING
 
         audits = set(

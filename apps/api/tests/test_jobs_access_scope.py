@@ -48,6 +48,16 @@ class ScalarSession:
         return self.value
 
 
+class SequenceScalarSession:
+    """Returns a different value for each successive scalar() call."""
+
+    def __init__(self, *values) -> None:
+        self._values = list(values)
+
+    async def scalar(self, _query):
+        return self._values.pop(0) if self._values else None
+
+
 def patch_roles(monkeypatch, roles: list[AccessRole]) -> None:
     async def fake_effective_roles(_session, _user):
         return set(roles)
@@ -121,3 +131,26 @@ async def test_list_work_requests_denies_customer_scoped_rbac_grant_for_a_differ
         await jobs.list_work_requests(job.id, ScalarSession(other_customer), user)
 
     assert exc_info.value.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_list_work_requests_allows_when_a_second_role_grants_access(monkeypatch) -> None:
+    # Regression test: a user assigned both customer and technician must be able to
+    # view work requests for a job they are the assigned technician on, even though
+    # they are not that job's customer. The old first-match chain returned 403 as
+    # soon as the customer check failed.
+    user = make_user(UserRole.customer)
+    job = make_job()
+    non_matching_customer = SimpleNamespace(id=uuid.uuid4())
+    matching_worker = SimpleNamespace(id=job.worker_id)
+
+    monkeypatch.setattr(jobs, "JobRepository", FakeJobRepository(job))
+    patch_roles(monkeypatch, [AccessRole.customer, AccessRole.technician])
+
+    result = await jobs.list_work_requests(
+        job.id,
+        SequenceScalarSession(non_matching_customer, matching_worker),
+        user,
+    )
+
+    assert result == []

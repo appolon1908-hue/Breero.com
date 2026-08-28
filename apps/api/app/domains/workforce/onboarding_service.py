@@ -483,6 +483,7 @@ class ProviderOnboardingService:
                     reviewed_by=actor.id,
                     reviewed_at=now,
                     rejection_reason=None,
+                    version=ProviderService.version + 1,
                 )
             )
             await self.session.execute(
@@ -497,6 +498,7 @@ class ProviderOnboardingService:
                     reviewed_by=actor.id,
                     reviewed_at=now,
                     rejection_reason=None,
+                    version=ProviderSkill.version + 1,
                 )
             )
         else:

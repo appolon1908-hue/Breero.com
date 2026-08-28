@@ -71,6 +71,27 @@ def test_provider_onboarding_routes_are_registered() -> None:
         assert methods <= set(paths[path])
 
 
+@pytest.mark.asyncio
+async def test_provider_registration_refused_when_self_service_disabled(monkeypatch) -> None:
+    from types import SimpleNamespace
+
+    from fastapi import HTTPException
+
+    from app.api.v1 import provider_onboarding
+
+    monkeypatch.setattr(
+        provider_onboarding,
+        "settings",
+        SimpleNamespace(provider_self_service_enabled=False, keycloak_enabled=False),
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        await provider_onboarding.register_provider(None, None, None, None)  # type: ignore[arg-type]
+
+    assert exc_info.value.status_code == 403
+    assert exc_info.value.detail == "Provider self-service registration is not enabled"
+
+
 def test_onboarding_patch_rejects_status_and_vendor_mass_assignment() -> None:
     with pytest.raises(ValidationError):
         ProviderOnboardingUpdate.model_validate({"status": "APPROVED"})

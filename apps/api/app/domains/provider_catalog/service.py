@@ -8,7 +8,12 @@ from app.domains.auth.models import User
 from app.domains.catalog.models import Service
 from app.domains.common.clock import Clock, SystemClock
 from app.domains.common.outbox import AuditLog, EventStatus, IntegrationEvent
-from app.domains.workforce.models import Vendor, VendorStatus, Worker
+from app.domains.workforce.models import (
+    ProviderApplicationStatus,
+    Vendor,
+    VendorStatus,
+    Worker,
+)
 
 from .models import ApprovalStatus, ProviderService, ProviderSkill, SkillDefinition
 from .repository import ProviderCatalogRepository
@@ -368,6 +373,15 @@ class ProviderCatalogService:
                 "Provider organization cannot be changed in its current state.",
                 409,
             )
+        if write:
+            application = await self.repository.application(vendor.id)
+            if application and application.status == ProviderApplicationStatus.PENDING:
+                raise DomainError(
+                    "PROVIDER_APPLICATION_UNDER_REVIEW",
+                    "Service and skill selections are locked while the provider "
+                    "application is under review.",
+                    409,
+                )
         return vendor
 
     async def _selected_worker(

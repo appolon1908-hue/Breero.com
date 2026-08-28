@@ -44,6 +44,11 @@ async def register_provider(
     session: Annotated[AsyncSession, Depends(get_db)],
     _: Annotated[None, Depends(rate_limit("provider-register", 5, 300))],
 ) -> ProviderRegistrationResponse:
+    if not settings.provider_self_service_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Provider self-service registration is not enabled",
+        )
     if settings.keycloak_enabled:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
