@@ -5,8 +5,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
+from app.domains.auth.access_service import BRAND_KEY, AccessService
 from app.domains.auth.dependencies import require_roles
-from app.domains.auth.models import User, UserRole
+from app.domains.auth.models import AccessRole, User, UserRole
 from app.domains.booking.models import Customer
 from app.domains.jobs.models import JobStatus
 from app.domains.jobs.repository import JobRepository
@@ -23,6 +24,13 @@ from app.domains.workforce.models import Vendor, Worker
 
 router = APIRouter()
 
+PRIVILEGED_JOB_ROLES = {
+    AccessRole.operations,
+    AccessRole.ops_manager,
+    AccessRole.admin,
+    AccessRole.superadmin,
+}
+
 
 async def worker_for_user(session: AsyncSession, user_id: uuid.UUID) -> Worker:
     from fastapi import HTTPException
@@ -31,6 +39,11 @@ async def worker_for_user(session: AsyncSession, user_id: uuid.UUID) -> Worker:
     if not worker:
         raise HTTPException(403, "Account is not linked to a worker")
     return worker
+
+
+async def effective_roles(session: AsyncSession, user: User) -> set[AccessRole]:
+    context = await AccessService(session).context(user, BRAND_KEY)
+    return set(context.roles)
 
 
 @router.get("", response_model=list[JobRead])
@@ -62,14 +75,18 @@ async def get_job(
     job = await JobRepository(session).get(job_id)
     if not job:
         raise HTTPException(404, "Job not found")
-    if user.role == UserRole.technician:
-        worker = await worker_for_user(session, user.id)
-        if job.worker_id != worker.id:
-            raise HTTPException(403, "Technician is not assigned to this job")
-    elif user.role == UserRole.vendor_admin:
-        vendor = await session.scalar(select(Vendor).where(Vendor.owner_user_id == user.id))
-        if not vendor or job.vendor_id != vendor.id:
-            raise HTTPException(403, "Job belongs to another vendor")
+    roles = await effective_roles(session, user)
+    if not roles & PRIVILEGED_JOB_ROLES:
+        if AccessRole.technician in roles:
+            worker = await worker_for_user(session, user.id)
+            if job.worker_id != worker.id:
+                raise HTTPException(403, "Technician is not assigned to this job")
+        elif AccessRole.vendor_admin in roles:
+            vendor = await session.scalar(select(Vendor).where(Vendor.owner_user_id == user.id))
+            if not vendor or job.vendor_id != vendor.id:
+                raise HTTPException(403, "Job belongs to another vendor")
+        else:
+            raise HTTPException(403, "Insufficient permissions")
     return job
 
 
@@ -165,18 +182,22 @@ async def list_work_requests(
     job = await JobRepository(session).get(job_id)
     if not job:
         raise HTTPException(404, "Job not found")
-    if user.role == UserRole.customer:
-        customer = await session.scalar(select(Customer).where(Customer.user_id == user.id))
-        if not customer or job.customer_id != customer.id:
-            raise HTTPException(403, "Job belongs to another customer")
-    elif user.role == UserRole.technician:
-        worker = await worker_for_user(session, user.id)
-        if job.worker_id != worker.id:
-            raise HTTPException(403, "Technician is not assigned to this job")
-    elif user.role == UserRole.vendor_admin:
-        vendor = await session.scalar(select(Vendor).where(Vendor.owner_user_id == user.id))
-        if not vendor or job.vendor_id != vendor.id:
-            raise HTTPException(403, "Job belongs to another vendor")
+    roles = await effective_roles(session, user)
+    if not roles & PRIVILEGED_JOB_ROLES:
+        if AccessRole.customer in roles:
+            customer = await session.scalar(select(Customer).where(Customer.user_id == user.id))
+            if not customer or job.customer_id != customer.id:
+                raise HTTPException(403, "Job belongs to another customer")
+        elif AccessRole.technician in roles:
+            worker = await worker_for_user(session, user.id)
+            if job.worker_id != worker.id:
+                raise HTTPException(403, "Technician is not assigned to this job")
+        elif AccessRole.vendor_admin in roles:
+            vendor = await session.scalar(select(Vendor).where(Vendor.owner_user_id == user.id))
+            if not vendor or job.vendor_id != vendor.id:
+                raise HTTPException(403, "Job belongs to another vendor")
+        else:
+            raise HTTPException(403, "Insufficient permissions")
     return await JobRepository(session).list_work_requests(job_id)
 
 

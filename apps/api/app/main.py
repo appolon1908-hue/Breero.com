@@ -19,7 +19,7 @@ from app.core.errors import (
 )
 from app.db.session import engine
 
-EXPECTED_SCHEMA_REVISION = "017_provider_credentials"
+EXPECTED_SCHEMA_REVISION = "018_auth_identity_tenancy_rbac"
 TRACE_ID_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}")
 logger = structlog.get_logger()
 app = FastAPI(title=settings.app_name, version="2.0.0")
