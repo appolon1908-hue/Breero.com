@@ -19,7 +19,7 @@ from app.core.errors import (
 )
 from app.db.session import engine
 
-EXPECTED_SCHEMA_REVISION = "018_auth_identity_tenancy_rbac"
+EXPECTED_SCHEMA_REVISION = "019_provider_onboarding"
 TRACE_ID_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}")
 logger = structlog.get_logger()
 app = FastAPI(title=settings.app_name, version="2.0.0")
@@ -74,9 +74,6 @@ async def request_context(request: Request, call_next):
     return response
 
 
-# Register CORS after the unexpected-error boundary so Starlette keeps CORS as
-# the outer middleware. Synthesized V2 failures must traverse the same explicit
-# origin policy as successful responses and handled errors.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.allowed_origins,
