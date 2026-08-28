@@ -22,6 +22,7 @@ from app.domains.geography import models as _geography  # noqa: F401
 from app.domains.jobs import models as _jobs  # noqa: F401
 from app.domains.payments import models as _payments  # noqa: F401
 from app.domains.professional_leads import models as _professional_leads  # noqa: F401
+from app.domains.provider_catalog import models as _provider_catalog  # noqa: F401
 from app.domains.public_submissions import models as _public_submissions  # noqa: F401
 from app.domains.workforce import models as _workforce  # noqa: F401
 
@@ -81,8 +82,6 @@ def compare(connection) -> list[str]:
             tuple(sorted(item["column_names"]))
             for item in inspector.get_unique_constraints(table_name)
         }
-        # PostgreSQL may represent a unique=True column as either a
-        # constraint or unique index.
         actual_unique |= {
             tuple(sorted(item["column_names"]))
             for item in inspector.get_indexes(table_name)

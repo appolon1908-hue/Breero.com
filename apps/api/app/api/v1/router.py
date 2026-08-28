@@ -18,6 +18,7 @@ from app.api.v1 import (
     jobs,
     operations,
     payments,
+    provider_catalog,
     provider_leads,
     provider_onboarding,
     public_forms,
@@ -50,6 +51,11 @@ api_router.include_router(
     provider_onboarding.provider_router,
     prefix="/provider",
     tags=["provider-onboarding"],
+)
+api_router.include_router(
+    provider_catalog.router,
+    prefix="/provider",
+    tags=["provider-catalog"],
 )
 api_router.include_router(
     provider_onboarding.admin_router,
