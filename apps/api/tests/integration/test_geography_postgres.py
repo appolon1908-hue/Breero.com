@@ -581,11 +581,15 @@ async def test_deactivating_all_postal_codes_fails_coverage_selector_check() -> 
             expected_version=row.version,
         )
 
+        # Deactivating a postal code bumps the parent zone's version, so re-read it
+        # before the optimistic-lock check on update_zone.
+        current_zone = await session.get(ServiceArea, zone.id)
+
         with pytest.raises(DomainError) as coverage_error:
             await zone_service.update_zone(
                 zone.id,
                 actor,
                 ServiceZoneUpdate(priority=60),
-                expected_version=zone.version,
+                expected_version=current_zone.version,
             )
         assert coverage_error.value.code == "SERVICE_ZONE_COVERAGE_REQUIRED"

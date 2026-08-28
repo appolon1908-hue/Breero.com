@@ -195,24 +195,32 @@ async def test_provider_services_and_skills_are_scoped_versioned_and_approved_to
         await session.refresh(worker)
         assert worker.skills == [skill.key]
 
+        selected_service_id = selected_service.id
+        selected_service_version = selected_service.version
+        owner_id = owner.id
+
         with pytest.raises(DomainError) as hidden:
             await ProviderCatalogService(session).update_service(
-                selected_service.id,
+                selected_service_id,
                 other_owner,
                 ProviderServiceUpdate(display_order=10),
-                expected_version=selected_service.version,
+                expected_version=selected_service_version,
             )
         assert hidden.value.code == "PROVIDER_SERVICE_NOT_FOUND"
+        # The failed call left the session mid-transaction; roll back before reusing
+        # it. The rollback expires every loaded instance, so re-load the actor rather
+        # than passing a now-expired ORM object into the next call.
         await session.rollback()
+        owner = await session.get(User, owner_id)
 
         updated = await catalog.update_service(
-            selected_service.id,
+            selected_service_id,
             owner,
             ProviderServiceUpdate(display_order=10),
-            expected_version=selected_service.version,
+            expected_version=selected_service_version,
         )
         assert updated.display_order == 10
-        assert updated.version == selected_service.version + 1
+        assert updated.version == selected_service_version + 1
         with pytest.raises(DomainError) as stale:
             await catalog.update_service(
                 selected_service.id,

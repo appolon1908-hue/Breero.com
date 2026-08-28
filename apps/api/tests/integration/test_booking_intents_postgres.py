@@ -365,7 +365,7 @@ async def test_booking_intent_validates_address_coverage_availability_and_submit
             CustomerInput(
                 first_name="BI",
                 last_name="Customer",
-                email=f"customer-{marker}@example.test",
+                email=f"customer-{marker}@example.com",
                 phone="+15559998888",
             ),
             [],
