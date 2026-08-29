@@ -181,7 +181,9 @@ def test_app_env_accepts_staging_with_secure_settings():
     assert settings.app_env == "staging"
 
 
-def test_app_env_accepts_production_with_secret_file_bindings(tmp_path):
+def test_app_env_accepts_production_with_secret_file_bindings(tmp_path, monkeypatch):
+    for variable in ("DATABASE_URL", "REDIS_URL", "JWT_SECRET", "JWT_REFRESH_SECRET"):
+        monkeypatch.delenv(variable, raising=False)
     database_url = tmp_path / "database-url"
     redis_url = tmp_path / "redis-url"
     jwt_secret = tmp_path / "jwt-secret"
