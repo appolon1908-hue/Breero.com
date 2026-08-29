@@ -270,7 +270,10 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()
+    # app_env has no Python-level default by design (see the field comment above) --
+    # pydantic-settings still supplies it from the environment/.env file at runtime,
+    # but mypy's call-arg check doesn't know that, hence the ignore.
+    return Settings()  # type: ignore[call-arg]
 
 
 settings = get_settings()
