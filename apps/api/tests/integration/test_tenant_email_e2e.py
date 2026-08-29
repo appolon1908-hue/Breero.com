@@ -1,8 +1,9 @@
 import uuid
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi import HTTPException
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 
 from app.config import settings
 from app.db.session import SessionLocal
@@ -215,3 +216,152 @@ async def test_vendor_scope_cannot_cross_tenant_email_resources_or_secret_namesp
                 provider,
             )
         assert secret_error.value.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_outbox_listing_filters_tenant_scope_before_the_page_limit() -> None:
+    # Regression test: /email/outbox used to select the newest 200 events globally
+    # and only remove other tenants' rows afterward. A vendor-scoped caller whose own
+    # events were older than 200 more-recent events from other tenants would see an
+    # incomplete or empty outbox even though their own events still exist. The scope
+    # must be applied in the SQL query, before LIMIT.
+    from app.api.v1 import email as email_router
+
+    marker = uuid.uuid4().hex
+    async with SessionLocal() as session:
+        quiet_vendor = Vendor(
+            legal_name=f"Quiet Tenant {marker}", display_name="Quiet Tenant",
+            email=f"quiet-{marker}@example.com", phone="+12815550120",
+            status=VendorStatus.ACTIVE, capabilities=["email"],
+        )
+        noisy_vendor = Vendor(
+            legal_name=f"Noisy Tenant {marker}", display_name="Noisy Tenant",
+            email=f"noisy-{marker}@example.com", phone="+12815550121",
+            status=VendorStatus.ACTIVE, capabilities=["email"],
+        )
+        session.add_all([quiet_vendor, noisy_vendor])
+        await session.flush()
+
+        owner = User(
+            email=f"quiet-owner-{marker}@example.com",
+            full_name="Quiet Tenant Owner",
+            password_hash=hash_password("Tenant-email-test-123!"),
+            role=UserRole.vendor_admin,
+            is_active=True,
+            email_verified=True,
+        )
+        noisy_owner = User(
+            email=f"noisy-owner-{marker}@example.com",
+            full_name="Noisy Tenant Owner",
+            password_hash=hash_password("Tenant-email-test-123!"),
+            role=UserRole.vendor_admin,
+            is_active=True,
+            email_verified=True,
+        )
+        session.add_all([owner, noisy_owner])
+        await session.flush()
+        session.add_all(
+            [
+                AccessAssignment(
+                    user_id=owner.id, brand_key="breero", role_key="vendor_admin",
+                    department="provider", tenant_scope="vendor", vendor_id=quiet_vendor.id,
+                    active=True, is_primary=True,
+                ),
+                AccessAssignment(
+                    user_id=noisy_owner.id, brand_key="breero", role_key="vendor_admin",
+                    department="provider", tenant_scope="vendor", vendor_id=noisy_vendor.id,
+                    active=True, is_primary=True,
+                ),
+            ]
+        )
+        await session.commit()
+
+        service = TenantEmailService(session)
+
+        async def provision(vendor: Vendor, actor: User) -> tuple:
+            domain = await service.create_domain(
+                EmailDomainCreate(domain=f"outbox-{vendor.id}.example.test", vendor_id=vendor.id), actor
+            )
+            domain = await service.set_domain_verification(domain.id, True, actor)
+            sender = await service.create_sender(
+                EmailSenderCreate(
+                    vendor_id=vendor.id, domain_id=domain.id, local_part="notify", display_name="Notify"
+                ),
+                actor,
+            )
+            credential = await service.create_credential(
+                EmailCredentialCreate(
+                    vendor_id=vendor.id,
+                    provider="smtp",
+                    label="Outbox test",
+                    secret_ref=f"breero-email/vendor/{vendor.id}/smtp/main",
+                    smtp_host="smtp.example.test",
+                    smtp_port=587,
+                ),
+                actor,
+            )
+            return sender, credential
+
+        quiet_sender, quiet_credential = await provision(quiet_vendor, owner)
+        noisy_sender, noisy_credential = await provision(noisy_vendor, noisy_owner)
+
+        base_time = datetime.now(UTC)
+        quiet_message = await service.compose(
+            EmailComposeRequest(
+                vendor_id=quiet_vendor.id,
+                sender_id=quiet_sender.id,
+                credential_id=quiet_credential.id,
+                to_email=f"recipient-{marker}@example.com",
+                subject="Quiet tenant's only message",
+                text_body="This is the only message the quiet tenant ever sends.",
+                idempotency_key=f"outbox-quiet-{marker}",
+            ),
+            owner,
+        )
+        # Backdate it well before the flood of noisy-tenant events below.
+        await session.execute(
+            update(IntegrationEvent)
+            .where(IntegrationEvent.aggregate_id == quiet_message.id)
+            .values(created_at=base_time - timedelta(days=1))
+        )
+        await session.commit()
+
+        # Flood in more than the page size (200) of newer events belonging to a
+        # different tenant, all referencing a single real sender/credential to
+        # satisfy the foreign keys cheaply.
+        noisy_messages = [
+            EmailMessage(
+                brand_key="breero",
+                vendor_id=noisy_vendor.id,
+                sender_id=noisy_sender.id,
+                credential_id=noisy_credential.id,
+                to_email=f"flood-{marker}-{i}@example.com",
+                subject="Noise",
+                text_body="Noise",
+                status="QUEUED",
+                idempotency_key=f"outbox-noisy-{marker}-{i}",
+                created_by=noisy_owner.id,
+            )
+            for i in range(210)
+        ]
+        session.add_all(noisy_messages)
+        await session.flush()
+        session.add_all(
+            [
+                IntegrationEvent(
+                    aggregate_type="email_message",
+                    aggregate_id=message.id,
+                    event_type="email.message.queued",
+                    idempotency_key=f"outbox-noisy-event-{marker}-{i}",
+                    payload={},
+                    status=EventStatus.PENDING,
+                    next_attempt_at=base_time,
+                    created_at=base_time + timedelta(seconds=i),
+                )
+                for i, message in enumerate(noisy_messages)
+            ]
+        )
+        await session.commit()
+
+        result = await email_router.list_outbox(session=session, user=owner)
+        assert quiet_message.id in {row.message_id for row in result}
