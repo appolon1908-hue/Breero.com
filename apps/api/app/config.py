@@ -14,8 +14,10 @@ class Settings(BaseSettings):
     # is spelled exactly "production"/"staging". A deploy-time typo (APP_ENV=prod)
     # or an unset value used to fall through to the permissive development
     # defaults with no warning. Pydantic now rejects anything outside this set
-    # at startup instead.
-    app_env: Literal["development", "test", "staging", "production"] = "development"
+    # at startup instead, and there is deliberately no default: a deployment
+    # that fails to set APP_ENV at all must fail closed at startup rather than
+    # silently run with every production safety check switched off.
+    app_env: Literal["development", "test", "staging", "production"]
     app_name: str = "BREERO API"
     api_v1_prefix: str = "/api/v1"
     database_url: str = "postgresql+psycopg://breero:breero@postgres:5432/breero"
