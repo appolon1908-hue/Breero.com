@@ -44,7 +44,7 @@ async def test_login_dashboard_domain_sender_compose_outbox_delivery(
         await session.commit()
 
         account = User(
-            email=f"email-admin-{marker}@example.test",
+            email=f"email-admin-{marker}@example.com",
             full_name="Tenant Email Admin",
             password_hash=hash_password("Tenant-email-test-123!"),
             role=UserRole.admin,
@@ -103,7 +103,7 @@ async def test_login_dashboard_domain_sender_compose_outbox_delivery(
             EmailComposeRequest(
                 sender_id=sender.id,
                 credential_id=credential.id,
-                to_email=f"recipient-{marker}@example.test",
+                to_email=f"recipient-{marker}@example.com",
                 subject="Service request update",
                 text_body="Your BREERO service request has been updated.",
                 idempotency_key=f"tenant-email-e2e-{marker}",
@@ -144,7 +144,7 @@ async def test_login_dashboard_domain_sender_compose_outbox_delivery(
             {
                 "provider": "smtp",
                 "from": f"operations@{domain.domain}",
-                "to": f"recipient-{marker}@example.test",
+                "to": f"recipient-{marker}@example.com",
                 "subject": "Service request update",
                 "text": "Your BREERO service request has been updated.",
                 "secret": "[REDACTED]",
@@ -158,19 +158,19 @@ async def test_vendor_scope_cannot_cross_tenant_email_resources_or_secret_namesp
     async with SessionLocal() as session:
         vendor_one = Vendor(
             legal_name=f"Tenant One {marker}", display_name="Tenant One",
-            email=f"tenant-one-{marker}@example.test", phone="+12815550110",
+            email=f"tenant-one-{marker}@example.com", phone="+12815550110",
             status=VendorStatus.ACTIVE, capabilities=["email"],
         )
         vendor_two = Vendor(
             legal_name=f"Tenant Two {marker}", display_name="Tenant Two",
-            email=f"tenant-two-{marker}@example.test", phone="+12815550111",
+            email=f"tenant-two-{marker}@example.com", phone="+12815550111",
             status=VendorStatus.ACTIVE, capabilities=["email"],
         )
         session.add_all([vendor_one, vendor_two])
         await session.flush()
 
         provider = User(
-            email=f"provider-{marker}@example.test",
+            email=f"provider-{marker}@example.com",
             full_name="Scoped Provider",
             password_hash=hash_password("Tenant-email-test-123!"),
             role=UserRole.vendor_admin,
