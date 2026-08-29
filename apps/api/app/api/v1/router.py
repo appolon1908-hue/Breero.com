@@ -13,6 +13,7 @@ from app.api.v1 import (
     capabilities,
     compliance,
     customers,
+    email,
     finance,
     integrations,
     jobs,
@@ -98,6 +99,7 @@ api_router.include_router(operations.router, prefix="/operations", tags=["operat
 if settings.payout_enabled:
     api_router.include_router(finance.router, prefix="/finance", tags=["finance"])
 api_router.include_router(integrations.router, prefix="/integrations", tags=["integrations"])
+api_router.include_router(email.router, prefix="/email", tags=["tenant-email"])
 api_router.include_router(public_forms.router, tags=["public-forms"])
 if settings.paid_leads_enabled and settings.payments_enabled and settings.stripe_enabled:
     api_router.include_router(

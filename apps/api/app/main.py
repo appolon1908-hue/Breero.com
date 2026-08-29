@@ -19,7 +19,7 @@ from app.core.errors import (
 )
 from app.db.session import engine
 
-EXPECTED_SCHEMA_REVISION = "022_provider_services_skills"
+EXPECTED_SCHEMA_REVISION = "023_tenant_email_provisioning"
 TRACE_ID_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}")
 logger = structlog.get_logger()
 app = FastAPI(title=settings.app_name, version="2.0.0")
