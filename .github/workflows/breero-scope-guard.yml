@@ -1,0 +1,25 @@
+name: breero-scope-guard
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  scope-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reject cross-project naming
+        shell: bash
+        run: |
+          set -euo pipefail
+          needle="$(printf '%s%s' 'money' 'bee')"
+          if grep -RIni --exclude-dir=.git -- "$needle" .; then
+            echo "::error::BREERO repository contains a cross-project product reference. Remove it before merge."
+            exit 1
+          fi
+          echo "BREERO scope guard passed."
