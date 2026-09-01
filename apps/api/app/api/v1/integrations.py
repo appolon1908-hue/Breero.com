@@ -21,11 +21,11 @@ FAILURE_STATUSES = (
     EventStatus.FAILED,
     EventStatus.DEAD_LETTER,
 )
-OUTBOX_OPERATION_ACTIONS = {
+OperationType = Literal["activate_pending", "park_unconfigured"]
+OUTBOX_OPERATION_ACTIONS: dict[str, OperationType] = {
     "integration.outbox.activate_pending": "activate_pending",
     "integration.outbox.park_unconfigured": "park_unconfigured",
 }
-OperationType = Literal["activate_pending", "park_unconfigured"]
 
 
 def _middleware_delivery_ready() -> bool:
