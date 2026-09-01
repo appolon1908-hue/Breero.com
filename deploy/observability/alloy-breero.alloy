@@ -1,0 +1,52 @@
+discovery.docker "breero" {
+  host = "unix:///var/run/docker.sock"
+  filter {
+    name   = "label"
+    values = ["com.codestra.product=breero", "com.codestra.observability.logs=true"]
+  }
+}
+
+discovery.relabel "breero" {
+  targets = discovery.docker.breero.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_codestra_component"]
+    target_label  = "component"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+  rule {
+    target_label = "product"
+    replacement  = "breero"
+  }
+}
+
+loki.source.docker "breero" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.breero.output
+  forward_to = [loki.process.breero.receiver]
+}
+
+loki.process "breero" {
+  stage.json {
+    expressions = {
+      level          = "level",
+      event          = "event",
+      request_id     = "request_id",
+      correlation_id = "correlation_id",
+      trace_id       = "trace_id",
+    }
+  }
+  stage.labels {
+    values = {
+      level = "",
+      event = "",
+    }
+  }
+  forward_to = [loki.write.codestra.receiver]
+}
+
+// The central Codestra Alloy configuration must define loki.write.codestra.

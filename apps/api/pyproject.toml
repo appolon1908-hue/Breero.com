@@ -9,7 +9,6 @@ dependencies = [
   "sqlalchemy[asyncio]>=2.0,<3.0",
   "alembic>=1.14,<2.0",
   "psycopg[binary,pool]>=3.2,<4.0",
-  "alembic>=1.14,<2.0",
   "pydantic>=2.10,<3.0",
   "pydantic-settings>=2.7,<3.0",
   "email-validator>=2.2,<3.0",
@@ -21,6 +20,14 @@ dependencies = [
   "pwdlib[argon2]>=0.2,<1.0",
   "stripe>=11.0,<13.0",
   "structlog>=24.4,<26.0",
+  "prometheus-client>=0.21,<1.0",
+  "opentelemetry-api>=1.30,<2.0",
+  "opentelemetry-sdk>=1.30,<2.0",
+  "opentelemetry-exporter-otlp-proto-http>=1.30,<2.0",
+  "opentelemetry-instrumentation-celery>=0.51b0,<1.0",
+  "opentelemetry-instrumentation-fastapi>=0.51b0,<1.0",
+  "opentelemetry-instrumentation-redis>=0.51b0,<1.0",
+  "opentelemetry-instrumentation-sqlalchemy>=0.51b0,<1.0",
 ]
 
 [build-system]
