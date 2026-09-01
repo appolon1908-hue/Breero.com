@@ -29,7 +29,10 @@ KEYCLOAK_JWKS_REFRESH_SECONDS = 240
 CANONICAL_KEYCLOAK_ISSUER = "https://auth.codestra.co/realms/codestra"
 KEYCLOAK_JWKS_URI = f"{CANONICAL_KEYCLOAK_ISSUER}/protocol/openid-connect/certs"
 _STRICT_LOCAL_CLAIMS = frozenset({"iss", "aud", "nbf", "jti"})
-_LOCAL_TOKEN_COMPATIBILITY_CUTOFF = int(time.time())
+# A rolling deploy can briefly have old and new workers minting tokens together.
+# Keep the exact legacy shape valid for one access-token lifetime after this
+# worker starts; every such token still expires within its normal one-hour TTL.
+_LOCAL_TOKEN_COMPATIBILITY_DEADLINE = int(time.time()) + TOKEN_TTL_SECONDS
 
 logger = structlog.get_logger()
 PASSWORD_HASH = PasswordHash.recommended()
@@ -138,16 +141,18 @@ def _decode_legacy_local_token(token: str) -> dict[str, Any]:
             "verify_iss": False,
         },
     )
-    # During a rolling release, accept only the exact old token shape and only
-    # tokens issued before this process started. New tokens must use the strict
-    # issuer/audience/not-before/JTI contract.
+    # Accept only the complete pre-migration shape during the bounded rolling
+    # compatibility window. A token cannot extend its lifetime beyond the
+    # historical one-hour contract.
     if _STRICT_LOCAL_CLAIMS.intersection(claims):
         raise jwt.InvalidTokenError("partially migrated local token")
     issued_at = int(claims["iat"])
     expires_at = int(claims["exp"])
     if (
-        issued_at > _LOCAL_TOKEN_COMPATIBILITY_CUTOFF
-        or expires_at > _LOCAL_TOKEN_COMPATIBILITY_CUTOFF + TOKEN_TTL_SECONDS
+        issued_at > _LOCAL_TOKEN_COMPATIBILITY_DEADLINE
+        or expires_at <= issued_at
+        or expires_at - issued_at > TOKEN_TTL_SECONDS
+        or expires_at > _LOCAL_TOKEN_COMPATIBILITY_DEADLINE + TOKEN_TTL_SECONDS
     ):
         raise jwt.InvalidTokenError("legacy local token outside compatibility window")
     return claims
@@ -165,9 +170,8 @@ def _decode_local_access_token(token: str) -> dict[str, Any]:
         )
     except MissingRequiredClaimError:
         claims = _decode_legacy_local_token(token)
-    if not isinstance(claims.get("jti", ""), str) and "jti" in claims:
-        raise jwt.InvalidTokenError("invalid jti")
-    if "jti" in claims and not claims["jti"].strip():
+    jti = claims.get("jti")
+    if jti is not None and (not isinstance(jti, str) or not jti.strip()):
         raise jwt.InvalidTokenError("invalid jti")
     return claims
 
