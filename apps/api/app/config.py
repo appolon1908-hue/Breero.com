@@ -70,6 +70,11 @@ class Settings(BaseSettings):
     middleware_scope: str = "breero.crm.events.submit"
     payout_api_key: str = ""
     metrics_enabled: bool = True
+    metrics_token: str = ""
+    metrics_token_file: str = ""
+    tracing_enabled: bool = False
+    otel_service_name: str = "breero-api"
+    otel_exporter_endpoint: str = "http://tempo:4318/v1/traces"
     payout_provider: str = ""
     payout_enabled: bool = False
     smtp_host: str = ""
@@ -100,6 +105,7 @@ class Settings(BaseSettings):
             ("stripe_webhook_secret", "stripe_webhook_secret_file"),
             ("stripe_publishable_key", "stripe_publishable_key_file"),
             ("geocoding_api_key", "geocoding_api_key_file"),
+            ("metrics_token", "metrics_token_file"),
         )
         for value_name, file_name in secret_bindings:
             value = getattr(self, value_name)
@@ -166,6 +172,9 @@ class Settings(BaseSettings):
         if self.transactional_sms_mode not in {"disabled", "controlled_canary"}:
             raise ValueError("TRANSACTIONAL_SMS_MODE must be disabled or controlled_canary")
 
+        if self.tracing_enabled and not self.otel_exporter_endpoint:
+            raise ValueError("OTEL_EXPORTER_ENDPOINT is required when TRACING_ENABLED is on")
+
         if self.app_env.lower() == "production":
             missing_file_bindings = [
                 name
@@ -228,6 +237,11 @@ class Settings(BaseSettings):
                 "PAYOUT_PROVIDER": self.payout_provider,
                 "PAYOUT_API_KEY": self.payout_api_key,
             }
+        if self.app_env.lower() == "production" and self.metrics_enabled:
+            # /metrics names internal aggregates and route templates. It is scraped
+            # over the private network, but the token means a proxy misconfiguration
+            # is not on its own enough to expose it.
+            required["METRICS_TOKEN"] = self.metrics_token
         insecure = {
             "development-only-change-me",
             "development-only-change-me-too",

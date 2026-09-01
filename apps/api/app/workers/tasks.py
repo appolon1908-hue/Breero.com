@@ -1,10 +1,17 @@
 import asyncio
+import functools
+import time
+from collections.abc import Callable
 from datetime import UTC, datetime
+from typing import ParamSpec, TypeVar
 
+import redis
+import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.core.metrics import HEARTBEAT_TTL_SECONDS, heartbeat_key
 from app.db.session import SessionLocal
 from app.domains.booking.models import EXPIRING_BOOKING_STATUSES, Booking, BookingStatus
 from app.domains.common.outbox_service import OutboxService
@@ -14,6 +21,50 @@ from app.domains.tenant_email.delivery import TenantEmailDeliveryService
 from app.integrations.email import EmailAdapter
 from app.integrations.middleware import MiddlewareAdapter
 from app.workers.celery_app import celery_app
+
+logger = structlog.get_logger()
+P = ParamSpec("P")
+R = TypeVar("R")
+
+
+def heartbeat(task_name: str) -> Callable[[Callable[P, R]], Callable[P, R]]:
+    """Stamp Redis after a periodic task succeeds.
+
+    This is what makes a missing Celery beat container detectable. The worker and the
+    API are separate containers, so the signal has to live somewhere both can reach;
+    the API reads these keys back on every /metrics scrape.
+
+    Only success stamps. A task that raises leaves the previous timestamp in place and
+    lets its age keep climbing, which is the behaviour an alert needs -- a failing task
+    must not look alive.
+
+    A heartbeat write must never fail the task that did the real work, so a Redis
+    error here is logged and swallowed.
+    """
+
+    def decorate(function: Callable[P, R]) -> Callable[P, R]:
+        @functools.wraps(function)
+        def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+            result = function(*args, **kwargs)
+            try:
+                client = redis.from_url(
+                    settings.redis_url, socket_connect_timeout=1, socket_timeout=1
+                )
+                try:
+                    client.set(
+                        heartbeat_key(task_name), repr(time.time()), ex=HEARTBEAT_TTL_SECONDS
+                    )
+                finally:
+                    client.close()
+            except redis.RedisError as exc:
+                logger.warning(
+                    "heartbeat_write_failed", task=task_name, error=type(exc).__name__
+                )
+            return result
+
+        return wrapper
+
+    return decorate
 
 
 async def expire_booking_holds(session: AsyncSession, *, now: datetime) -> int:
@@ -42,6 +93,7 @@ async def expire_booking_holds(session: AsyncSession, *, now: datetime) -> int:
 
 
 @celery_app.task(name="app.workers.tasks.expire_bookings")
+@heartbeat("expire_bookings")
 def expire_bookings() -> int:
     async def run() -> int:
         async with SessionLocal() as session:
@@ -56,6 +108,7 @@ def expire_bookings() -> int:
     retry_backoff=True,
     max_retries=5,
 )
+@heartbeat("publish_outbox")
 def publish_outbox() -> int:
     async def run() -> int:
         async with SessionLocal() as session:
@@ -104,6 +157,7 @@ def publish_outbox() -> int:
 
 
 @celery_app.task(name="app.workers.tasks.release_earnings")
+@heartbeat("release_earnings")
 def release_earnings() -> int:
     async def run() -> int:
         async with SessionLocal() as session:
@@ -113,6 +167,7 @@ def release_earnings() -> int:
 
 
 @celery_app.task(name="app.workers.tasks.generate_weekly_payout_candidates")
+@heartbeat("generate_weekly_payout_candidates")
 def generate_weekly_payout_candidates() -> str:
     async def run() -> str:
         async with SessionLocal() as session:

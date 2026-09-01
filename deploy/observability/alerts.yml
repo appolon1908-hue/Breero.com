@@ -1,0 +1,106 @@
+# Every rule here exists because the failure it catches was, at some point, invisible.
+groups:
+  - name: breero-scheduler
+    rules:
+      # The production topology in deploy/production/docker-compose.backend.yml shipped
+      # without a beat service. Nothing failed loudly: the outbox simply stopped being
+      # published and booking holds stopped being released. These two rules are the
+      # reason that cannot happen silently again.
+      - alert: SchedulerNeverRan
+        expr: breero_scheduled_task_last_success_timestamp_seconds == 0
+        for: 10m
+        labels: { severity: critical }
+        annotations:
+          summary: "Periodic task {{ $labels.task }} has never completed"
+          description: >-
+            No heartbeat has ever been recorded for {{ $labels.task }}. The most likely
+            cause is that Celery beat is not running at all -- check that the scheduler
+            service exists in the deployed compose file, not just in the repository.
+
+      - alert: SchedulerStalled
+        expr: breero_scheduled_task_last_success_age_seconds > 900
+        for: 5m
+        labels: { severity: critical }
+        annotations:
+          summary: "Periodic task {{ $labels.task }} last succeeded {{ $value | humanizeDuration }} ago"
+          description: >-
+            The task ran before but has stopped. publish_outbox is scheduled every 10s
+            and expire_bookings every 60s, so a quarter hour of silence is a stall, not
+            jitter.
+
+  - name: breero-outbox
+    rules:
+      - alert: OutboxBacklogGrowing
+        expr: breero_outbox_oldest_undelivered_age_seconds > 1800
+        for: 10m
+        labels: { severity: critical }
+        annotations:
+          summary: "Oldest undelivered integration event is {{ $value | humanizeDuration }} old"
+          description: >-
+            Events are being written but not delivered. Check the scheduler first, then
+            the middleware endpoint the outbox publishes to.
+
+      - alert: OutboxTerminalFailures
+        # delta(), not increase(): outbox depth is a gauge, and increase() assumes
+        # counter semantics, so it would treat a drained queue as a negative reset.
+        expr: delta(breero_outbox_events{status="FAILED_TERMINAL"}[1h]) > 0
+        labels: { severity: warning }
+        annotations:
+          summary: "Integration events exhausted their retries in the last hour"
+          description: >-
+            These will never be retried automatically. Inspect last_error_code and
+            replay them through the operator retry route once the cause is fixed.
+
+      - alert: OutboxParkedOnConfiguration
+        expr: breero_outbox_events{status="PENDING_CONFIGURATION"} > 0
+        for: 30m
+        labels: { severity: warning }
+        annotations:
+          summary: "{{ $value }} events parked awaiting integration configuration"
+          description: >-
+            The outbox parks events when an integration is disabled or unconfigured.
+            Expected during a controlled rollout; unexpected in steady state.
+
+  - name: breero-capacity
+    rules:
+      - alert: BookingHoldsNotReleased
+        expr: breero_booking_holds_overdue > 50
+        for: 15m
+        labels: { severity: critical }
+        annotations:
+          summary: "{{ $value }} booking holds are past expiry and unreleased"
+          description: >-
+            Capacity queries already ignore expired holds by expires_at, so customers
+            are not blocked yet -- but a rising number means expire_bookings is not
+            running and the table is accumulating stale state.
+
+  - name: breero-api
+    rules:
+      - alert: APITargetDown
+        expr: up{job="breero-api"} == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: "The API is not answering scrapes"
+
+      - alert: APIServerErrorRate
+        expr: >-
+          sum(rate(breero_http_requests_total{status=~"5.."}[5m]))
+          / sum(rate(breero_http_requests_total[5m])) > 0.02
+        for: 10m
+        labels: { severity: critical }
+        annotations:
+          summary: "Over 2% of requests are returning 5xx"
+
+      - alert: APILatencyDegraded
+        expr: >-
+          histogram_quantile(
+            0.95, sum by (le, route) (rate(breero_http_request_duration_seconds_bucket[5m]))
+          ) > 2
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "p95 latency on {{ $labels.route }} is above 2s"
+          description: >-
+            Worth checking whether the route is doing password hashing or a JWKS fetch
+            on the event loop before assuming it is the database.

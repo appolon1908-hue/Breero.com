@@ -1,6 +1,8 @@
 from celery import Celery
+from celery.signals import worker_process_init
 
 from app.config import settings
+from app.core.tracing import configure_tracing
 
 celery_app = Celery("breero", broker=settings.redis_url, backend=settings.redis_url)
 celery_app.conf.update(
@@ -21,3 +23,14 @@ celery_app.conf.update(
     },
 )
 celery_app.autodiscover_tasks(["app.workers"])
+
+
+@worker_process_init.connect
+def _configure_worker_tracing(**_: object) -> None:
+    """Instrument per forked worker process, not at import.
+
+    Celery forks after the module is loaded, and a tracer provider created before the
+    fork does not survive it intact -- the batch span processor's exporter thread is
+    left behind in the parent.
+    """
+    configure_tracing()

@@ -16,6 +16,11 @@ x-app: &app
     - breero_jwt_access_secret
     - breero_jwt_refresh_secret
     - breero_geoapify_api_key
+    - breero_metrics_token
+  environment:
+    # prometheus_client aggregates counters across uvicorn workers through this
+    # directory. The container is read_only, so it has to live on the tmpfs.
+    PROMETHEUS_MULTIPROC_DIR: /tmp/prometheus
 
 services:
   migrate:
@@ -104,6 +109,8 @@ secrets:
     file: ${JWT_REFRESH_SECRET_REFERENCE:?Set JWT_REFRESH_SECRET_REFERENCE}
   breero_geoapify_api_key:
     file: ${GEOAPIFY_API_KEY_REFERENCE:?Set GEOAPIFY_API_KEY_REFERENCE}
+  breero_metrics_token:
+    file: ${METRICS_TOKEN_REFERENCE:?Set METRICS_TOKEN_REFERENCE}
   breero_postgres_password:
     file: ${POSTGRES_PASSWORD_REFERENCE:?Set POSTGRES_PASSWORD_REFERENCE}
   breero_redis_password:

@@ -16,6 +16,9 @@ x-app: &app
     - breero_staging_redis_url
     - breero_staging_jwt_access_secret
     - breero_staging_jwt_refresh_secret
+    - breero_staging_metrics_token
+  environment:
+    PROMETHEUS_MULTIPROC_DIR: /tmp/prometheus
 
 services:
   migrate:
@@ -107,3 +110,5 @@ secrets:
     file: ${STAGING_POSTGRES_PASSWORD_REFERENCE:?Set STAGING_POSTGRES_PASSWORD_REFERENCE}
   breero_staging_redis_password:
     file: ${STAGING_REDIS_PASSWORD_REFERENCE:?Set STAGING_REDIS_PASSWORD_REFERENCE}
+  breero_staging_metrics_token:
+    file: ${STAGING_METRICS_TOKEN_REFERENCE:?Set STAGING_METRICS_TOKEN_REFERENCE}

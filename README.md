@@ -14,7 +14,8 @@ BREERO is a multi-surface home-services marketplace and field-service orchestrat
 - `packages/ui` — shared frontend design system
 - `packages/types` — shared frontend contracts
 - `packages/api-client` — typed frontend API client
-- `infrastructure` — deployment, proxy, backups and monitoring
+- `deploy` — production and staging Compose topologies, frontend and portal images
+- `deploy/observability` — Prometheus, Alertmanager, Tempo and Grafana
 - `docs` — architecture, API, security, operations and Codex workstream documentation
 
 ## Backend architecture

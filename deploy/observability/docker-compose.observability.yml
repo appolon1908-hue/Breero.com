@@ -1,0 +1,106 @@
+# Monitoring stack for the production host. Attaches to the existing private network
+# so it can scrape the API without anything being published at the edge.
+#
+#   docker compose \
+#     -f deploy/production/docker-compose.backend.yml \
+#     -f deploy/observability/docker-compose.observability.yml up -d
+name: breero-production
+
+x-hardened: &hardened
+  restart: unless-stopped
+  init: true
+  security_opt: [no-new-privileges:true]
+  cap_drop: [ALL]
+  networks: [private]
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+
+services:
+  prometheus:
+    <<: *hardened
+    image: prom/prometheus:v3.1.0
+    container_name: breero-prod-prometheus
+    user: "65534:65534"
+    read_only: true
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      # Retention is deliberately short: this is an alerting store, and the host has
+      # one disk that PostgreSQL also lives on.
+      - --storage.tsdb.retention.time=15d
+      - --storage.tsdb.retention.size=8GB
+      - --web.enable-lifecycle
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+    secrets: [breero_metrics_token]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+  alertmanager:
+    <<: *hardened
+    image: prom/alertmanager:v0.28.0
+    container_name: breero-prod-alertmanager
+    user: "65534:65534"
+    read_only: true
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    volumes:
+      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+
+  # Traces. Kept in the same stack so TRACING_ENABLED has somewhere to send to;
+  # the API's default OTEL_EXPORTER_ENDPOINT already points here.
+  tempo:
+    <<: *hardened
+    image: grafana/tempo:2.7.1
+    container_name: breero-prod-tempo
+    user: "10001:10001"
+    command: ["-config.file=/etc/tempo/tempo.yml"]
+    volumes:
+      - ./tempo.yml:/etc/tempo/tempo.yml:ro
+      - tempo_data:/var/tempo
+
+  grafana:
+    <<: *hardened
+    image: grafana/grafana:11.5.1
+    container_name: breero-prod-grafana
+    user: "472:472"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/breero_grafana_password
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+    volumes:
+      - ./grafana-datasources.yml:/etc/grafana/provisioning/datasources/breero.yml:ro
+      - grafana_data:/var/lib/grafana
+    secrets: [breero_grafana_password]
+    # Reached over an SSH tunnel or the edge proxy's authenticated route; never
+    # published directly.
+    networks: [private, edge]
+
+networks:
+  edge:
+    name: breero_prod_edge
+    external: true
+  private:
+    name: breero_prod_private
+    internal: true
+
+volumes:
+  prometheus_data: { name: breero_prod_prometheus_data }
+  alertmanager_data: { name: breero_prod_alertmanager_data }
+  tempo_data: { name: breero_prod_tempo_data }
+  grafana_data: { name: breero_prod_grafana_data }
+
+secrets:
+  breero_metrics_token:
+    file: ${METRICS_TOKEN_REFERENCE:?Set METRICS_TOKEN_REFERENCE}
+  breero_grafana_password:
+    file: ${GRAFANA_PASSWORD_REFERENCE:?Set GRAFANA_PASSWORD_REFERENCE}

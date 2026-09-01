@@ -175,3 +175,47 @@ def test_staging_allows_canonical_breero_middleware_tenant():
     )
 
     assert settings.middleware_tenant == "breero"
+
+
+def _production_secret_files(tmp_path):
+    def secret(name: str, value: str) -> str:
+        path = tmp_path / name
+        path.write_text(value, encoding="ascii")
+        return str(path)
+
+    return {
+        "database_url_file": secret(
+            "db", "postgresql+psycopg://breero:strong-password@postgres:5432/breero"
+        ),
+        "redis_url_file": secret("redis", "redis://:strong-password@redis:6379/0"),
+        "jwt_secret_file": secret("jwt", "a" * 40),
+        "jwt_refresh_secret_file": secret("jwt-refresh", "b" * 40),
+    }
+
+
+def test_production_requires_a_metrics_token_while_metrics_are_enabled(tmp_path):
+    with pytest.raises(ValidationError, match="METRICS_TOKEN"):
+        Settings(
+            app_env="production",
+            cors_origins="https://breero.com",
+            metrics_enabled=True,
+            **_production_secret_files(tmp_path),
+        )
+
+
+def test_metrics_token_is_not_required_when_metrics_are_off(tmp_path):
+    def secret(name: str, value: str) -> str:
+        path = tmp_path / name
+        path.write_text(value, encoding="ascii")
+        return str(path)
+
+    settings = Settings(
+        app_env="production",
+        database_url_file=secret("db", "postgresql+psycopg://breero:strong-password@postgres:5432/breero"),
+        redis_url_file=secret("redis", "redis://:strong-password@redis:6379/0"),
+        jwt_secret_file=secret("jwt", "a" * 40),
+        jwt_refresh_secret_file=secret("jwt-refresh", "b" * 40),
+        cors_origins="https://breero.com",
+        metrics_enabled=False,
+    )
+    assert settings.metrics_enabled is False

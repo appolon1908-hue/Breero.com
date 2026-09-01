@@ -49,6 +49,7 @@ jobs:
           JWT_SECRET_REFERENCE: /tmp/breero-jwt-access
           JWT_REFRESH_SECRET_REFERENCE: /tmp/breero-jwt-refresh
           GEOAPIFY_API_KEY_REFERENCE: /tmp/breero-geoapify
+          METRICS_TOKEN_REFERENCE: /tmp/breero-metrics-token
           POSTGRES_PASSWORD_REFERENCE: /tmp/breero-postgres-password
           REDIS_PASSWORD_REFERENCE: /tmp/breero-redis-password
           BREERO_STAGING_API_IMAGE: ghcr.io/example/breero-api@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
@@ -61,12 +62,15 @@ jobs:
           STAGING_JWT_REFRESH_SECRET_REFERENCE: /tmp/breero-staging-jwt-refresh
           STAGING_POSTGRES_PASSWORD_REFERENCE: /tmp/breero-staging-postgres-password
           STAGING_REDIS_PASSWORD_REFERENCE: /tmp/breero-staging-redis-password
+          STAGING_METRICS_TOKEN_REFERENCE: /tmp/breero-staging-metrics-token
+          GRAFANA_PASSWORD_REFERENCE: /tmp/breero-grafana-password
         run: |
           touch /tmp/breero-database-url \
                 /tmp/breero-redis-url \
                 /tmp/breero-jwt-access \
                 /tmp/breero-jwt-refresh \
                 /tmp/breero-geoapify \
+                /tmp/breero-metrics-token \
                 /tmp/breero-postgres-password \
                 /tmp/breero-redis-password \
                 /tmp/breero-staging-database-url \
@@ -74,9 +78,19 @@ jobs:
                 /tmp/breero-staging-jwt-access \
                 /tmp/breero-staging-jwt-refresh \
                 /tmp/breero-staging-postgres-password \
-                /tmp/breero-staging-redis-password
+                /tmp/breero-staging-redis-password \
+                /tmp/breero-staging-metrics-token \n                /tmp/breero-grafana-password
           docker compose -f deploy/production/docker-compose.backend.yml config --quiet
           docker compose -f deploy/staging/docker-compose.backend.yml config --quiet
+          docker compose -f deploy/observability/docker-compose.observability.yml config --quiet
+      - name: Validate Prometheus rules and scrape config
+        # Alert rules are code. Without this, a typo in an expression is only
+        # discovered when the alert it was supposed to raise fails to fire.
+        run: |
+          docker run --rm -v "$PWD/deploy/observability:/rules:ro" \
+            --entrypoint promtool prom/prometheus:v3.1.0 \
+            check rules /rules/alerts.yml
+        working-directory: .
       - run: ruff check .
       - run: mypy app
       - name: Structural layering contracts

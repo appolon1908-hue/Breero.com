@@ -1,0 +1,21 @@
+# Routing is intentionally minimal: one receiver, grouped so a scheduler outage does
+# not arrive as four separate pages for four stalled tasks.
+global:
+  resolve_timeout: 5m
+
+route:
+  group_by: [alertname, severity]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  receiver: default
+  routes:
+    - matchers: [severity = "critical"]
+      receiver: default
+      repeat_interval: 1h
+
+receivers:
+  - name: default
+    # Configure a real destination before relying on this stack. Left empty on
+    # purpose rather than pointing at a placeholder that would silently swallow pages.
+    webhook_configs: []
