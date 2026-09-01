@@ -1848,8 +1848,11 @@ export interface components {
             booking_status: components["schemas"]["BookingStatus"];
             /** Currency */
             currency: string;
-            /** Next Action */
-            next_action: string;
+            /**
+             * Next Action
+             * @enum {string}
+             */
+            next_action: "confirmed" | "retry_payment" | "booking_unavailable" | "await_payment_confirmation";
             /** Payment Status */
             payment_status: string;
             /** Reference */
@@ -2488,10 +2491,21 @@ export interface components {
              */
             worker_id: string;
         };
-        /** Page */
-        Page: {
+        /** Page[BookingResponse] */
+        Page_BookingResponse_: {
             /** Items */
-            items: unknown[];
+            items: components["schemas"]["BookingResponse"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+        };
+        /** Page[WorkRequestRead] */
+        Page_WorkRequestRead_: {
+            /** Items */
+            items: components["schemas"]["WorkRequestRead"][];
             /** Page */
             page: number;
             /** Page Size */
@@ -3249,6 +3263,15 @@ export interface components {
             /** Reviews */
             reviews: boolean;
         };
+        /** QuestionOption */
+        QuestionOption: {
+            /** Description */
+            description?: string | null;
+            /** Label */
+            label: string;
+            /** Value */
+            value: string;
+        };
         /** QuestionRead */
         QuestionRead: {
             /** Help Text */
@@ -3263,9 +3286,7 @@ export interface components {
             /** Label */
             label: string;
             /** Options */
-            options: {
-                [key: string]: unknown;
-            }[] | null;
+            options: components["schemas"]["QuestionOption"][] | null;
             question_type: components["schemas"]["QuestionType"];
             /** Required */
             required: boolean;
@@ -3290,9 +3311,7 @@ export interface components {
             /** Label */
             label: string;
             /** Options */
-            options?: {
-                [key: string]: unknown;
-            }[] | null;
+            options?: components["schemas"]["QuestionOption"][] | null;
             question_type: components["schemas"]["QuestionType"];
             /**
              * Required
@@ -3949,7 +3968,7 @@ export interface components {
              */
             job_id: string;
             /** Line Items */
-            line_items: unknown[];
+            line_items: components["schemas"]["WorkLineItem"][];
             status: components["schemas"]["WorkRequestStatus"];
             /** Subtotal Minor */
             subtotal_minor: number;
@@ -5714,7 +5733,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Page"];
+                    "application/json": components["schemas"]["Page_BookingResponse_"];
                 };
             };
             /** @description Validation Error */
@@ -5861,7 +5880,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Page"];
+                    "application/json": components["schemas"]["Page_WorkRequestRead_"];
                 };
             };
             /** @description Validation Error */

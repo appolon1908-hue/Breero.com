@@ -395,6 +395,12 @@
             "type": "string"
           },
           "next_action": {
+            "enum": [
+              "confirmed",
+              "retry_payment",
+              "booking_unavailable",
+              "await_payment_confirmation"
+            ],
             "title": "Next Action",
             "type": "string"
           },
@@ -1977,10 +1983,12 @@
         "title": "OperatorBookingConfirmation",
         "type": "object"
       },
-      "Page": {
+      "Page_BookingResponse_": {
         "properties": {
           "items": {
-            "items": {},
+            "items": {
+              "$ref": "#/components/schemas/BookingResponse"
+            },
             "title": "Items",
             "type": "array"
           },
@@ -2003,7 +2011,38 @@
           "page",
           "page_size"
         ],
-        "title": "Page",
+        "title": "Page[BookingResponse]",
+        "type": "object"
+      },
+      "Page_WorkRequestRead_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/WorkRequestRead"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "page_size"
+        ],
+        "title": "Page[WorkRequestRead]",
         "type": "object"
       },
       "PortalContext": {
@@ -3942,6 +3981,40 @@
         "title": "PublicCapabilities",
         "type": "object"
       },
+      "QuestionOption": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "label": {
+            "maxLength": 240,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "value": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value",
+          "label"
+        ],
+        "title": "QuestionOption",
+        "type": "object"
+      },
       "QuestionRead": {
         "properties": {
           "help_text": {
@@ -3972,8 +4045,7 @@
             "anyOf": [
               {
                 "items": {
-                  "additionalProperties": true,
-                  "type": "object"
+                  "$ref": "#/components/schemas/QuestionOption"
                 },
                 "type": "array"
               },
@@ -4061,8 +4133,7 @@
             "anyOf": [
               {
                 "items": {
-                  "additionalProperties": true,
-                  "type": "object"
+                  "$ref": "#/components/schemas/QuestionOption"
                 },
                 "type": "array"
               },
@@ -5886,7 +5957,9 @@
             "type": "string"
           },
           "line_items": {
-            "items": {},
+            "items": {
+              "$ref": "#/components/schemas/WorkLineItem"
+            },
             "title": "Line Items",
             "type": "array"
           },
@@ -8856,7 +8929,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Page"
+                  "$ref": "#/components/schemas/Page_BookingResponse_"
                 }
               }
             },
@@ -9083,7 +9156,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Page"
+                  "$ref": "#/components/schemas/Page_WorkRequestRead_"
                 }
               }
             },
