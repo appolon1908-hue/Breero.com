@@ -23,6 +23,10 @@
 *.mp4  binary
 *.zip  binary
 
-# Generated; keep it out of language statistics and diff review.
-pnpm-lock.yaml     linguist-generated=true -diff
-apps/api/openapi.json linguist-generated=true -diff
+# Generated: collapsed by default in review and excluded from language stats.
+# Deliberately NOT `-diff`. That marks a file binary and hides its diff outright,
+# which is exactly backwards for these two: the lockfile diff is how an unexpected
+# transitive dependency gets spotted, and openapi.json is the API contract the
+# frontend is checked against. Both must stay readable when expanded.
+pnpm-lock.yaml        linguist-generated=true
+apps/api/openapi.json linguist-generated=true
