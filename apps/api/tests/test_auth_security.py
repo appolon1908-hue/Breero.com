@@ -81,8 +81,11 @@ async def test_access_token_round_trip_has_strict_registered_claims() -> None:
 @pytest.mark.asyncio
 async def test_tampered_access_token_is_rejected() -> None:
     token = create_access_token(uuid.uuid4(), "customer")
+    header, payload, signature = token.split(".")
+    signature = ("A" if signature[0] != "A" else "B") + signature[1:]
+    tampered = ".".join((header, payload, signature))
     with pytest.raises(HTTPException) as error:
-        await decode_access_token(token[:-1] + ("a" if token[-1] != "a" else "b"))
+        await decode_access_token(tampered)
     assert error.value.status_code == 401
 
 
@@ -109,7 +112,7 @@ async def test_wrong_local_token_issuer_or_audience_is_rejected() -> None:
 
 @pytest.mark.asyncio
 async def test_exact_legacy_local_token_shape_survives_rolling_release() -> None:
-    now = min(int(time.time()), security._LOCAL_TOKEN_COMPATIBILITY_CUTOFF)
+    now = min(int(time.time()), security._LOCAL_TOKEN_COMPATIBILITY_DEADLINE)
     user_id = uuid.uuid4()
     token = jwt.encode(
         {
