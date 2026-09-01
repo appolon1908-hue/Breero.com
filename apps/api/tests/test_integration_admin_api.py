@@ -90,10 +90,8 @@ async def test_park_operation_commits_audited_before_after_evidence(monkeypatch)
         "OutboxService",
         lambda _session: SimpleNamespace(park_unconfigured=park),
     )
-    session = SimpleNamespace(add=pytest.Mock() if hasattr(pytest, "Mock") else None)
     added = []
-    session.add = added.append
-    session.commit = AsyncMock()
+    session = SimpleNamespace(add=added.append, commit=AsyncMock())
     actor_id = uuid.uuid4()
     actor = cast(User, SimpleNamespace(id=actor_id))
 
