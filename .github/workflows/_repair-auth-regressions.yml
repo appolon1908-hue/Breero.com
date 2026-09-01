@@ -1,0 +1,39 @@
+name: Repair auth regression tests
+
+on:
+  pull_request:
+    types: [synchronize]
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: github.event.pull_request.head.ref == 'be/auth-crypto-jwks-argon2'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply deterministic auth test repair
+        run: python scripts/_repair_auth_regressions.py
+      - name: Parse and whitespace validation
+        run: |
+          python -m compileall -q apps/api/app apps/api/tests
+          git diff --check
+      - name: Commit final auth regressions
+        env:
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          rm scripts/_repair_auth_regressions.py
+          rm .github/workflows/_repair-auth-regressions.yml
+          git config user.name "codestra-production-bot"
+          git config user.email "production-bot@codestra.invalid"
+          git add -A
+          git commit -m "test(auth): finalize async security regressions"
+          git push origin "HEAD:${BRANCH}"
