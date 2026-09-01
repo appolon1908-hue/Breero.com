@@ -5,7 +5,6 @@ import { type ChangeEvent, type FormEvent, useState } from "react";
 import {
   DataTable,
   formatDate,
-  formatLabel,
   PortalConfirmForm,
   PortalError,
   PortalLoading,
@@ -21,25 +20,25 @@ import type { ListResponse, PostalCode, ServiceZone } from "./admin-types";
 
 export function GeographyPanel({ onChanged }: { onChanged: () => void }) {
   const zones = usePortalQuery<ListResponse<ServiceZone>>(
-    "/admin/service-zones?include_inactive=true&limit=200",
+    "/admin/service-zones?page=1&page_size=100",
   );
   const postal = usePortalQuery<ListResponse<PostalCode>>(
-    "/admin/postal-codes?include_inactive=true&limit=500",
+    "/admin/postal-codes?page=1&page_size=100",
   );
   const { request } = usePortalSession();
   const [zoneForm, setZoneForm] = useState({
+    legal_entity_id: "",
     name: "",
     country_code: "US",
-    timezone_name: "America/New_York",
-    boundary: "",
+    state_code: "",
+    city: "",
+    boundary_geojson: "",
   });
   const [postalForm, setPostalForm] = useState({
-    service_zone_id: "",
-    country_code: "US",
+    service_area_id: "",
     postal_code: "",
     city: "",
-    state_region: "",
-    timezone_name: "America/New_York",
+    state_code: "",
     active: true,
   });
   const [message, setMessage] = useState("");
@@ -51,13 +50,23 @@ export function GeographyPanel({ onChanged }: { onChanged: () => void }) {
     event.preventDefault();
     setError("");
     try {
-      const boundary = JSON.parse(zoneForm.boundary) as Record<string, unknown>;
+      const boundaryGeojson = JSON.parse(zoneForm.boundary_geojson) as Record<string, unknown>;
       await request<ServiceZone>("/admin/service-zones", {
         method: "POST",
-        body: JSON.stringify({ ...zoneForm, boundary, active: false }),
+        body: JSON.stringify({
+          legal_entity_id: zoneForm.legal_entity_id,
+          name: zoneForm.name,
+          country_code: zoneForm.country_code,
+          state_code: zoneForm.state_code || null,
+          city: zoneForm.city || null,
+          boundary_geojson: boundaryGeojson,
+          active: false,
+          regular_service_enabled: true,
+          emergency_enabled: false,
+        }),
       });
       setMessage("Service zone created inactive for review.");
-      setZoneForm({ ...zoneForm, name: "", boundary: "" });
+      setZoneForm({ ...zoneForm, name: "", boundary_geojson: "" });
       zones.retry();
       onChanged();
     } catch (reason) {
@@ -70,6 +79,7 @@ export function GeographyPanel({ onChanged }: { onChanged: () => void }) {
     try {
       await request<ServiceZone>(`/admin/service-zones/${zone.id}`, {
         method: "PATCH",
+        headers: { "If-Match": String(zone.version) },
         body: JSON.stringify({ active: !zone.active }),
       });
       setMessage(`${zone.name} ${zone.active ? "deactivated" : "activated"}.`);
@@ -82,21 +92,26 @@ export function GeographyPanel({ onChanged }: { onChanged: () => void }) {
     }
   }
 
-  async function upsertPostal(event: FormEvent<HTMLFormElement>) {
+  async function createPostal(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
     try {
       await request<PostalCode>("/admin/postal-codes", {
-        method: "PUT",
+        method: "POST",
         body: JSON.stringify({
-          ...postalForm,
+          service_area_id: postalForm.service_area_id,
+          postal_code: postalForm.postal_code,
           city: postalForm.city || null,
-          state_region: postalForm.state_region || null,
+          state_code: postalForm.state_code || null,
+          active: postalForm.active,
+          regular_service_enabled: true,
+          emergency_service_enabled: false,
         }),
       });
-      setMessage(`${postalForm.postal_code} saved to active service coverage.`);
-      setPostalForm({ ...postalForm, postal_code: "", city: "", state_region: "" });
+      setMessage(`${postalForm.postal_code} added to service coverage.`);
+      setPostalForm({ ...postalForm, postal_code: "", city: "", state_code: "" });
       postal.retry();
+      zones.retry();
       onChanged();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Unable to save postal coverage");
@@ -106,10 +121,14 @@ export function GeographyPanel({ onChanged }: { onChanged: () => void }) {
   async function removePostal(item: PostalCode) {
     setError("");
     try {
-      await request<void>(`/admin/postal-codes/${item.id}`, { method: "DELETE" });
+      await request<void>(`/admin/postal-codes/${item.id}`, {
+        method: "DELETE",
+        headers: { "If-Match": String(item.version) },
+      });
       setMessage(`${item.postal_code} removed from active coverage.`);
       setPendingPostal(null);
       postal.retry();
+      zones.retry();
       onChanged();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Unable to remove postal coverage");
@@ -126,8 +145,19 @@ export function GeographyPanel({ onChanged }: { onChanged: () => void }) {
           <strong>{item.name}</strong>
           <br />
           <small>
-            {item.country_code} · {item.timezone_name}
+            {item.country_code ?? "—"} · {item.state_code ?? "All states"} · version {item.version}
           </small>
+        </span>
+      ),
+    },
+    {
+      key: "coverage",
+      label: "Coverage",
+      render: (item) => (
+        <span>
+          {item.boundary_configured ? "GeoJSON boundary" : "Selector based"}
+          <br />
+          <small>{item.postal_codes.length} postal codes · {item.service_ids.length} services</small>
         </span>
       ),
     },
@@ -158,7 +188,7 @@ export function GeographyPanel({ onChanged }: { onChanged: () => void }) {
           <strong>{item.postal_code}</strong>
           <br />
           <small>
-            {item.city ?? "—"}, {item.state_region ?? "—"}
+            {item.city ?? "—"}, {item.state_code ?? "—"}
           </small>
         </span>
       ),
@@ -166,9 +196,11 @@ export function GeographyPanel({ onChanged }: { onChanged: () => void }) {
     {
       key: "zone",
       label: "Service zone",
-      render: (item) => zones.data?.items.find((zone) => zone.id === item.service_zone_id)?.name ?? item.service_zone_id,
+      render: (item) =>
+        zones.data?.items.find((zone) => zone.id === item.service_area_id)?.name ??
+        item.service_area_id,
     },
-    { key: "timezone", label: "Timezone", render: (item) => item.timezone_name },
+    { key: "priority", label: "Priority", compact: true, render: (item) => item.priority },
     {
       key: "state",
       label: "State",
@@ -205,11 +237,22 @@ export function GeographyPanel({ onChanged }: { onChanged: () => void }) {
           subtitle="New boundaries are created inactive and require a separate activation decision."
         >
           <form className="portal-form-grid" onSubmit={(event) => void createZone(event)}>
+            <label className="portal-form-span">
+              Legal entity ID
+              <input
+                required
+                value={zoneForm.legal_entity_id}
+                onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                  setZoneForm({ ...zoneForm, legal_entity_id: event.target.value })
+                }
+                placeholder="Canonical legal-entity UUID"
+              />
+            </label>
             <label>
               Zone name
               <input
                 required
-                maxLength={120}
+                maxLength={160}
                 value={zoneForm.name}
                 onChange={(event: ChangeEvent<HTMLInputElement>) =>
                   setZoneForm({ ...zoneForm, name: event.target.value })
@@ -228,14 +271,24 @@ export function GeographyPanel({ onChanged }: { onChanged: () => void }) {
                 }
               />
             </label>
-            <label className="portal-form-span">
-              Timezone
+            <label>
+              State code (optional)
               <input
-                required
-                maxLength={64}
-                value={zoneForm.timezone_name}
+                minLength={2}
+                maxLength={3}
+                value={zoneForm.state_code}
                 onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                  setZoneForm({ ...zoneForm, timezone_name: event.target.value })
+                  setZoneForm({ ...zoneForm, state_code: event.target.value.toUpperCase() })
+                }
+              />
+            </label>
+            <label>
+              City (optional)
+              <input
+                maxLength={120}
+                value={zoneForm.city}
+                onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                  setZoneForm({ ...zoneForm, city: event.target.value })
                 }
               />
             </label>
@@ -243,9 +296,9 @@ export function GeographyPanel({ onChanged }: { onChanged: () => void }) {
               GeoJSON Polygon or MultiPolygon
               <textarea
                 required
-                value={zoneForm.boundary}
+                value={zoneForm.boundary_geojson}
                 onChange={(event: ChangeEvent<HTMLTextAreaElement>) =>
-                  setZoneForm({ ...zoneForm, boundary: event.target.value })
+                  setZoneForm({ ...zoneForm, boundary_geojson: event.target.value })
                 }
               />
             </label>
@@ -268,16 +321,16 @@ export function GeographyPanel({ onChanged }: { onChanged: () => void }) {
         </PortalSection>
         <PortalSection
           title="Postal fallback coverage"
-          subtitle="Postal records must reference a canonical service zone and timezone."
+          subtitle="Postal records reference the canonical service-zone authority."
         >
-          <form className="portal-form-grid" onSubmit={(event) => void upsertPostal(event)}>
+          <form className="portal-form-grid" onSubmit={(event) => void createPostal(event)}>
             <label className="portal-form-span">
               Service zone
               <select
                 required
-                value={postalForm.service_zone_id}
+                value={postalForm.service_area_id}
                 onChange={(event: ChangeEvent<HTMLSelectElement>) =>
-                  setPostalForm({ ...postalForm, service_zone_id: event.target.value })
+                  setPostalForm({ ...postalForm, service_area_id: event.target.value })
                 }
               >
                 <option value="">Choose service zone</option>
@@ -292,7 +345,7 @@ export function GeographyPanel({ onChanged }: { onChanged: () => void }) {
               Postal code
               <input
                 required
-                maxLength={16}
+                maxLength={10}
                 value={postalForm.postal_code}
                 onChange={(event: ChangeEvent<HTMLInputElement>) =>
                   setPostalForm({ ...postalForm, postal_code: event.target.value.toUpperCase() })
@@ -300,20 +353,9 @@ export function GeographyPanel({ onChanged }: { onChanged: () => void }) {
               />
             </label>
             <label>
-              Country
-              <input
-                required
-                minLength={2}
-                maxLength={2}
-                value={postalForm.country_code}
-                onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                  setPostalForm({ ...postalForm, country_code: event.target.value.toUpperCase() })
-                }
-              />
-            </label>
-            <label>
               City
               <input
+                maxLength={120}
                 value={postalForm.city}
                 onChange={(event: ChangeEvent<HTMLInputElement>) =>
                   setPostalForm({ ...postalForm, city: event.target.value })
@@ -321,28 +363,19 @@ export function GeographyPanel({ onChanged }: { onChanged: () => void }) {
               />
             </label>
             <label>
-              State / region
+              State code
               <input
-                value={postalForm.state_region}
+                minLength={2}
+                maxLength={3}
+                value={postalForm.state_code}
                 onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                  setPostalForm({ ...postalForm, state_region: event.target.value })
-                }
-              />
-            </label>
-            <label className="portal-form-span">
-              Timezone
-              <input
-                required
-                maxLength={64}
-                value={postalForm.timezone_name}
-                onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                  setPostalForm({ ...postalForm, timezone_name: event.target.value })
+                  setPostalForm({ ...postalForm, state_code: event.target.value.toUpperCase() })
                 }
               />
             </label>
             <div className="portal-form-span">
               <button className="portal-button portal-button--primary" type="submit">
-                Save postal coverage
+                Add postal coverage
               </button>
             </div>
           </form>
