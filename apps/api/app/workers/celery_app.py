@@ -2,7 +2,6 @@ from collections.abc import Mapping
 from typing import Any
 
 from celery import Celery
-from celery.signals import beat_init
 
 from app.config import settings
 
