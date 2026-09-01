@@ -26,6 +26,7 @@ from app.domains.auth.security import (
     create_access_token,
     hash_password,
     hash_token,
+    needs_rehash,
     new_opaque_token,
     verify_password,
 )
@@ -55,7 +56,7 @@ class AuthService:
                 User(
                     email=email,
                     full_name=data.full_name.strip(),
-                    password_hash=hash_password(data.password),
+                    password_hash=await hash_password(data.password),
                     role=UserRole.customer,
                 )
             )
@@ -89,13 +90,19 @@ class AuthService:
         user = await self.users.by_email(data.email.lower())
         if (
             not user
-            or not verify_password(data.password, user.password_hash)
+            or not await verify_password(data.password, user.password_hash)
             or not user.is_active
         ):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid credentials",
             )
+        if needs_rehash(user.password_hash):
+            # Upgrade the stored credential in place now that the password is known
+            # to be correct. This retires PBKDF2 without a reset for anybody, and
+            # deliberately does not bump credential_version: the secret has not
+            # changed, so existing sessions stay valid.
+            user.password_hash = await hash_password(data.password)
         token = await self._tokens(user, user_agent, ip)
         self._audit(
             actor_id=user.id,
@@ -262,7 +269,7 @@ class AuthService:
         current: str,
         new: str,
     ) -> None:
-        if not verify_password(current, user.password_hash):
+        if not await verify_password(current, user.password_hash):
             raise HTTPException(
                 400,
                 "Current password is incorrect",
@@ -314,7 +321,7 @@ class AuthService:
         *,
         action: str,
     ) -> None:
-        user.password_hash = hash_password(password)
+        user.password_hash = await hash_password(password)
         user.credential_version += 1
         await self.session.execute(
             update(Session)

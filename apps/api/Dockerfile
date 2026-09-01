@@ -33,4 +33,8 @@ EXPOSE 8000
 HEALTHCHECK --interval=15s --timeout=3s --start-period=20s --retries=5 \
     CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=2)"]
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# --proxy-headers belongs in the image default, not in something each deployment
+# has to remember. Without it every caller shares the reverse proxy's address,
+# which collapses the rate limiter into one global bucket and records the proxy
+# in the auth, privacy-request and public-form audit trails.
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "172.16.0.0/12"]

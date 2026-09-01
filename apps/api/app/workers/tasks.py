@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.core.metrics import HEARTBEAT_TTL_SECONDS, heartbeat_key
-from app.db.session import SessionLocal
+from app.db.session import WorkerSessionLocal
 from app.domains.booking.models import EXPIRING_BOOKING_STATUSES, Booking, BookingStatus
 from app.domains.common.outbox_service import OutboxService
 from app.domains.finance.service import FinanceService
@@ -96,7 +96,7 @@ async def expire_booking_holds(session: AsyncSession, *, now: datetime) -> int:
 @heartbeat("expire_bookings")
 def expire_bookings() -> int:
     async def run() -> int:
-        async with SessionLocal() as session:
+        async with WorkerSessionLocal() as session:
             return await expire_booking_holds(session, now=datetime.now(UTC))
 
     return asyncio.run(run())
@@ -111,7 +111,7 @@ def expire_bookings() -> int:
 @heartbeat("publish_outbox")
 def publish_outbox() -> int:
     async def run() -> int:
-        async with SessionLocal() as session:
+        async with WorkerSessionLocal() as session:
             adapter = MiddlewareAdapter()
             email = EmailAdapter()
             tenant_email = TenantEmailDeliveryService(session)
@@ -160,7 +160,7 @@ def publish_outbox() -> int:
 @heartbeat("release_earnings")
 def release_earnings() -> int:
     async def run() -> int:
-        async with SessionLocal() as session:
+        async with WorkerSessionLocal() as session:
             return await FinanceService(session).release_eligible()
 
     return asyncio.run(run())
@@ -170,7 +170,7 @@ def release_earnings() -> int:
 @heartbeat("generate_weekly_payout_candidates")
 def generate_weekly_payout_candidates() -> str:
     async def run() -> str:
-        async with SessionLocal() as session:
+        async with WorkerSessionLocal() as session:
             try:
                 batch = await FinanceService(session).create_batch("USD")
                 return str(batch.id)

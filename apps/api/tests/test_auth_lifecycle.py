@@ -12,7 +12,7 @@ from app.domains.auth.models import (
     User,
     UserRole,
 )
-from app.domains.auth.security import hash_password, verify_password
+from app.domains.auth.security import hash_password_sync, verify_password_sync
 from app.domains.auth.service import AuthService
 
 
@@ -35,7 +35,7 @@ def user() -> User:
         id=uuid.uuid4(),
         email="customer@example.com",
         full_name="Test Customer",
-        password_hash=hash_password("old-password-123"),
+        password_hash=hash_password_sync("old-password-123"),
         role=UserRole.customer,
         is_active=True,
         email_verified=True,
@@ -134,7 +134,7 @@ async def test_valid_password_reset_invalidates_credentials(service: AuthService
     await service.reset_password("reset-token-that-is-long-enough", "new-password-123")
     assert token.used_at is not None
     assert account.credential_version == 2
-    assert verify_password("new-password-123", account.password_hash)
+    assert verify_password_sync("new-password-123", account.password_hash)
 
 
 @pytest.mark.asyncio

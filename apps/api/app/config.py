@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     jwt_refresh_secret: str = "development-only-change-me-too"
     jwt_refresh_secret_file: str = ""
     jwt_algorithm: str = "HS256"
+    jwt_issuer: str = "https://api.breero.com"
+    jwt_audience: str = "breero-api"
     keycloak_enabled: bool = False
     keycloak_issuer: str = ""
     keycloak_audience: str = "breero-api-production"

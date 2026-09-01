@@ -61,6 +61,11 @@ The outbox simply stopped being published and booking holds stopped being releas
 and with capacity fixed at one appointment per interval, the schedule quietly fills up
 and stops offering appointments.
 
+Both files now define a `scheduler`, and `test_a_topology_with_a_worker_also_runs_beat`
+asserts that every compose file defining a Celery worker also runs beat. The heartbeat
+below is the second line of defence: the topology can be right and the process can
+still be dead.
+
 Each periodic task stamps `breero:heartbeat:<task>` in Redis **after it succeeds**. The
 worker and the API are separate containers, so the signal cannot be an in-process
 gauge. A task that raises leaves the previous timestamp alone and lets its age climb: a
