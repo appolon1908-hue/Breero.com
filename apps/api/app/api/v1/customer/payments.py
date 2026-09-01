@@ -39,13 +39,21 @@ async def refunded_amount(session: AsyncSession, payment_id: uuid.UUID) -> int:
     )
 
 
-@router.get("/payments", response_model=Page)
+async def payment_read(session: AsyncSession, payment: Payment) -> CustomerPaymentRead:
+    view = PaymentView.model_validate(payment).model_dump()
+    return CustomerPaymentRead(
+        **view,
+        refunded_amount_minor=await refunded_amount(session, payment.id),
+    )
+
+
+@router.get("/payments", response_model=Page[CustomerPaymentRead])
 async def payments(
     user: Annotated[User, Depends(current_user)],
     session: Annotated[AsyncSession, Depends(get_db)],
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
-) -> Page:
+) -> Page[CustomerPaymentRead]:
     customer = await customer_for(session, user)
     owned = owned_payments_query(customer.id)
     items, total = await paginate(
@@ -55,21 +63,12 @@ async def payments(
         page,
         page_size,
     )
-    result = []
-    for item in items:
-        result.append(
-            {
-                "id": str(item.id),
-                "payment_purpose": item.payment_purpose.value,
-                "status": item.status.value,
-                "amount_minor": item.amount_minor,
-                "captured_amount_minor": item.captured_amount_minor,
-                "refunded_amount_minor": await refunded_amount(session, item.id),
-                "currency": item.currency,
-                "created_at": item.created_at.isoformat(),
-            }
-        )
-    return Page(items=result, total=total, page=page, page_size=page_size)
+    return Page[CustomerPaymentRead](
+        items=[await payment_read(session, item) for item in items],
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
 
 
 @router.get("/payments/{payment_id}", response_model=CustomerPaymentRead)
@@ -84,9 +83,4 @@ async def payment(
     )
     if not item:
         raise HTTPException(404, "Payment not found")
-
-    view = PaymentView.model_validate(item).model_dump()
-    return CustomerPaymentRead(
-        **view,
-        refunded_amount_minor=await refunded_amount(session, item.id),
-    )
+    return await payment_read(session, item)
