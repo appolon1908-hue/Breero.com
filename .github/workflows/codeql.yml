@@ -1,0 +1,53 @@
+name: CodeQL
+
+# First-party static analysis. The supply chain is already scanned thoroughly
+# (pip-audit, pnpm audit, Trivy secrets, Trivy container); this covers the code in
+# this repository, which nothing else did.
+#
+# Deliberately a standalone workflow rather than a job inside the required quality
+# gate: CodeQL needs GitHub Advanced Security on a private repository, and a merge
+# gate that depends on an entitlement is a gate that blocks for the wrong reason.
+# Promote it to a required check once a run has gone green.
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+  schedule:
+    # Catches newly published query-pack rules against unchanged code.
+    - cron: "23 4 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: Analyze ${{ matrix.language }}
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      packages: read
+      actions: read
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: python
+            build-mode: none
+          - language: javascript-typescript
+            build-mode: none
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+          queries: security-and-quality
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"

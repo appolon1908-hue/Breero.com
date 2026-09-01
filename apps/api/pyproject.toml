@@ -34,8 +34,10 @@ include = ["app*"]
 dev = [
   "pytest>=9.0.3,<10.0",
   "pytest-asyncio>=1.3,<2.0",
+  "pytest-cov>=6.0,<8.0",
   "ruff>=0.9,<1.0",
   "mypy>=1.14,<2.0",
+  "import-linter>=2.0,<3.0",
   "aiosqlite>=0.20,<1.0",
 ]
 
@@ -49,6 +51,22 @@ line-length = 100
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+
+# Coverage is NOT in addopts on purpose. The backend workflow runs several targeted
+# `pytest` invocations over subsets of the suite after the full run; a global
+# --cov-fail-under would fail every one of them for covering less than the whole
+# suite. The threshold is applied to the full run only, in the workflow.
+[tool.coverage.run]
+source = ["app"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+exclude_also = [
+  "if TYPE_CHECKING:",
+  "raise NotImplementedError",
+  "\\.\\.\\.",
+]
 
 [[tool.mypy.overrides]]
 module = ["celery", "celery.*"]

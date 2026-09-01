@@ -2,14 +2,17 @@ import hashlib
 import json
 import uuid
 from datetime import UTC, datetime
-from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domains.booking.models import Booking, BookingStatus
-from app.domains.common.outbox import AuditLog, EventStatus, IntegrationEvent
+from app.domains.common.command_context import CommandContext
+from app.domains.common.domain_event import DomainEvent
+from app.domains.common.money import Money
+from app.domains.common.outbox import AuditLog, IntegrationEvent
+from app.domains.common.outbox_service import to_integration_event
 from app.domains.jobs.models import Job, JobEvent, JobStatus, WorkRequest, WorkRequestStatus
 from app.domains.jobs.service import JobService
 from app.integrations.stripe import PaymentProvider
@@ -44,7 +47,10 @@ class PaymentService:
         self.repo = PaymentRepository(session)
         self.provider = provider
 
-    async def create_intent(self, payload: PaymentIntentCreate, key: str) -> PaymentView:
+    async def create_intent(
+        self, payload: PaymentIntentCreate, context: CommandContext
+    ) -> PaymentView:
+        key = self._require_idempotency_key(context)
         if payload.payment_purpose == PaymentPurpose.PROFESSIONAL_LEAD:
             raise InvalidPaymentState("Professional lead payments must use the provider purchase endpoint")
         request = payload.model_dump(mode="json")
@@ -70,12 +76,8 @@ class PaymentService:
             )
             if not booking:
                 raise PaymentNotFound("Booking not found")
-            expected_minor = int(
-                (booking.total_amount * Decimal(100)).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
-            )
-            if (
-                payload.amount_minor != expected_minor
-                or payload.currency.upper() != booking.currency.upper()
+            if Money.from_minor(payload.amount_minor, payload.currency) != Money(
+                booking.total_amount, booking.currency
             ):
                 raise InvalidPaymentState("Payment amount or currency does not match the booking")
             if booking.status != BookingStatus.PENDING_PAYMENT:
@@ -91,9 +93,8 @@ class PaymentService:
                 raise PaymentNotFound("Quote not found")
             if quote.status != WorkRequestStatus.APPROVED_PENDING_PAYMENT:
                 raise InvalidPaymentState("Quote is not awaiting payment")
-            if (
-                payload.amount_minor != quote.total_minor
-                or payload.currency.upper() != quote.currency.upper()
+            if Money.from_minor(payload.amount_minor, payload.currency) != Money.from_minor(
+                quote.total_minor, quote.currency
             ):
                 raise InvalidPaymentState("Payment amount or currency does not match the quote")
             metadata["quote_id"] = str(quote.id)
@@ -183,8 +184,9 @@ class PaymentService:
         return self._view(payment)
 
     async def capture(
-        self, payment_id: uuid.UUID, amount_minor: int | None, key: str
+        self, payment_id: uuid.UUID, amount_minor: int | None, context: CommandContext
     ) -> PaymentView:
+        key = self._require_idempotency_key(context)
         payment = await self.repo.get(payment_id, lock=True)
         if payment is None:
             raise PaymentNotFound("Payment not found")
@@ -200,11 +202,13 @@ class PaymentService:
         payment.status = STRIPE_STATUS.get(intent.status, payment.status)
         payment.captured_amount_minor = intent.amount_received
         if payment.status == PaymentStatus.CAPTURED:
-            await self._settle(payment)
+            await self._settle(payment, context)
         await self.session.commit()
         return self._view(payment)
 
-    async def process_webhook(self, body: bytes, signature: str) -> tuple[str, bool]:
+    async def process_webhook(
+        self, body: bytes, signature: str, context: CommandContext
+    ) -> tuple[str, bool]:
         event = self.provider.verify_webhook(body, signature)
         event_id, event_type = event["id"], event["type"]
         await self.repo.lock_key("stripe_event", event_id)
@@ -231,7 +235,7 @@ class PaymentService:
                         "amount_received", payment.captured_amount_minor
                     )
                     if payment.status == PaymentStatus.CAPTURED:
-                        await self._settle(payment)
+                        await self._settle(payment, context)
             elif obj.get("object") == "refund" and obj.get("id"):
                 refund = await self.repo.refund_by_provider_id(obj["id"])
                 if refund and obj.get("status") in {x.value for x in RefundStatus}:
@@ -299,10 +303,11 @@ class PaymentService:
         self,
         payment_id: uuid.UUID,
         amount_minor: int | None,
-        key: str,
-        actor_id: uuid.UUID,
         reason: str | None,
+        context: CommandContext,
     ) -> RefundView:
+        key = self._require_idempotency_key(context)
+        actor_id = self._require_actor(context)
         payment = await self.repo.get(payment_id, lock=True)
         if not payment or not payment.provider_payment_id:
             raise PaymentNotFound("Payment not found")
@@ -354,6 +359,7 @@ class PaymentService:
                     "reason": reason,
                     "provider_refund_id": provider_refund.id,
                     "provider_status": provider_status.value,
+                    **self._provenance(context),
                 },
                 created_at=datetime.now(UTC),
             )
@@ -367,25 +373,23 @@ class PaymentService:
             if payment.payment_purpose == PaymentPurpose.PROFESSIONAL_LEAD:
                 await self._mark_lead_purchase_refunded(payment)
         self.session.add(
-            IntegrationEvent(
-                aggregate_type="payment",
-                aggregate_id=payment.id,
-                event_type="refund_created",
-                payload={
+            self._event(
+                context,
+                "refund_created",
+                "payment",
+                payment.id,
+                {
                     "payment_id": str(payment.id),
                     "refund_id": str(refund.id),
                     "amount_minor": requested,
                 },
-                status=EventStatus.PENDING,
-                attempts=0,
-                available_at=datetime.now(UTC),
             )
         )
         await self.session.commit()
         await self.session.refresh(refund)
         return RefundView.model_validate(refund)
 
-    async def _settle(self, payment: Payment) -> None:
+    async def _settle(self, payment: Payment, context: CommandContext) -> None:
         if payment.payment_purpose == PaymentPurpose.PROFESSIONAL_LEAD:
             from app.domains.professional_leads.models import (
                 LeadPurchase,
@@ -430,16 +434,14 @@ class PaymentService:
                     "additional_work_payment_captured",
                 )
         else:
-            await self._confirm_booking_and_create_job(payment)
+            await self._confirm_booking_and_create_job(payment, context)
         self.session.add(
-            IntegrationEvent(
-                aggregate_type="payment",
-                aggregate_id=payment.id,
-                event_type="payment_captured",
-                payload={"payment_id": str(payment.id), "purpose": payment.payment_purpose.value},
-                status=EventStatus.PENDING,
-                attempts=0,
-                available_at=datetime.now(UTC),
+            self._event(
+                context,
+                "payment_captured",
+                "payment",
+                payment.id,
+                {"payment_id": str(payment.id), "purpose": payment.payment_purpose.value},
             )
         )
 
@@ -469,7 +471,9 @@ class PaymentService:
         if purchase and payment.status == PaymentStatus.REFUNDED:
             purchase.status = LeadPurchaseStatus.REFUNDED
 
-    async def _confirm_booking_and_create_job(self, payment: Payment) -> None:
+    async def _confirm_booking_and_create_job(
+        self, payment: Payment, context: CommandContext
+    ) -> None:
         booking = await self.session.scalar(
             select(Booking).where(Booking.id == payment.booking_id).with_for_update()
         )
@@ -506,16 +510,58 @@ class PaymentService:
                 )
             )
             self.session.add(
-                IntegrationEvent(
-                    aggregate_type="job",
-                    aggregate_id=job.id,
-                    event_type="job.created",
-                    payload={"job_id": str(job.id), "booking_id": str(booking.id)},
-                    status=EventStatus.PENDING,
-                    attempts=0,
-                    available_at=datetime.now(UTC),
+                self._event(
+                    context,
+                    "job.created",
+                    "job",
+                    job.id,
+                    {"job_id": str(job.id), "booking_id": str(booking.id)},
                 )
             )
+
+    @staticmethod
+    def _require_idempotency_key(context: CommandContext) -> str:
+        if not context.idempotency_key:
+            raise InvalidPaymentState("Idempotency-Key is required for this operation")
+        return context.idempotency_key
+
+    @staticmethod
+    def _require_actor(context: CommandContext) -> uuid.UUID:
+        """A refund is always attributable. ``Refund.created_by`` is NOT NULL, so an
+        actor-less context has to fail here rather than as an integrity error."""
+        if context.actor_id is None:
+            raise InvalidPaymentState("This operation requires an authenticated actor")
+        return context.actor_id
+
+    @staticmethod
+    def _provenance(context: CommandContext) -> dict[str, Any]:
+        """Request provenance for the audit trail: who asked, under which request."""
+        return {
+            "principal_type": context.principal_type,
+            "request_id": context.request_id,
+            "correlation_id": context.correlation_id,
+            "ip_address": context.ip_address,
+        }
+
+    @staticmethod
+    def _event(
+        context: CommandContext,
+        event_type: str,
+        aggregate_type: str,
+        aggregate_id: uuid.UUID,
+        payload: dict[str, Any],
+    ) -> IntegrationEvent:
+        return to_integration_event(
+            DomainEvent(
+                event_type=event_type,
+                aggregate_type=aggregate_type,
+                aggregate_id=aggregate_id,
+                aggregate_version=1,
+                occurred_at=datetime.now(UTC),
+                correlation_id=context.correlation_id,
+                payload=payload,
+            )
+        )
 
     @staticmethod
     def _hash(value: dict[str, Any]) -> str:

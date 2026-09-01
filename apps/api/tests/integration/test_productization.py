@@ -10,6 +10,7 @@ from app.config import settings
 from app.core.errors import DomainError
 from app.db.session import SessionLocal
 from app.domains.catalog.models import Service
+from app.domains.common.command_context import CommandContext
 from app.domains.common.outbox import EventStatus, IntegrationEvent
 from app.domains.payments.models import Payment, PaymentPurpose, PaymentStatus
 from app.domains.payments.schemas import ProviderIntent, ProviderRefund
@@ -209,7 +210,21 @@ async def test_leads_enforce_eligibility_purchase_idempotency_and_dispute_window
                 },
             }
         ).encode()
-        await payment_service.process_webhook(event, "fake-lead-signature")
+        await payment_service.process_webhook(
+            event,
+            "fake-lead-signature",
+            CommandContext(
+                actor_id=None,
+                principal_type="stripe-webhook",
+                tenant_id=None,
+                legal_entity_id=None,
+                idempotency_key=None,
+                request_id="req-lead-webhook",
+                correlation_id="corr-lead-webhook",
+                ip_address=None,
+                user_agent=None,
+            ),
+        )
         await session.refresh(purchase_row := await session.get(LeadPurchase, purchase["id"]))
         await session.refresh(lead)
         assert purchase_row.status == LeadPurchaseStatus.PAID

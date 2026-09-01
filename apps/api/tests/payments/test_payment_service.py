@@ -5,7 +5,8 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from app.domains.booking.models import Booking, BookingStatus
-from app.domains.common.outbox import AuditLog
+from app.domains.common.command_context import CommandContext
+from app.domains.common.outbox import AuditLog, IntegrationEvent
 from app.domains.jobs.models import WorkRequest, WorkRequestStatus
 from app.domains.payments.exceptions import IdempotencyConflict, InvalidPaymentState
 from app.domains.payments.models import (
@@ -18,6 +19,21 @@ from app.domains.payments.models import (
 )
 from app.domains.payments.schemas import PaymentIntentCreate, ProviderIntent, ProviderRefund
 from app.domains.payments.service import PaymentService
+
+
+def _context(key: str | None = None, actor_id: uuid.UUID | None = None) -> CommandContext:
+    """The request-scoped facts the HTTP layer hands to every payment command."""
+    return CommandContext(
+        actor_id=actor_id,
+        principal_type="user",
+        tenant_id=None,
+        legal_entity_id=None,
+        idempotency_key=key,
+        request_id="req-test-1",
+        correlation_id="corr-test-1",
+        ip_address="203.0.113.10",
+        user_agent="pytest",
+    )
 
 
 @pytest.fixture
@@ -55,7 +71,7 @@ async def test_create_intent_persists_provider_result(service: PaymentService) -
         status=BookingStatus.PENDING_PAYMENT,
     )
     result = await service.create_intent(
-        PaymentIntentCreate(booking_id=booking_id, amount_minor=12900), "request-key-123"
+        PaymentIntentCreate(booking_id=booking_id, amount_minor=12900), _context("request-key-123")
     )
 
     assert result.id == payment_id
@@ -72,7 +88,7 @@ async def test_idempotency_key_rejects_different_payload(service: PaymentService
     )
     with pytest.raises(IdempotencyConflict):
         await service.create_intent(
-            PaymentIntentCreate(booking_id=uuid.uuid4(), amount_minor=1000), "request-key-123"
+            PaymentIntentCreate(booking_id=uuid.uuid4(), amount_minor=1000), _context("request-key-123")
         )
 
 
@@ -86,7 +102,7 @@ async def test_capture_requires_authorization(service: PaymentService) -> None:
         status=PaymentStatus.CREATED,
     )
     with pytest.raises(InvalidPaymentState):
-        await service.capture(service.repo.get.return_value.id, None, "capture-key-123")
+        await service.capture(service.repo.get.return_value.id, None, _context("capture-key-123"))
 
 
 @pytest.mark.asyncio
@@ -104,7 +120,7 @@ async def test_duplicate_webhook_is_noop(service: PaymentService) -> None:
         status="processed",
     )
 
-    assert await service.process_webhook(b"{}", "signature") == ("evt_123", True)
+    assert await service.process_webhook(b"{}", "signature", _context()) == ("evt_123", True)
     service.repo.add_event.assert_not_awaited()
     service.session.commit.assert_not_awaited()
 
@@ -134,7 +150,7 @@ async def test_failed_payment_webhook_records_failure(service: PaymentService) -
     }
     service.repo.get_by_provider_id.return_value = payment
 
-    event_id, duplicate = await service.process_webhook(b"{}", "signature")
+    event_id, duplicate = await service.process_webhook(b"{}", "signature", _context())
 
     assert (event_id, duplicate) == ("evt_failed", False)
     assert payment.status == PaymentStatus.FAILED
@@ -165,7 +181,7 @@ async def test_webhook_settlement_failure_rolls_back_then_records_failed_event(
     service._settle = AsyncMock(side_effect=RuntimeError("forced settlement failure"))
 
     with pytest.raises(Exception, match="Webhook processing failed"):
-        await service.process_webhook(b"{}", "signature")
+        await service.process_webhook(b"{}", "signature", _context())
 
     service.session.rollback.assert_awaited_once()
     assert any(
@@ -205,7 +221,7 @@ async def test_quote_intent_requires_customer_approval(service: PaymentService) 
             amount_minor=2050,
             currency="usd",
         ),
-        "quote-payment-key",
+        _context("quote-payment-key"),
     )
     assert result.payment_purpose == PaymentPurpose.QUOTE_ADDITIONAL_WORK
     assert result.quote_id == quote_id
@@ -235,7 +251,10 @@ async def test_partial_refund_updates_payment(service: PaymentService) -> None:
         refund.created_at = datetime.now(UTC)
 
     service.session.refresh.side_effect = refresh
-    result = await service.refund(payment.id, 400, "refund-key-123", uuid.uuid4(), None)
+    actor_id = uuid.uuid4()
+    result = await service.refund(
+        payment.id, 400, None, _context("refund-key-123", actor_id=actor_id)
+    )
     assert result.amount_minor == 400
     assert result.status == RefundStatus.SUCCEEDED
     assert payment.status == PaymentStatus.PARTIALLY_REFUNDED
@@ -243,3 +262,69 @@ async def test_partial_refund_updates_payment(service: PaymentService) -> None:
         isinstance(call.args[0], AuditLog) and call.args[0].action == "refund.create"
         for call in service.session.add.call_args_list
     )
+
+
+@pytest.mark.asyncio
+async def test_refund_records_request_provenance_and_correlation(
+    service: PaymentService,
+) -> None:
+    """The command context must reach both the audit trail and the outbox.
+
+    Before CommandContext was threaded through, a refund's audit row recorded the
+    actor but nothing about the request, and the emitted integration event carried no
+    correlation id -- so a delivered event could not be tied back to the call.
+    """
+    payment = Payment(
+        id=uuid.uuid4(),
+        booking_id=uuid.uuid4(),
+        provider_payment_id="pi_456",
+        payment_purpose=PaymentPurpose.BOOKING_DIAGNOSTIC,
+        amount_minor=1000,
+        captured_amount_minor=1000,
+        currency="usd",
+        status=PaymentStatus.CAPTURED,
+    )
+    service.repo.get.return_value = payment
+    service.repo.refund_by_key.return_value = None
+    service.session.scalar.return_value = 0
+    service.provider.create_refund = AsyncMock(
+        return_value=ProviderRefund(id="re_456", status="succeeded")
+    )
+
+    async def refresh(refund) -> None:
+        refund.id = uuid.uuid4()
+        refund.created_at = datetime.now(UTC)
+
+    service.session.refresh.side_effect = refresh
+    actor_id = uuid.uuid4()
+    await service.refund(
+        payment.id, 400, "duplicate charge", _context("refund-key-456", actor_id=actor_id)
+    )
+
+    added = [call.args[0] for call in service.session.add.call_args_list]
+    audit = next(item for item in added if isinstance(item, AuditLog))
+    assert audit.metadata_json["request_id"] == "req-test-1"
+    assert audit.metadata_json["correlation_id"] == "corr-test-1"
+    assert audit.metadata_json["ip_address"] == "203.0.113.10"
+    assert audit.metadata_json["principal_type"] == "user"
+    assert audit.actor_id == actor_id
+
+    event = next(item for item in added if isinstance(item, IntegrationEvent))
+    assert event.event_type == "refund_created"
+    assert event.payload["correlation_id"] == "corr-test-1"
+
+
+@pytest.mark.asyncio
+async def test_commands_require_an_idempotency_key(service: PaymentService) -> None:
+    with pytest.raises(InvalidPaymentState, match="Idempotency-Key is required"):
+        await service.create_intent(
+            PaymentIntentCreate(booking_id=uuid.uuid4(), amount_minor=1000), _context()
+        )
+
+
+@pytest.mark.asyncio
+async def test_refund_requires_an_authenticated_actor(service: PaymentService) -> None:
+    # Refund.created_by is NOT NULL; an actor-less context must fail as a domain
+    # error rather than reaching the database.
+    with pytest.raises(InvalidPaymentState, match="requires an authenticated actor"):
+        await service.refund(uuid.uuid4(), 400, None, _context("refund-key-789"))

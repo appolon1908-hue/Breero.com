@@ -1,0 +1,42 @@
+# Router-purity ratchet -- see scripts/check_layering.py and
+# docs/architecture/system.md. Each line is a router that still builds its own
+# queries or reaches into an ORM model instead of delegating to a repository.
+#
+# This list may only shrink. Removing an entry is how a domain gets migrated;
+# adding one requires changing the checker, deliberately and in review.
+app/api/internal_odoo.py sqlalchemy-query sqlalchemy
+app/api/v1/access.py sqlalchemy-query sqlalchemy
+app/api/v1/bookings.py orm-model app.domains.booking.models
+app/api/v1/compliance.py orm-model app.domains.compliance.models
+app/api/v1/customer/addresses.py orm-model app.domains.booking.models
+app/api/v1/customer/addresses.py sqlalchemy-query sqlalchemy
+app/api/v1/customer/bookings.py orm-model app.domains.booking.models
+app/api/v1/customer/bookings.py orm-model app.domains.jobs.models
+app/api/v1/customer/bookings.py sqlalchemy-query sqlalchemy
+app/api/v1/customer/dependencies.py orm-model app.domains.booking.models
+app/api/v1/customer/dependencies.py sqlalchemy-query sqlalchemy
+app/api/v1/customer/dependencies.py sqlalchemy-query sqlalchemy.sql
+app/api/v1/customer/payments.py orm-model app.domains.booking.models
+app/api/v1/customer/payments.py orm-model app.domains.jobs.models
+app/api/v1/customer/payments.py orm-model app.domains.payments.models
+app/api/v1/customer/payments.py sqlalchemy-query sqlalchemy
+app/api/v1/customer/quotes.py orm-model app.domains.jobs.models
+app/api/v1/customer/quotes.py sqlalchemy-query sqlalchemy
+app/api/v1/customer/schemas.py orm-model app.domains.payments.models
+app/api/v1/finance.py orm-model app.domains.finance.models
+app/api/v1/integrations.py sqlalchemy-query sqlalchemy
+app/api/v1/jobs.py orm-model app.domains.booking.models
+app/api/v1/jobs.py orm-model app.domains.jobs.models
+app/api/v1/jobs.py orm-model app.domains.workforce.models
+app/api/v1/jobs.py sqlalchemy-query sqlalchemy
+app/api/v1/operations.py orm-model app.domains.booking.models
+app/api/v1/operations.py orm-model app.domains.catalog.models
+app/api/v1/operations.py orm-model app.domains.public_submissions.models
+app/api/v1/operations.py orm-model app.domains.workforce.models
+app/api/v1/operations.py sqlalchemy-query sqlalchemy
+app/api/v1/provider_leads.py orm-model app.domains.workforce.models
+app/api/v1/provider_leads.py sqlalchemy-query sqlalchemy
+app/api/v1/provider_onboarding.py orm-model app.domains.workforce.models
+app/api/v1/public_forms.py orm-model app.domains.public_submissions.models
+app/api/v1/vendors.py orm-model app.domains.workforce.models
+app/api/v1/vendors.py sqlalchemy-query sqlalchemy

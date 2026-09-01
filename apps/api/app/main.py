@@ -17,9 +17,10 @@ from app.core.errors import (
     is_v2_request,
     v2_unexpected_error_response,
 )
+from app.db.schema import expected_schema_revision
 from app.db.session import engine
 
-EXPECTED_SCHEMA_REVISION = "023_tenant_email_provisioning"
+EXPECTED_SCHEMA_REVISION = expected_schema_revision()
 TRACE_ID_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}")
 logger = structlog.get_logger()
 app = FastAPI(title=settings.app_name, version="2.0.0")

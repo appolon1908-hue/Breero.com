@@ -79,10 +79,17 @@ jobs:
           docker compose -f deploy/staging/docker-compose.backend.yml config --quiet
       - run: ruff check .
       - run: mypy app
+      - name: Structural layering contracts
+        run: lint-imports
+      - name: Router layering ratchet
+        run: python scripts/check_layering.py
       - run: alembic upgrade head
       - run: alembic check
       - run: python scripts/check_schema_drift.py
-      - run: pytest -q
+      # The floor is a ratchet, not a target. Raise it to just under the observed
+      # figure whenever a run comes in comfortably above it; never lower it.
+      - name: Test suite with coverage floor
+        run: pytest -q --cov --cov-fail-under=60
       - name: PR 34 P1/P2 repair acceptance
         run: >-
           pytest -q
@@ -112,6 +119,18 @@ jobs:
           DATABASE_URL=postgresql+psycopg://breero:test-only@localhost:5432/breero_auth alembic upgrade head
           DATABASE_URL=postgresql+psycopg://breero:test-only@localhost:5432/breero_finance alembic upgrade 006_finance_integrations
           DATABASE_URL=postgresql+psycopg://breero:test-only@localhost:5432/breero_finance alembic upgrade head
+      - name: Prove the documented rollback path is reversible
+        env:
+          PGPASSWORD: test-only
+        # docs/backend-rollback.md rolls the application back one image at a time, so
+        # the migration that must be reversible is the newest one. Migration 009 is
+        # explicitly never downgraded automatically, so this drill stays at head.
+        run: |
+          createdb -h localhost -U breero breero_rollback
+          export DATABASE_URL=postgresql+psycopg://breero:test-only@localhost:5432/breero_rollback
+          alembic upgrade head
+          alembic downgrade -1
+          alembic upgrade head
       - run: python scripts/generate_openapi.py
       - run: test -s openapi.json
       - name: Dependency audit

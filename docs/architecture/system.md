@@ -14,9 +14,50 @@ FastAPI + PostgreSQL/PostGIS + SQLAlchemy async + Psycopg 3 + Alembic + Redis + 
 
 ## Required layering
 
-`router -> service -> repository/query -> SQLAlchemy -> PostgreSQL`
+`router -> service -> repository -> SQLAlchemy -> PostgreSQL`
 
 Pydantic API contracts are separate from SQLAlchemy persistence models.
+
+A router resolves the caller, validates the request, and delegates. It does not build
+queries and does not import ORM models to query them. Persistence belongs to a
+domain's repository; orchestration belongs to its service.
+
+### How this is enforced
+
+Two checks run in the backend quality gate. Neither is advisory.
+
+`apps/api/.importlinter` holds the structural contracts, verified by `lint-imports`:
+the HTTP layer sits above domains, which sit above persistence; workers, integration
+adapters, and configuration must not import the HTTP layer. All four contracts are
+currently kept, so a failure means a genuinely new dependency direction.
+
+`apps/api/scripts/check_layering.py` holds the router rule. Import Linter cannot
+express it, because it squashes external packages and so cannot tell
+`sqlalchemy.ext.asyncio` -- the `AsyncSession` annotation every router needs for
+`Depends(get_db)` -- apart from the query constructors that belong in a repository.
+The checker draws that line and freezes today's violations into
+`scripts/layering_baseline.txt`.
+
+That baseline may only shrink. Adding a violation fails the gate; so does leaving a
+baseline entry in place after its violation is fixed. Migrating a domain therefore
+means moving its queries into a repository and running:
+
+```bash
+python scripts/check_layering.py --update
+```
+
+Two exceptions are deliberate and encoded in the checker:
+
+- `sqlalchemy.ext.asyncio` and `sqlalchemy.exc` are allowed in routers. Neither builds
+  a query; the first annotates the injected session, the second lets a router turn an
+  integrity error into an HTTP response.
+- `app.domains.auth.models` is exempt. `current_user` resolves to a `User` entity, so
+  every guarded router must import it to annotate the dependency. That is forced by the
+  auth design rather than by a router reaching into persistence, and changing it is a
+  separate refactor.
+
+Domains still carrying router-level persistence are listed in the baseline. `catalog`,
+`booking_intents`, `geography`, `provider_catalog`, and `tenant_email` are migrated.
 
 ## Core domains
 

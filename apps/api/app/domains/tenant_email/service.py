@@ -3,7 +3,6 @@ import uuid
 from datetime import UTC, datetime
 
 from fastapi import HTTPException
-from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,13 +10,16 @@ from app.config import settings
 from app.domains.auth.access_service import AccessService
 from app.domains.auth.models import AccessRole, TenantScope, User
 from app.domains.common.outbox import EventStatus, IntegrationEvent
+from app.domains.common.outbox_service import OutboxService
 from app.domains.tenant_email.models import EmailCredential, EmailDomain, EmailMessage, EmailSender
+from app.domains.tenant_email.repository import TenantEmailRepository
 from app.domains.tenant_email.schemas import (
     EmailComposeRequest,
     EmailCredentialCreate,
     EmailCredentialRead,
     EmailDomainCreate,
     EmailMessageRead,
+    EmailOutboxRead,
     EmailSenderCreate,
 )
 
@@ -38,6 +40,7 @@ INTERNAL_BROAD_ROLES = {
 class TenantEmailService:
     def __init__(self, session: AsyncSession):
         self.session = session
+        self.repo = TenantEmailRepository(session)
 
     async def assert_scope(self, user: User, brand_key: str, vendor_id: uuid.UUID | None) -> None:
         context = await AccessService(self.session).context(user, brand_key)
@@ -142,7 +145,7 @@ class TenantEmailService:
         return record
 
     async def list_domains(self, user: User) -> list[EmailDomain]:
-        rows = list((await self.session.scalars(select(EmailDomain).order_by(EmailDomain.domain))).all())
+        rows = await self.repo.list_domains()
         allowed: list[EmailDomain] = []
         for row in rows:
             try:
@@ -153,7 +156,7 @@ class TenantEmailService:
         return allowed
 
     async def set_domain_verification(self, domain_id: uuid.UUID, verified: bool, user: User) -> EmailDomain:
-        record = await self.session.get(EmailDomain, domain_id)
+        record = await self.repo.get_domain(domain_id)
         if not record:
             raise HTTPException(404, "Email domain not found")
         await self.assert_scope(user, record.brand_key, record.vendor_id)
@@ -164,7 +167,7 @@ class TenantEmailService:
 
     async def create_sender(self, data: EmailSenderCreate, user: User) -> EmailSender:
         await self.assert_scope(user, data.brand_key, data.vendor_id)
-        domain = await self.session.get(EmailDomain, data.domain_id)
+        domain = await self.repo.get_domain(data.domain_id)
         if not domain:
             raise HTTPException(404, "Email domain not found")
         if domain.brand_key != data.brand_key or domain.vendor_id != data.vendor_id:
@@ -189,7 +192,7 @@ class TenantEmailService:
         return record
 
     async def list_senders(self, user: User) -> list[EmailSender]:
-        rows = list((await self.session.scalars(select(EmailSender).order_by(EmailSender.created_at))).all())
+        rows = await self.repo.list_senders()
         allowed: list[EmailSender] = []
         for row in rows:
             try:
@@ -226,9 +229,7 @@ class TenantEmailService:
         return self._credential_read(record)
 
     async def list_credentials(self, user: User) -> list[EmailCredentialRead]:
-        rows = list(
-            (await self.session.scalars(select(EmailCredential).order_by(EmailCredential.created_at))).all()
-        )
+        rows = await self.repo.list_credentials()
         allowed: list[EmailCredentialRead] = []
         for row in rows:
             try:
@@ -240,16 +241,14 @@ class TenantEmailService:
 
     async def compose(self, data: EmailComposeRequest, user: User) -> EmailMessageRead:
         await self.assert_scope(user, data.brand_key, data.vendor_id)
-        existing = await self.session.scalar(
-            select(EmailMessage).where(EmailMessage.idempotency_key == data.idempotency_key)
-        )
+        existing = await self.repo.message_by_idempotency_key(data.idempotency_key)
         if existing:
             if existing.brand_key != data.brand_key or existing.vendor_id != data.vendor_id:
                 raise HTTPException(409, "Idempotency key belongs to another tenant scope")
             return EmailMessageRead.model_validate(existing)
 
-        sender = await self.session.get(EmailSender, data.sender_id)
-        credential = await self.session.get(EmailCredential, data.credential_id)
+        sender = await self.repo.get_sender(data.sender_id)
+        credential = await self.repo.get_credential(data.credential_id)
         if not sender or not credential:
             raise HTTPException(404, "Sender or credential not found")
         if not sender.active or not credential.active:
@@ -261,7 +260,7 @@ class TenantEmailService:
             or credential.vendor_id != data.vendor_id
         ):
             raise HTTPException(403, "Cross-tenant email resources are not allowed")
-        domain = await self.session.get(EmailDomain, sender.domain_id)
+        domain = await self.repo.get_domain(sender.domain_id)
         if not domain or domain.verification_status != "VERIFIED" or not domain.active:
             raise HTTPException(409, "Sender domain is not verified")
 
@@ -304,9 +303,7 @@ class TenantEmailService:
             await self.session.commit()
         except IntegrityError as exc:
             await self.session.rollback()
-            existing = await self.session.scalar(
-                select(EmailMessage).where(EmailMessage.idempotency_key == data.idempotency_key)
-            )
+            existing = await self.repo.message_by_idempotency_key(data.idempotency_key)
             if existing:
                 # The idempotency key is only unique globally, not per tenant, so the
                 # loser of a concurrent compose race must not be handed back a record
@@ -320,8 +317,33 @@ class TenantEmailService:
         return EmailMessageRead.model_validate(message)
 
     async def get_message(self, message_id: uuid.UUID, user: User) -> EmailMessage:
-        message = await self.session.get(EmailMessage, message_id)
+        message = await self.repo.get_message(message_id)
         if not message:
             raise HTTPException(404, "Email message not found")
         await self.assert_scope(user, message.brand_key, message.vendor_id)
         return message
+
+    @staticmethod
+    def _outbox_read(event: IntegrationEvent, message_id: uuid.UUID) -> EmailOutboxRead:
+        return EmailOutboxRead(
+            id=event.id,
+            message_id=message_id,
+            status=event.status.value,
+            attempts=event.attempt_count,
+            next_attempt_at=event.next_attempt_at,
+            last_error_code=event.last_error_code,
+        )
+
+    async def list_outbox(self, user: User, brand_key: str, limit: int = 200) -> list[EmailOutboxRead]:
+        vendor_ids = await self.scoped_vendor_ids(user, brand_key)
+        rows = await self.repo.outbox_page(vendor_ids, limit)
+        return [self._outbox_read(event, message.id) for event, message in rows]
+
+    async def retry_outbox(self, event_id: uuid.UUID, user: User) -> EmailOutboxRead:
+        event = await self.repo.outbox_event(event_id)
+        if not event:
+            raise HTTPException(404, "Email outbox event not found")
+        # Prove the caller may see the message this event carries before requeueing it.
+        await self.get_message(event.aggregate_id, user)
+        event = await OutboxService(self.session).retry(event_id, user.id)
+        return self._outbox_read(event, event.aggregate_id)
