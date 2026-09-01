@@ -74,6 +74,32 @@ groups:
             are not blocked yet -- but a rising number means expire_bookings is not
             running and the table is accumulating stale state.
 
+  - name: breero-dependencies
+    rules:
+      # Contributed by the reconciliation with be/analytics-observability-v1. The API
+      # target being up says the process is answering; these say whether the things it
+      # needs are.
+      - alert: DependencyUnavailable
+        expr: breero_dependency_up == 0
+        for: 3m
+        labels: { severity: critical }
+        annotations:
+          summary: "{{ $labels.dependency }} failed its last readiness probe"
+          description: >-
+            Readiness fails closed, so the instance is already out of rotation. This
+            names which dependency caused it rather than only reporting the target down.
+
+      - alert: WorkerHeartbeatAbsent
+        expr: breero_worker_heartbeat_age_seconds > 300
+        for: 5m
+        labels: { severity: critical }
+        annotations:
+          summary: "No Celery worker has reported in {{ $value | humanizeDuration }}"
+          description: >-
+            Distinct from SchedulerStalled: beat can be scheduling correctly into a
+            queue that no worker is draining. Check the worker container before the
+            scheduler.
+
   - name: breero-api
     rules:
       - alert: APITargetDown

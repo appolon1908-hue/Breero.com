@@ -18,12 +18,17 @@ one is read straight from Postgres or Redis at scrape time.
 """
 
 import os
+import re
 import time
 from pathlib import Path
 
 from prometheus_client import CollectorRegistry, Counter, Gauge, Histogram, multiprocess
 
 MULTIPROC_ENV = "PROMETHEUS_MULTIPROC_DIR"
+
+# Requests that never reach a route share one label rather than minting a series
+# per path, which is the classic way a scrape target becomes a cardinality incident.
+UNMATCHED_ROUTE = "<unmatched>"
 
 # Buckets tuned for an API whose slowest normal work is a PostGIS coverage lookup.
 # The 0.005-0.05 range is dense because that is where a healthy read should land, and
@@ -47,6 +52,21 @@ REQUESTS_IN_FLIGHT = Gauge(
     multiprocess_mode="livesum",
 )
 
+DEPENDENCY_UP = Gauge(
+    "breero_dependency_up",
+    "Whether a required dependency answered its last health probe.",
+    ("dependency",),
+    # `max` rather than `livemostrecent`: readiness is probed per worker, and one
+    # healthy worker is enough to say the dependency itself is reachable.
+    multiprocess_mode="max",
+)
+WORKER_HEARTBEAT_AGE = Gauge(
+    "breero_worker_heartbeat_age_seconds",
+    "Seconds since any Celery worker last reported itself alive. Distinct from the "
+    "per-task scheduler heartbeats: a worker can be running while beat is dead, and "
+    "beat can be scheduling into a queue no worker is draining.",
+    multiprocess_mode="livemostrecent",
+)
 OUTBOX_EVENTS = Gauge(
     "breero_outbox_events",
     "Integration events in the outbox, by status.",
@@ -88,6 +108,8 @@ SCHEDULED_TASK_AGE = Gauge(
 # Redis keys the workers stamp and the API reads back. The worker and the API are
 # separate containers, so the heartbeat cannot be an in-process gauge.
 HEARTBEAT_PREFIX = "breero:heartbeat:"
+# Written by every worker process, independently of which task ran.
+WORKER_HEARTBEAT_KEY = "breero:heartbeat:worker"
 HEARTBEAT_TTL_SECONDS = 7 * 24 * 3600
 
 
@@ -123,9 +145,26 @@ def build_registry() -> CollectorRegistry:
     return registry
 
 
+# A second line of defence on cardinality. Even if a route template were ever to
+# carry an interpolated value, anything outside this shape collapses to the shared
+# unmatched label rather than minting a series.
+SAFE_ROUTE = re.compile(r"^/[A-Za-z0-9_{}./:-]{0,255}$")
+
+
+def safe_route(route: str | None) -> str:
+    if route and SAFE_ROUTE.fullmatch(route):
+        return route
+    return UNMATCHED_ROUTE
+
+
 def record_request(method: str, route: str, status: int, duration_seconds: float) -> None:
-    REQUESTS.labels(method=method, route=route, status=str(status)).inc()
-    REQUEST_DURATION.labels(method=method, route=route).observe(duration_seconds)
+    label = safe_route(route)
+    REQUESTS.labels(method=method, route=label, status=str(status)).inc()
+    REQUEST_DURATION.labels(method=method, route=label).observe(duration_seconds)
+
+
+def record_dependency(name: str, healthy: bool) -> None:
+    DEPENDENCY_UP.labels(dependency=name).set(1 if healthy else 0)
 
 
 def stamp_task_success(task_name: str, *, now: float | None = None) -> float:

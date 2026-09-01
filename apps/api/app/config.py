@@ -86,6 +86,7 @@ class Settings(BaseSettings):
     metrics_token_file: str = ""
     tracing_enabled: bool = False
     otel_service_name: str = "breero-api"
+    log_format: str = "json"
     otel_exporter_endpoint: str = "http://tempo:4318/v1/traces"
     payout_provider: str = ""
     payout_enabled: bool = False

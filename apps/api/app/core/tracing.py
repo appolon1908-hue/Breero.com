@@ -63,6 +63,15 @@ def configure_tracing(app=None, engine=None) -> bool:
 
     CeleryInstrumentor().instrument()
 
+    try:
+        from opentelemetry.instrumentation.redis import RedisInstrumentor
+
+        RedisInstrumentor().instrument()
+    except ImportError:
+        # Optional: the Redis instrumentation is a separate distribution and its
+        # absence should degrade tracing, not prevent the app from starting.
+        logger.info("redis_instrumentation_unavailable")
+
     _configured = True
     logger.info("tracing_configured", endpoint=settings.otel_exporter_endpoint)
     return True
@@ -80,3 +89,47 @@ def annotate_current_span(**attributes: str | None) -> None:
     for key, value in attributes.items():
         if value is not None:
             span.set_attribute(key, value)
+
+
+def _trace_fields(_logger, _method_name, event_dict):
+    """Attach the active trace and span ids to every structured log line.
+
+    Without this a trace and its logs are two unrelated records. With it, one
+    correlation id in a log leads to the trace, and the trace leads back.
+    """
+    from opentelemetry import trace
+
+    context = trace.get_current_span().get_span_context()
+    if context.is_valid:
+        event_dict["trace_id"] = format(context.trace_id, "032x")
+        event_dict["span_id"] = format(context.span_id, "016x")
+    return event_dict
+
+
+def configure_logging() -> None:
+    """Render logs as JSON with trace correlation.
+
+    Called from the app lifespan and from `worker_process_init`, so the API and the
+    workers emit the same shape and a log shipper needs one parser, not two.
+    """
+    import logging
+    from typing import Any
+
+    processors: list[Any] = [
+        structlog.contextvars.merge_contextvars,
+        structlog.processors.add_log_level,
+        structlog.processors.TimeStamper(fmt="iso", utc=True),
+    ]
+    if settings.tracing_enabled:
+        processors.append(_trace_fields)
+    processors.append(
+        structlog.dev.ConsoleRenderer()
+        if settings.log_format == "console"
+        else structlog.processors.JSONRenderer()
+    )
+    logging.basicConfig(level=logging.INFO, format="%(message)s", force=True)
+    structlog.configure(
+        processors=processors,
+        wrapper_class=structlog.make_filtering_bound_logger(logging.INFO),
+        cache_logger_on_first_use=True,
+    )

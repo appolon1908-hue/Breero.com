@@ -26,7 +26,7 @@ from app.core.redis_client import (
     get_redis_client,
     set_redis_client,
 )
-from app.core.tracing import annotate_current_span, configure_tracing
+from app.core.tracing import annotate_current_span, configure_logging, configure_tracing
 from app.db.schema import expected_schema_revision
 from app.db.session import SessionLocal, engine
 from app.domains.common.observability import (
@@ -36,10 +36,8 @@ from app.domains.common.observability import (
 
 EXPECTED_SCHEMA_REVISION = expected_schema_revision()
 TRACE_ID_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}")
-# Requests that never reach a route (404s, probes for wp-login.php) share one label
-# rather than minting a series per path, which is the classic way a scrape target
-# becomes a cardinality incident.
-UNMATCHED_ROUTE = "<unmatched>"
+# Re-exported for tests and for the request middleware below.
+UNMATCHED_ROUTE = metrics.UNMATCHED_ROUTE
 logger = structlog.get_logger()
 metrics.enable_multiprocess_mode()
 
@@ -52,6 +50,7 @@ async def lifespan(application: FastAPI):
     never disposed on shutdown, and every rate-limited request and metrics scrape
     built and tore down its own Redis client.
     """
+    configure_logging()
     set_redis_client(application, create_redis_client())
     logger.info(
         "startup",
@@ -201,9 +200,15 @@ async def ready() -> dict[str, str]:
             revision = await connection.scalar(text("SELECT version_num FROM alembic_version"))
             checks["postgres"] = "ok"
             checks["schema"] = "ok" if revision == EXPECTED_SCHEMA_REVISION else "outdated"
+        metrics.record_dependency("postgres", True)
         await get_redis_client(app).ping()
         checks["redis"] = "ok"
+        metrics.record_dependency("redis", True)
     except Exception as exc:
+        # Record which dependency failed before returning 503, so the alert names the
+        # cause rather than only saying the target is down.
+        metrics.record_dependency("postgres", checks.get("postgres") == "ok")
+        metrics.record_dependency("redis", checks.get("redis") == "ok")
         logger.warning("readiness_failed", error=type(exc).__name__)
         raise HTTPException(503, "dependency unavailable") from exc
     if checks.get("schema") != "ok":

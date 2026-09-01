@@ -234,3 +234,78 @@ def test_heartbeat_write_failure_never_fails_the_task() -> None:
             return "done"
 
         assert work() == "done"
+
+
+# ---------------------------------------------------------------------------
+# Reconciliation guard (OBS-02)
+#
+# Two observability implementations existed on separate branches and three metric
+# names collided. prometheus_client raises "Duplicated timeseries in
+# CollectorRegistry" at import when that happens, so merging both would have been a
+# hard startup crash rather than a merge conflict anyone would notice in review.
+# ---------------------------------------------------------------------------
+
+
+def test_metric_names_are_defined_exactly_once() -> None:
+    import ast
+    from pathlib import Path
+
+    api_root = Path(__file__).resolve().parents[1]
+    seen: dict[str, str] = {}
+    duplicates: list[str] = []
+    for path in sorted((api_root / "app").rglob("*.py")):
+        if "__pycache__" in path.parts:
+            continue
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Name)
+                and node.func.id in {"Counter", "Gauge", "Histogram", "Summary"}
+                and node.args
+                and isinstance(node.args[0], ast.Constant)
+                and isinstance(node.args[0].value, str)
+            ):
+                name = node.args[0].value
+                where = f"{path.relative_to(api_root)}:{node.lineno}"
+                if name in seen:
+                    duplicates.append(f"{name} defined at {seen[name]} and {where}")
+                seen[name] = where
+    assert duplicates == [], duplicates
+
+
+def test_the_reconciled_metric_set_is_complete() -> None:
+    """Both implementations' series survive the reconciliation."""
+    from app.core import metrics as m
+
+    # Contributed by be/analytics-observability-v1.
+    assert m.DEPENDENCY_UP is not None
+    assert m.WORKER_HEARTBEAT_AGE is not None
+    # Contributed by this branch.
+    assert m.SCHEDULED_TASK_LAST_SUCCESS is not None
+    assert m.BOOKING_HOLDS_OVERDUE is not None
+    assert m.PAYMENTS_BY_STATUS is not None
+    assert m.REQUESTS_IN_FLIGHT is not None
+
+
+def test_route_labels_are_bounded() -> None:
+    from app.core.metrics import UNMATCHED_ROUTE, safe_route
+
+    assert safe_route("/api/v1/bookings/{booking_id}") == "/api/v1/bookings/{booking_id}"
+    assert safe_route(None) == UNMATCHED_ROUTE
+    assert safe_route("") == UNMATCHED_ROUTE
+    # Anything that is not a route template collapses rather than minting a series.
+    assert safe_route("/api/v1/x?q=" + "a" * 400) == UNMATCHED_ROUTE
+    assert safe_route("/api/v1/\nheader-injection") == UNMATCHED_ROUTE
+
+
+def test_dependency_gauge_records_both_states() -> None:
+    from prometheus_client import generate_latest
+
+    from app.core import metrics as m
+
+    m.record_dependency("postgres", True)
+    m.record_dependency("redis", False)
+    rendered = generate_latest(m.build_registry()).decode()
+    assert 'breero_dependency_up{dependency="postgres"} 1.0' in rendered
+    assert 'breero_dependency_up{dependency="redis"} 0.0' in rendered

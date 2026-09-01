@@ -2,7 +2,7 @@ from celery import Celery
 from celery.signals import worker_process_init
 
 from app.config import settings
-from app.core.tracing import configure_tracing
+from app.core.tracing import configure_logging, configure_tracing
 
 celery_app = Celery("breero", broker=settings.redis_url, backend=settings.redis_url)
 celery_app.conf.update(
@@ -33,4 +33,5 @@ def _configure_worker_tracing(**_: object) -> None:
     fork does not survive it intact -- the batch span processor's exporter thread is
     left behind in the parent.
     """
+    configure_logging()
     configure_tracing()
