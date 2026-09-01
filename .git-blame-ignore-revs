@@ -6,4 +6,5 @@
 # GitHub applies this file automatically. Only add commits that are purely
 # mechanical — a formatter run, a rename — never one that changes behaviour.
 
-# Placeholder: replaced with the workspace-wide Prettier reformat hash below.
+# style(web): reformat the workspace with Prettier
+9028298b6c85c9ea7f89f586dfde20a142ac4a79
