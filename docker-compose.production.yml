@@ -73,7 +73,7 @@ services:
 
   scheduler:
     <<: *app
-    command: ["celery", "-A", "app.workers.celery_app:celery_app", "beat", "--loglevel=info", "--schedule=/tmp/celerybeat-schedule"]
+    command: ["sh", "-ec", "python -m app.workers.preflight && exec celery -A app.workers.celery_app:celery_app beat --loglevel=info --schedule=/tmp/celerybeat-schedule"]
     mem_limit: 512m
     cpus: 0.5
     depends_on:
