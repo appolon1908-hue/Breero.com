@@ -34,8 +34,10 @@ export function IntegrationsPanel({
     capabilities?.middleware_delivery &&
       config.data?.middleware_enabled &&
       config.data.middleware_url_configured &&
-      config.data.middleware_api_key_configured &&
-      config.data.middleware_webhook_secret_configured,
+      config.data.middleware_ca_configured &&
+      config.data.middleware_client_certificate_configured &&
+      config.data.middleware_hmac_configured &&
+      config.data.middleware_identity_configured,
   );
 
   async function operate(kind: "activate-pending" | "park-unconfigured") {
@@ -100,7 +102,9 @@ export function IntegrationsPanel({
               {Object.entries(config.data).map(([key, value]) => (
                 <div key={key}>
                   <dt>{formatLabel(key)}</dt>
-                  <dd><StatusBadge value={value ? "enabled" : "disabled"} /></dd>
+                  <dd>
+                    <StatusBadge value={value ? "enabled" : "disabled"} />
+                  </dd>
                 </div>
               ))}
             </dl>
@@ -112,7 +116,7 @@ export function IntegrationsPanel({
         >
           <PortalConfirmForm
             title="Activate pending configuration events"
-            description="Moves eligible PENDING_CONFIGURATION events back into delivery only when middleware delivery and every required credential/configuration signal are active."
+            description="Moves eligible PENDING_CONFIGURATION events back into delivery only when middleware delivery and every required private configuration signal are active."
             confirmLabel="Activate pending events"
             disabled={!activateReady}
             onConfirm={() => operate("activate-pending")}
