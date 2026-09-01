@@ -2,7 +2,9 @@ import hashlib
 import math
 import threading
 import time
+from collections.abc import Awaitable
 from dataclasses import dataclass
+from typing import cast
 
 import structlog
 from fastapi import HTTPException, Request
@@ -121,13 +123,17 @@ async def enforce_rate_limit(
     client = redis_client_from_request(request)
     if client is not None:
         try:
-            allowed, retry_ms = await client.eval(
-                TOKEN_BUCKET_LUA,
-                1,
-                key,
-                requests,
-                window_seconds * 1_000,
+            result = await cast(
+                Awaitable[list[int]],
+                client.eval(
+                    TOKEN_BUCKET_LUA,
+                    1,
+                    key,
+                    str(requests),
+                    str(window_seconds * 1_000),
+                ),
             )
+            allowed, retry_ms = result
         except RedisError as exc:
             logger.warning(
                 "rate_limit_redis_degraded",
