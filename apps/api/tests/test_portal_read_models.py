@@ -29,6 +29,7 @@ def test_portal_and_finance_read_contracts_are_present_with_payouts_disabled() -
         "/api/v1/portal/operations/overview",
         "/api/v1/portal/admin/overview",
         "/api/v1/portal/admin/audit",
+        "/api/v1/finance/vendors",
         "/api/v1/finance/compensation-plans",
         "/api/v1/finance/earnings",
         "/api/v1/finance/payout-batches",
