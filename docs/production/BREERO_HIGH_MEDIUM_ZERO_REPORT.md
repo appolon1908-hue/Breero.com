@@ -10,17 +10,17 @@ staged on `feat/observability-and-dr` and unmerged.
 | Category | HIGH found | HIGH fixed | HIGH open | MEDIUM found | MEDIUM fixed | MEDIUM open |
 | --- | --- | --- | --- | --- | --- | --- |
 | Security | 3 | 3 | 0 | 1 | 1 | 0 |
-| Availability | 3 | 1 | 2 | 0 | 0 | 0 |
+| Availability | 3 | 3 | 0 | 0 | 0 | 0 |
 | Correctness | 1 | 1 | 0 | 1 | 1 | 0 |
 | Deployment | 1 | 1 | 0 | 1 | 1 | 0 |
-| Performance | 1 | 0 | 1 | 0 | 0 | 0 |
+| Performance | 1 | 1 | 0 | 0 | 0 | 0 |
 | Architecture | 1 | 0 | 1 | 3 | 2 | 1 |
 | Frontend | 1 | 0 | 1 | 2 | 1 | 1 |
 | Observability | 0 | 0 | 0 | 2 | 1 | 1 |
 | Dependencies | — | — | — | — | — | — |
-| **Total** | **11** | **6** | **5** | **10** | **7** | **3** |
+| **Total** | **11** | **9** | **2** | **10** | **7** | **3** |
 
-`HIGH_FOUND_INITIAL=11`, `HIGH_FIXED=6`, `HIGH_OPEN=5`
+`HIGH_FOUND_INITIAL=11`, `HIGH_FIXED=9`, `HIGH_OPEN=2`
 `MEDIUM_FOUND_INITIAL=10`, `MEDIUM_FIXED=7`, `MEDIUM_OPEN=3`
 
 **Correction.** A previous revision of this report gave `HIGH_OPEN=2`. BE-05, BE-06
@@ -63,20 +63,6 @@ worker engine, a `beat` service in the production compose file, or `--proxy-head
 in the image default. Activating `ops/portal-production-release` would ship all six
 critical findings into production. Blocked on merge order and merge authority.
 
-**BE-05 — the rate limiter opens a Redis connection per request.**
-A full TCP connect and AUTH handshake on every limited call, on the hottest paths,
-and a 503 on any transient Redis error turns a blip into an outage on login and the
-Stripe webhook. Fix: one pooled client on `app.state`, created in a lifespan.
-
-**BE-06 — no connection pool sizing and no lifespan.**
-SQLAlchemy defaults give a hard ceiling of 30 connections across two workers, with no
-`pool_recycle`, so connections outlive a Postgres restart or a proxy idle timeout. The
-app declares no lifespan at all, so the engine is never disposed on shutdown.
-
-**BE-07 — RBAC costs two or more database round trips per request.**
-`current_user` loads the user, then each permission guard rebuilds the effective
-access context from scratch. A route with two guards pays twice, on every request.
-
 ## Open MEDIUM
 
 **OBS-02 — two competing observability implementations.**
@@ -98,9 +84,11 @@ compared, so a backend rename ships green and fails at runtime.
 
 ## Fixed in this work
 
-Six HIGH: BE-01 password hashing on the event loop, BE-02 per-request JWKS client,
-BE-03 hand-rolled JWT, BE-04 pooled connections across event loops, OPS-01 missing
-scheduler, OPS-02 missing proxy-header defaults.
+Nine HIGH: BE-01 password hashing on the event loop, BE-02 per-request JWKS client,
+BE-03 hand-rolled JWT, BE-04 pooled connections across event loops, BE-05 per-request
+Redis connections in two separate rate limiters, BE-06 unsized pool with no lifespan,
+BE-07 RBAC context rebuilt per guard, OPS-01 missing scheduler, OPS-02 missing
+proxy-header defaults.
 
 Seven MEDIUM: BE-08 unenforced layering, BE-09 unused abstractions, BE-10 hand-edited
 readiness revision, QA-01 missing quality gates, QA-02 vacuously-passing test,

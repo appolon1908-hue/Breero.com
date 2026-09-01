@@ -2,8 +2,8 @@ import hmac
 import re
 import time
 import uuid
+from contextlib import asynccontextmanager
 
-import redis.asyncio as redis
 import structlog
 from fastapi import FastAPI, Header, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,6 +19,12 @@ from app.core.errors import (
     install_error_handlers,
     is_v2_request,
     v2_unexpected_error_response,
+)
+from app.core.redis_client import (
+    close_redis_client,
+    create_redis_client,
+    get_redis_client,
+    set_redis_client,
 )
 from app.core.tracing import annotate_current_span, configure_tracing
 from app.db.schema import expected_schema_revision
@@ -36,7 +42,40 @@ TRACE_ID_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}")
 UNMATCHED_ROUTE = "<unmatched>"
 logger = structlog.get_logger()
 metrics.enable_multiprocess_mode()
-app = FastAPI(title=settings.app_name, version="2.0.0")
+
+
+@asynccontextmanager
+async def lifespan(application: FastAPI):
+    """Own the process-wide connections instead of leaving them to chance.
+
+    Before this existed the app had no lifespan at all: the SQLAlchemy engine was
+    never disposed on shutdown, and every rate-limited request and metrics scrape
+    built and tore down its own Redis client.
+    """
+    set_redis_client(application, create_redis_client())
+    logger.info(
+        "startup",
+        schema_revision=EXPECTED_SCHEMA_REVISION,
+        db_pool_size=settings.db_pool_size,
+        db_max_overflow=settings.db_max_overflow,
+    )
+    try:
+        yield
+    finally:
+        # Both are best-effort: a shutdown must not hang or raise because a
+        # dependency has already gone away.
+        try:
+            await close_redis_client(application)
+        except Exception as exc:
+            logger.warning("redis_shutdown_failed", error=type(exc).__name__)
+        try:
+            await engine.dispose()
+        except Exception as exc:
+            logger.warning("engine_dispose_failed", error=type(exc).__name__)
+        logger.info("shutdown_complete")
+
+
+app = FastAPI(title=settings.app_name, version="2.0.0", lifespan=lifespan)
 install_error_handlers(app)
 app.include_router(api_v1_router, prefix=settings.api_v1_prefix)
 app.include_router(api_v2_router, prefix="/api/v2")
@@ -140,7 +179,7 @@ async def prometheus_metrics(
         # Never fail a scrape on a collection error: Prometheus would record the
         # target as down and hide the request metrics that are still perfectly good.
         logger.warning("database_metrics_unavailable", error=type(exc).__name__)
-    await collect_scheduler_metrics()
+    await collect_scheduler_metrics(client=get_redis_client(app))
     return Response(generate_latest(metrics.build_registry()), media_type=CONTENT_TYPE_LATEST)
 
 
@@ -162,12 +201,8 @@ async def ready() -> dict[str, str]:
             revision = await connection.scalar(text("SELECT version_num FROM alembic_version"))
             checks["postgres"] = "ok"
             checks["schema"] = "ok" if revision == EXPECTED_SCHEMA_REVISION else "outdated"
-        client = redis.from_url(settings.redis_url, socket_connect_timeout=1, socket_timeout=1)
-        try:
-            await client.ping()
-            checks["redis"] = "ok"
-        finally:
-            await client.aclose()
+        await get_redis_client(app).ping()
+        checks["redis"] = "ok"
     except Exception as exc:
         logger.warning("readiness_failed", error=type(exc).__name__)
         raise HTTPException(503, "dependency unavailable") from exc

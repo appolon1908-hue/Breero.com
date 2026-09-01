@@ -65,6 +65,14 @@ def make_user(role: UserRole = UserRole.admin) -> User:
     )
 
 
+
+class FakeRequest:
+    """Minimal request stand-in carrying the mutable `state` FastAPI provides."""
+
+    def __init__(self) -> None:
+        self.state = SimpleNamespace()
+
+
 @pytest.mark.asyncio
 async def test_managed_profile_with_no_assignments_has_no_access() -> None:
     user = make_user()
@@ -110,7 +118,7 @@ async def test_legacy_role_gate_uses_effective_assignments(monkeypatch) -> None:
     gate = dependencies.require_roles(UserRole.admin)
 
     with pytest.raises(HTTPException) as exc_info:
-        await gate(user, object())
+        await gate(FakeRequest(), user, object())
 
     assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
 
@@ -131,8 +139,8 @@ async def test_permission_gate_honors_deny_and_superadmin_wildcard(monkeypatch) 
     gate = dependencies.require_permissions("admin.access.manage")
 
     with pytest.raises(HTTPException) as exc_info:
-        await gate(user, object())
+        await gate(FakeRequest(), user, object())
     assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
 
     active_permissions.append("*")
-    assert await gate(user, object()) is user
+    assert await gate(FakeRequest(), user, object()) is user

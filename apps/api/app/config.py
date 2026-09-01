@@ -12,6 +12,16 @@ class Settings(BaseSettings):
     app_name: str = "BREERO API"
     api_v1_prefix: str = "/api/v1"
     database_url: str = "postgresql+psycopg://breero:breero@postgres:5432/breero"
+    # Explicit pool sizing. SQLAlchemy's defaults (5 + 10 overflow) cap the API at
+    # 30 connections across two uvicorn workers, and without pool_recycle a
+    # connection outlives a PostgreSQL restart or a proxy idle timeout and fails on
+    # first use rather than being replaced.
+    db_pool_size: int = 10
+    db_max_overflow: int = 10
+    db_pool_recycle_seconds: int = 1800
+    db_pool_timeout_seconds: int = 10
+    redis_max_connections: int = 50
+    redis_socket_timeout_seconds: int = 2
     database_url_file: str = ""
     redis_url: str = "redis://redis:6379/0"
     redis_url_file: str = ""

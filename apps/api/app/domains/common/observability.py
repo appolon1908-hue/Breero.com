@@ -89,7 +89,9 @@ async def collect_database_metrics(session: AsyncSession, *, now: datetime | Non
         PAYMENTS_BY_STATUS.labels(status=label).set(count)
 
 
-async def collect_scheduler_metrics(*, now: float | None = None) -> None:
+async def collect_scheduler_metrics(
+    *, now: float | None = None, client: redis.Redis | None = None
+) -> None:
     """Read the heartbeats the Celery workers stamp into Redis.
 
     A task that has never run leaves no key. That is reported as an explicit zero
@@ -97,16 +99,22 @@ async def collect_scheduler_metrics(*, now: float | None = None) -> None:
     started, which is exactly the failure a missing beat container produces.
     """
     moment = now if now is not None else time.time()
-    client = redis.from_url(settings.redis_url, socket_connect_timeout=1, socket_timeout=1)
+    # The pooled client is injected by the scrape handler. Building one here would
+    # reintroduce a connect-and-teardown on every scrape interval.
+    owned = client is None
+    connection = client if client is not None else redis.from_url(
+        settings.redis_url, socket_connect_timeout=1, socket_timeout=1
+    )
     try:
-        values = await client.mget([f"{HEARTBEAT_PREFIX}{task}" for task in PERIODIC_TASKS])
+        values = await connection.mget([f"{HEARTBEAT_PREFIX}{task}" for task in PERIODIC_TASKS])
     except redis.RedisError as exc:
         # A scrape must degrade, never fail: losing Redis should raise a Redis alert,
         # not blank out every other metric on the page.
         logger.warning("scheduler_metrics_unavailable", error=type(exc).__name__)
         return
     finally:
-        await client.aclose()
+        if owned:
+            await connection.aclose()
 
     for task, raw in zip(PERIODIC_TASKS, values, strict=True):
         stamp = float(raw) if raw is not None else 0.0

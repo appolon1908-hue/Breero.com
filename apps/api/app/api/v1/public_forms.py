@@ -4,8 +4,8 @@ import redis.asyncio as redis
 from fastapi import APIRouter, Depends, Header, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
 from app.core.errors import DomainError
+from app.core.redis_client import get_redis_client
 from app.db.session import get_db
 from app.domains.public_submissions.models import SubmissionType
 from app.domains.public_submissions.schemas import (
@@ -20,17 +20,24 @@ router = APIRouter()
 
 
 async def enforce_rate_limit(request: Request) -> str:
+    """Public-form submission limit.
+
+    Uses the process-wide pooled client rather than opening its own connection per
+    submission, and applies the same fail-closed semantics as `app.core.rate_limit`:
+    an unreachable limiter must not silently become an open door.
+    """
     source = request.client.host if request.client else "unknown"
-    client = redis.from_url(settings.redis_url)
+    client = get_redis_client(request.app)
+    key = f"public-form:{source}"
     try:
-        key = f"public-form:{source}"
-        count = await client.incr(key)
-        if count == 1:
-            await client.expire(key, 60)
-        if count > 10:
-            raise DomainError("RATE_LIMITED", "Too many submissions; try again shortly", 429)
-    finally:
-        await client.aclose()
+        async with client.pipeline(transaction=True) as pipeline:
+            pipeline.incr(key)
+            pipeline.expire(key, 60, nx=True)
+            count, _ = await pipeline.execute()
+    except redis.RedisError as exc:
+        raise DomainError("RATE_LIMITER_UNAVAILABLE", "Submissions are temporarily unavailable", 503) from exc
+    if int(count) > 10:
+        raise DomainError("RATE_LIMITED", "Too many submissions; try again shortly", 429)
     return source
 
 

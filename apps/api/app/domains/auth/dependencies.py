@@ -2,7 +2,7 @@ import uuid
 from collections.abc import Callable
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -109,6 +109,28 @@ async def current_user(
     return user
 
 
+ACCESS_CONTEXT_STATE = "access_context"
+
+
+async def effective_access_context(request: Request, user: User, session: AsyncSession):
+    """Resolve the caller's effective access context once per request.
+
+    Each guard used to rebuild this from the database independently, so a route
+    carrying both a role check and a permission check paid for it twice on every
+    request, on top of the user lookup `current_user` already performs.
+
+    The cache is keyed by user id as well as stored per request: a request only ever
+    has one caller, but keying it means a mismatch degrades to a fresh lookup rather
+    than silently authorising the wrong principal.
+    """
+    cached = getattr(request.state, ACCESS_CONTEXT_STATE, None)
+    if cached is not None and cached[0] == user.id:
+        return cached[1]
+    context = await AccessService(session).context(user, BRAND_KEY)
+    setattr(request.state, ACCESS_CONTEXT_STATE, (user.id, context))
+    return context
+
+
 def require_roles(*roles: UserRole) -> Callable:
     allowed_roles = frozenset(
         access_role
@@ -117,10 +139,11 @@ def require_roles(*roles: UserRole) -> Callable:
     )
 
     async def dependency(
+        request: Request,
         user: Annotated[User, Depends(current_user)],
         session: Annotated[AsyncSession, Depends(get_db)],
     ) -> User:
-        context = await AccessService(session).context(user, BRAND_KEY)
+        context = await effective_access_context(request, user, session)
         if not allowed_roles.intersection(context.roles):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions"
@@ -136,10 +159,11 @@ def require_permissions(*permissions: str) -> Callable:
         raise ValueError("At least one permission is required")
 
     async def dependency(
+        request: Request,
         user: Annotated[User, Depends(current_user)],
         session: Annotated[AsyncSession, Depends(get_db)],
     ) -> User:
-        context = await AccessService(session).context(user, BRAND_KEY)
+        context = await effective_access_context(request, user, session)
         effective = set(context.permissions)
         if "*" not in effective and not required.issubset(effective):
             raise HTTPException(
@@ -156,10 +180,11 @@ def require_any_permission(*permissions: str) -> Callable:
         raise ValueError("At least one permission is required")
 
     async def dependency(
+        request: Request,
         user: Annotated[User, Depends(current_user)],
         session: Annotated[AsyncSession, Depends(get_db)],
     ) -> User:
-        context = await AccessService(session).context(user, BRAND_KEY)
+        context = await effective_access_context(request, user, session)
         effective = set(context.permissions)
         if "*" not in effective and not effective.intersection(requested):
             raise HTTPException(
