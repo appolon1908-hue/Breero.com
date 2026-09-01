@@ -13,12 +13,18 @@ export type FunnelEvent =
   | { name: "quote_viewed"; quoteId: string }
   | { name: "quote_approved"; quoteId: string };
 
-export interface AnalyticsAdapter { track(event: FunnelEvent): void | Promise<void> }
+export interface AnalyticsAdapter {
+  track(event: FunnelEvent): void | Promise<void>;
+}
 const noop: AnalyticsAdapter = { track: () => undefined };
 let adapter: AnalyticsAdapter = noop;
 
 export function configureAnalytics(next: AnalyticsAdapter): () => void {
   adapter = next;
-  return () => { adapter = noop; };
+  return () => {
+    adapter = noop;
+  };
 }
-export function track(event: FunnelEvent): void { if (analyticsConsentGranted()) void adapter.track(event); }
+export function track(event: FunnelEvent): void {
+  if (analyticsConsentGranted()) void adapter.track(event);
+}

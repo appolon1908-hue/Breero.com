@@ -1,6 +1,11 @@
 "use client";
 
-import { createBreeroApi, createConfiguredApi, readPublicApiConfig, type AuthSession } from "@breero/api-client";
+import {
+  createBreeroApi,
+  createConfiguredApi,
+  readPublicApiConfig,
+  type AuthSession,
+} from "@breero/api-client";
 import { bookings, payments, profile, quotes } from "./data";
 import { keycloak } from "../keycloak";
 
@@ -25,7 +30,8 @@ export const customerSession = {
     window.sessionStorage.removeItem(ACCESS_KEY);
     window.sessionStorage.removeItem(REFRESH_KEY);
   },
-  accessToken: () => typeof window === "undefined" ? null : window.sessionStorage.getItem(ACCESS_KEY),
+  accessToken: () =>
+    typeof window === "undefined" ? null : window.sessionStorage.getItem(ACCESS_KEY),
   async refresh(): Promise<string | null> {
     if (refreshInFlight) return refreshInFlight;
     refreshInFlight = (async () => {
@@ -45,18 +51,20 @@ export const customerSession = {
       } catch {
         customerSession.clear();
         return null;
-      } finally { refreshInFlight = null; }
+      } finally {
+        refreshInFlight = null;
+      }
     })();
     return refreshInFlight;
   },
 };
 
-export const customerApi = createConfiguredApi(
-  publicConfig,
-  {
-    getAccessToken: customerSession.accessToken,
-    refreshAccessToken: customerSession.refresh,
-    onUnauthorized: () => { customerSession.clear(); window.location.assign("/account/session-expired"); },
-    mock: { bookings, payments, profile, quotes, latencyMs: 450 },
+export const customerApi = createConfiguredApi(publicConfig, {
+  getAccessToken: customerSession.accessToken,
+  refreshAccessToken: customerSession.refresh,
+  onUnauthorized: () => {
+    customerSession.clear();
+    window.location.assign("/account/session-expired");
   },
-);
+  mock: { bookings, payments, profile, quotes, latencyMs: 450 },
+});

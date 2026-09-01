@@ -12,9 +12,11 @@ export function useApiResource<T>(load: (signal: AbortSignal) => Promise<T>) {
   useEffect(() => {
     const controller = new AbortController();
     setError(undefined);
-    void load(controller.signal).then(setValue).catch((reason: unknown) => {
-      if (!controller.signal.aborted) setError(safeCustomerError(reason));
-    });
+    void load(controller.signal)
+      .then(setValue)
+      .catch((reason: unknown) => {
+        if (!controller.signal.aborted) setError(safeCustomerError(reason));
+      });
     return () => controller.abort();
   }, [load, version]);
 

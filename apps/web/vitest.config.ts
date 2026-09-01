@@ -4,5 +4,9 @@ import { fileURLToPath, URL } from "node:url";
 export default defineConfig({
   esbuild: { jsx: "automatic" },
   resolve: { alias: { "@": fileURLToPath(new URL(".", import.meta.url)) } },
-  test: { environment: "jsdom", setupFiles: ["./vitest.setup.ts"], exclude: ["tests/e2e/**", "node_modules/**", ".next/**"] },
+  test: {
+    environment: "jsdom",
+    setupFiles: ["./vitest.setup.ts"],
+    exclude: ["tests/e2e/**", "node_modules/**", ".next/**"],
+  },
 });

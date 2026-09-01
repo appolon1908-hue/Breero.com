@@ -35,7 +35,9 @@ export function QuoteApproval({
   if (state === "declined")
     return (
       <div className="approval-success" role="status">
-        <span><CheckIcon size={28} /></span>
+        <span>
+          <CheckIcon size={28} />
+        </span>
         <h2>Quote declined</h2>
         <p>Your decision is saved. No additional work or payment was authorized.</p>
         <a href="/account/quotes">Return to quotes</a>
@@ -48,16 +50,17 @@ export function QuoteApproval({
           <CheckIcon size={28} />
         </span>
         <h2>Quote response saved</h2>
-        <p>Your response is recorded. BREERO does not collect online payment. Final scope, price, and payment arrangements remain between you and the independent provider.</p>
+        <p>
+          Your response is recorded. BREERO does not collect online payment. Final scope, price, and
+          payment arrangements remain between you and the independent provider.
+        </p>
         <a href="/account/quotes">Return to quotes</a>
       </div>
     );
   return (
     <div>
       <h2>Approve this work?</h2>
-      <p>
-        No additional work begins until you approve. Approval does not create an online charge.
-      </p>
+      <p>No additional work begins until you approve. Approval does not create an online charge.</p>
       {state === "error" && (
         <p className="auth-message auth-error" role="alert">
           We couldn’t complete that request. Nothing was charged.

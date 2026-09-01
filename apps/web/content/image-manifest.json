@@ -1,34 +1,290 @@
 [
-  {"id":"homeHero","path":"/images/hero/home-hero.webp","page":"/","section":"Hero","aspectRatio":"3:2","alt":"A home-service professional arriving at a bright residential home","status":"GENERATED_DRAFT"},
-  {"id":"servicesHero","path":"/images/hero/services-hero.webp","page":"/services","section":"Hero","aspectRatio":"3:2","alt":"A friendly professional welcomed at a customer's home","status":"GENERATED_DRAFT"},
-  {"id":"bookingHero","path":"/images/hero/booking-hero.webp","page":"/booking","section":"Hero","aspectRatio":"3:2","alt":"A professional arriving for a scheduled home-service visit","status":"GENERATED_DRAFT"},
-  {"id":"trustHero","path":"/images/hero/trust-hero.webp","page":"/trust","section":"Hero","aspectRatio":"3:2","alt":"Home-service professionals preparing for their day","status":"GENERATED_DRAFT"},
-  {"id":"partnerHero","path":"/images/hero/partner-hero.webp","page":"/partners","section":"Hero","aspectRatio":"3:2","alt":"Two local service professionals reviewing their schedule","status":"GENERATED_DRAFT"},
-  {"id":"aboutHero","path":"/images/hero/about-hero.webp","page":"/about","section":"Hero","aspectRatio":"3:2","alt":"A helpful professional greeting a homeowner","status":"GENERATED_DRAFT"},
-  {"id":"plumbing","path":"/images/services/plumbing.webp","page":"/services/plumbing","section":"Service image","aspectRatio":"4:3","alt":"A plumbing professional inspecting pipework beneath a kitchen sink","status":"GENERATED_DRAFT"},
-  {"id":"electrical","path":"/images/services/electrical.webp","page":"/services/electrical","section":"Service image","aspectRatio":"4:3","alt":"An electrical professional safely checking a wall outlet","status":"GENERATED_DRAFT"},
-  {"id":"handyman","path":"/images/services/handyman.webp","page":"/services/handyman","section":"Service image","aspectRatio":"4:3","alt":"A home professional preparing for a local service visit","status":"GENERATED_DRAFT"},
-  {"id":"heating","path":"/images/services/heating.webp","page":"/services/heating","section":"Service image","aspectRatio":"4:3","alt":"A heating professional checking a home installation","status":"GENERATED_DRAFT"},
-  {"id":"cooling","path":"/images/services/cooling.webp","page":"/services/cooling","section":"Service image","aspectRatio":"4:3","alt":"A cooling specialist carrying out a careful home inspection","status":"GENERATED_DRAFT"},
-  {"id":"applianceRepair","path":"/images/services/appliance-repair.webp","page":"/services/appliance-repair","section":"Service image","aspectRatio":"4:3","alt":"A technician diagnosing a household appliance","status":"GENERATED_DRAFT"},
-  {"id":"cleaning","path":"/images/services/cleaning.webp","page":"/services/cleaning","section":"Service image","aspectRatio":"4:3","alt":"A professional cleaner finishing a bright living room","status":"GENERATED_DRAFT"},
-  {"id":"locksmith","path":"/images/services/locksmith.webp","page":"/services/locksmith","section":"Service image","aspectRatio":"4:3","alt":"A local professional preparing tools for a home visit","status":"GENERATED_DRAFT"},
-  {"id":"painting","path":"/images/services/painting.webp","page":"/services/painting","section":"Service image","aspectRatio":"4:3","alt":"A professional working carefully in a clean modern home","status":"GENERATED_DRAFT"},
-  {"id":"carpentry","path":"/images/services/carpentry.webp","page":"/services/carpentry","section":"Service image","aspectRatio":"4:3","alt":"A skilled professional preparing for a home project","status":"GENERATED_DRAFT"},
-  {"id":"movingHelp","path":"/images/services/moving-help.webp","page":"/services/moving-help","section":"Service image","aspectRatio":"4:3","alt":"Local professionals ready to help with a home move","status":"GENERATED_DRAFT"},
-  {"id":"homeMaintenance","path":"/images/services/home-maintenance.webp","page":"/services/home-maintenance","section":"Service image","aspectRatio":"4:3","alt":"A professional maintaining a bright family home","status":"GENERATED_DRAFT"},
-  {"id":"happyHomeowner","path":"/images/lifestyle/happy-homeowner.webp","page":"/","section":"Lifestyle","aspectRatio":"4:3","alt":"A homeowner welcoming professional help","status":"GENERATED_DRAFT"},
-  {"id":"technicianArrival","path":"/images/lifestyle/technician-arrival.webp","page":"/","section":"Lifestyle","aspectRatio":"4:3","alt":"A professional arriving for a home visit","status":"GENERATED_DRAFT"},
-  {"id":"technicianWorking","path":"/images/lifestyle/technician-working.webp","page":"/how-it-works","section":"Process","aspectRatio":"4:3","alt":"A professional working carefully in a home","status":"GENERATED_DRAFT"},
-  {"id":"familyHome","path":"/images/lifestyle/family-home.webp","page":"/about","section":"Lifestyle","aspectRatio":"4:3","alt":"A bright attainable family home","status":"GENERATED_DRAFT"},
-  {"id":"cleanModernHome","path":"/images/lifestyle/clean-modern-home.webp","page":"/home-care","section":"Lifestyle","aspectRatio":"4:3","alt":"A clean modern living space","status":"GENERATED_DRAFT"},
-  {"id":"bookingOnPhone","path":"/images/lifestyle/booking-on-phone.webp","page":"/how-it-works","section":"Booking","aspectRatio":"4:3","alt":"A homeowner arranging a service visit","status":"GENERATED_DRAFT"},
-  {"id":"verifiedProfessional","path":"/images/trust/verified-professional.webp","page":"/trust","section":"Trust","aspectRatio":"4:3","alt":"A verified home-service professional","status":"GENERATED_DRAFT"},
-  {"id":"qualityCheck","path":"/images/trust/quality-check.webp","page":"/why-breero","section":"Quality","aspectRatio":"4:3","alt":"A careful professional quality check","status":"GENERATED_DRAFT"},
-  {"id":"supportTeam","path":"/images/trust/support-team.webp","page":"/contact","section":"Support","aspectRatio":"4:3","alt":"Professionals coordinating customer support","status":"GENERATED_DRAFT"},
-  {"id":"serviceGuarantee","path":"/images/trust/service-guarantee.webp","page":"/service-guarantee","section":"Standards","aspectRatio":"4:3","alt":"A professional completing a careful handover","status":"GENERATED_DRAFT"},
-  {"id":"breeroTeam","path":"/images/about/breero-team.webp","page":"/about","section":"Team","aspectRatio":"4:3","alt":"Home-service professionals working together","status":"GENERATED_DRAFT"},
-  {"id":"partnerProfessional","path":"/images/partners/partner-professional.webp","page":"/partners","section":"Partner","aspectRatio":"4:3","alt":"Two service professionals reviewing work","status":"GENERATED_DRAFT"},
-  {"id":"serviceVan","path":"/images/partners/service-van.webp","page":"/partners","section":"Partner","aspectRatio":"4:3","alt":"Professionals beside a clean service vehicle","status":"GENERATED_DRAFT"},
-  {"id":"localCommunity","path":"/images/about/local-community.webp","page":"/locations","section":"Community","aspectRatio":"4:3","alt":"A welcoming local residential community","status":"GENERATED_DRAFT"}
+  {
+    "id": "homeHero",
+    "path": "/images/hero/home-hero.webp",
+    "page": "/",
+    "section": "Hero",
+    "aspectRatio": "3:2",
+    "alt": "A home-service professional arriving at a bright residential home",
+    "status": "GENERATED_DRAFT"
+  },
+  {
+    "id": "servicesHero",
+    "path": "/images/hero/services-hero.webp",
+    "page": "/services",
+    "section": "Hero",
+    "aspectRatio": "3:2",
+    "alt": "A friendly professional welcomed at a customer's home",
+    "status": "GENERATED_DRAFT"
+  },
+  {
+    "id": "bookingHero",
+    "path": "/images/hero/booking-hero.webp",
+    "page": "/booking",
+    "section": "Hero",
+    "aspectRatio": "3:2",
+    "alt": "A professional arriving for a scheduled home-service visit",
+    "status": "GENERATED_DRAFT"
+  },
+  {
+    "id": "trustHero",
+    "path": "/images/hero/trust-hero.webp",
+    "page": "/trust",
+    "section": "Hero",
+    "aspectRatio": "3:2",
+    "alt": "Home-service professionals preparing for their day",
+    "status": "GENERATED_DRAFT"
+  },
+  {
+    "id": "partnerHero",
+    "path": "/images/hero/partner-hero.webp",
+    "page": "/partners",
+    "section": "Hero",
+    "aspectRatio": "3:2",
+    "alt": "Two local service professionals reviewing their schedule",
+    "status": "GENERATED_DRAFT"
+  },
+  {
+    "id": "aboutHero",
+    "path": "/images/hero/about-hero.webp",
+    "page": "/about",
+    "section": "Hero",
+    "aspectRatio": "3:2",
+    "alt": "A helpful professional greeting a homeowner",
+    "status": "GENERATED_DRAFT"
+  },
+  {
+    "id": "plumbing",
+    "path": "/images/services/plumbing.webp",
+    "page": "/services/plumbing",
+    "section": "Service image",
+    "aspectRatio": "4:3",
+    "alt": "A plumbing professional inspecting pipework beneath a kitchen sink",
+    "status": "GENERATED_DRAFT"
+  },
+  {
+    "id": "electrical",
+    "path": "/images/services/electrical.webp",
+    "page": "/services/electrical",
+    "section": "Service image",
+    "aspectRatio": "4:3",
+    "alt": "An electrical professional safely checking a wall outlet",
+    "status": "GENERATED_DRAFT"
+  },
+  {
+    "id": "handyman",
+    "path": "/images/services/handyman.webp",
+    "page": "/services/handyman",
+    "section": "Service image",
+    "aspectRatio": "4:3",
+    "alt": "A home professional preparing for a local service visit",
+    "status": "GENERATED_DRAFT"
+  },
+  {
+    "id": "heating",
+    "path": "/images/services/heating.webp",
+    "page": "/services/heating",
+    "section": "Service image",
+    "aspectRatio": "4:3",
+    "alt": "A heating professional checking a home installation",
+    "status": "GENERATED_DRAFT"
+  },
+  {
+    "id": "cooling",
+    "path": "/images/services/cooling.webp",
+    "page": "/services/cooling",
+    "section": "Service image",
+    "aspectRatio": "4:3",
+    "alt": "A cooling specialist carrying out a careful home inspection",
+    "status": "GENERATED_DRAFT"
+  },
+  {
+    "id": "applianceRepair",
+    "path": "/images/services/appliance-repair.webp",
+    "page": "/services/appliance-repair",
+    "section": "Service image",
+    "aspectRatio": "4:3",
+    "alt": "A technician diagnosing a household appliance",
+    "status": "GENERATED_DRAFT"
+  },
+  {
+    "id": "cleaning",
+    "path": "/images/services/cleaning.webp",
+    "page": "/services/cleaning",
+    "section": "Service image",
+    "aspectRatio": "4:3",
+    "alt": "A professional cleaner finishing a bright living room",
+    "status": "GENERATED_DRAFT"
+  },
+  {
+    "id": "locksmith",
+    "path": "/images/services/locksmith.webp",
+    "page": "/services/locksmith",
+    "section": "Service image",
+    "aspectRatio": "4:3",
+    "alt": "A local professional preparing tools for a home visit",
+    "status": "GENERATED_DRAFT"
+  },
+  {
+    "id": "painting",
+    "path": "/images/services/painting.webp",
+    "page": "/services/painting",
+    "section": "Service image",
+    "aspectRatio": "4:3",
+    "alt": "A professional working carefully in a clean modern home",
+    "status": "GENERATED_DRAFT"
+  },
+  {
+    "id": "carpentry",
+    "path": "/images/services/carpentry.webp",
+    "page": "/services/carpentry",
+    "section": "Service image",
+    "aspectRatio": "4:3",
+    "alt": "A skilled professional preparing for a home project",
+    "status": "GENERATED_DRAFT"
+  },
+  {
+    "id": "movingHelp",
+    "path": "/images/services/moving-help.webp",
+    "page": "/services/moving-help",
+    "section": "Service image",
+    "aspectRatio": "4:3",
+    "alt": "Local professionals ready to help with a home move",
+    "status": "GENERATED_DRAFT"
+  },
+  {
+    "id": "homeMaintenance",
+    "path": "/images/services/home-maintenance.webp",
+    "page": "/services/home-maintenance",
+    "section": "Service image",
+    "aspectRatio": "4:3",
+    "alt": "A professional maintaining a bright family home",
+    "status": "GENERATED_DRAFT"
+  },
+  {
+    "id": "happyHomeowner",
+    "path": "/images/lifestyle/happy-homeowner.webp",
+    "page": "/",
+    "section": "Lifestyle",
+    "aspectRatio": "4:3",
+    "alt": "A homeowner welcoming professional help",
+    "status": "GENERATED_DRAFT"
+  },
+  {
+    "id": "technicianArrival",
+    "path": "/images/lifestyle/technician-arrival.webp",
+    "page": "/",
+    "section": "Lifestyle",
+    "aspectRatio": "4:3",
+    "alt": "A professional arriving for a home visit",
+    "status": "GENERATED_DRAFT"
+  },
+  {
+    "id": "technicianWorking",
+    "path": "/images/lifestyle/technician-working.webp",
+    "page": "/how-it-works",
+    "section": "Process",
+    "aspectRatio": "4:3",
+    "alt": "A professional working carefully in a home",
+    "status": "GENERATED_DRAFT"
+  },
+  {
+    "id": "familyHome",
+    "path": "/images/lifestyle/family-home.webp",
+    "page": "/about",
+    "section": "Lifestyle",
+    "aspectRatio": "4:3",
+    "alt": "A bright attainable family home",
+    "status": "GENERATED_DRAFT"
+  },
+  {
+    "id": "cleanModernHome",
+    "path": "/images/lifestyle/clean-modern-home.webp",
+    "page": "/home-care",
+    "section": "Lifestyle",
+    "aspectRatio": "4:3",
+    "alt": "A clean modern living space",
+    "status": "GENERATED_DRAFT"
+  },
+  {
+    "id": "bookingOnPhone",
+    "path": "/images/lifestyle/booking-on-phone.webp",
+    "page": "/how-it-works",
+    "section": "Booking",
+    "aspectRatio": "4:3",
+    "alt": "A homeowner arranging a service visit",
+    "status": "GENERATED_DRAFT"
+  },
+  {
+    "id": "verifiedProfessional",
+    "path": "/images/trust/verified-professional.webp",
+    "page": "/trust",
+    "section": "Trust",
+    "aspectRatio": "4:3",
+    "alt": "A verified home-service professional",
+    "status": "GENERATED_DRAFT"
+  },
+  {
+    "id": "qualityCheck",
+    "path": "/images/trust/quality-check.webp",
+    "page": "/why-breero",
+    "section": "Quality",
+    "aspectRatio": "4:3",
+    "alt": "A careful professional quality check",
+    "status": "GENERATED_DRAFT"
+  },
+  {
+    "id": "supportTeam",
+    "path": "/images/trust/support-team.webp",
+    "page": "/contact",
+    "section": "Support",
+    "aspectRatio": "4:3",
+    "alt": "Professionals coordinating customer support",
+    "status": "GENERATED_DRAFT"
+  },
+  {
+    "id": "serviceGuarantee",
+    "path": "/images/trust/service-guarantee.webp",
+    "page": "/service-guarantee",
+    "section": "Standards",
+    "aspectRatio": "4:3",
+    "alt": "A professional completing a careful handover",
+    "status": "GENERATED_DRAFT"
+  },
+  {
+    "id": "breeroTeam",
+    "path": "/images/about/breero-team.webp",
+    "page": "/about",
+    "section": "Team",
+    "aspectRatio": "4:3",
+    "alt": "Home-service professionals working together",
+    "status": "GENERATED_DRAFT"
+  },
+  {
+    "id": "partnerProfessional",
+    "path": "/images/partners/partner-professional.webp",
+    "page": "/partners",
+    "section": "Partner",
+    "aspectRatio": "4:3",
+    "alt": "Two service professionals reviewing work",
+    "status": "GENERATED_DRAFT"
+  },
+  {
+    "id": "serviceVan",
+    "path": "/images/partners/service-van.webp",
+    "page": "/partners",
+    "section": "Partner",
+    "aspectRatio": "4:3",
+    "alt": "Professionals beside a clean service vehicle",
+    "status": "GENERATED_DRAFT"
+  },
+  {
+    "id": "localCommunity",
+    "path": "/images/about/local-community.webp",
+    "page": "/locations",
+    "section": "Community",
+    "aspectRatio": "4:3",
+    "alt": "A welcoming local residential community",
+    "status": "GENERATED_DRAFT"
+  }
 ]

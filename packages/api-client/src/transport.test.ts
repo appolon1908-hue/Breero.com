@@ -2,7 +2,12 @@ import { describe, expect, it, vi } from "vitest";
 import { ApiError } from "./errors";
 import { ApiTransport } from "./transport";
 
-const json = (body: unknown, init: ResponseInit = {}) => new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json", ...init.headers }, ...init });
+const json = (body: unknown, init: ResponseInit = {}) =>
+  new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { "content-type": "application/json", ...init.headers },
+    ...init,
+  });
 
 describe("ApiTransport", () => {
   it("binds the native global fetch implementation to its global receiver", async () => {
@@ -40,38 +45,90 @@ describe("ApiTransport", () => {
       expect(new Headers(init?.headers).get("authorization")).toBe("Bearer token");
       return json({ ok: true });
     });
-    const result = await new ApiTransport({ baseUrl: "https://api.example.test/api/v1", fetch: fetcher as typeof fetch, getAccessToken: () => "token" }).request<{ ok: boolean }>("services");
+    const result = await new ApiTransport({
+      baseUrl: "https://api.example.test/api/v1",
+      fetch: fetcher as typeof fetch,
+      getAccessToken: () => "token",
+    }).request<{ ok: boolean }>("services");
     expect(result.ok).toBe(true);
   });
 
   it("normalizes API domain errors and preserves request IDs", async () => {
-    const fetcher = vi.fn(async () => json({ error: { code: "slot_unavailable", message: "Choose another slot" } }, { status: 409, headers: { "x-request-id": "req-7" } }));
-    await expect(new ApiTransport({ baseUrl: "https://api.example.test/api/v1", fetch: fetcher as typeof fetch }).request("bookings", { method: "POST" })).rejects.toMatchObject({ kind: "conflict", code: "slot_unavailable", requestId: "req-7" });
+    const fetcher = vi.fn(async () =>
+      json(
+        { error: { code: "slot_unavailable", message: "Choose another slot" } },
+        { status: 409, headers: { "x-request-id": "req-7" } },
+      ),
+    );
+    await expect(
+      new ApiTransport({
+        baseUrl: "https://api.example.test/api/v1",
+        fetch: fetcher as typeof fetch,
+      }).request("bookings", { method: "POST" }),
+    ).rejects.toMatchObject({ kind: "conflict", code: "slot_unavailable", requestId: "req-7" });
     expect(fetcher).toHaveBeenCalledTimes(1);
   });
 
   it("retries safe reads but never retries writes", async () => {
-    const read = vi.fn().mockResolvedValueOnce(json({}, { status: 503 })).mockResolvedValueOnce(json({ recovered: true }));
-    await expect(new ApiTransport({ baseUrl: "https://api.example.test", fetch: read as typeof fetch }).request("services")).resolves.toEqual({ recovered: true });
+    const read = vi
+      .fn()
+      .mockResolvedValueOnce(json({}, { status: 503 }))
+      .mockResolvedValueOnce(json({ recovered: true }));
+    await expect(
+      new ApiTransport({
+        baseUrl: "https://api.example.test",
+        fetch: read as typeof fetch,
+      }).request("services"),
+    ).resolves.toEqual({ recovered: true });
     expect(read).toHaveBeenCalledTimes(2);
-    const write = vi.fn(async () => { throw new TypeError("offline"); });
-    await expect(new ApiTransport({ baseUrl: "https://api.example.test", fetch: write as typeof fetch }).request("bookings", { method: "POST", body: {} })).rejects.toBeInstanceOf(ApiError);
+    const write = vi.fn(async () => {
+      throw new TypeError("offline");
+    });
+    await expect(
+      new ApiTransport({
+        baseUrl: "https://api.example.test",
+        fetch: write as typeof fetch,
+      }).request("bookings", { method: "POST", body: {} }),
+    ).rejects.toBeInstanceOf(ApiError);
     expect(write).toHaveBeenCalledTimes(1);
   });
 
   it("reports timeouts consistently", async () => {
-    const fetcher = vi.fn((_url: URL | RequestInfo, init?: RequestInit) => new Promise<Response>((_resolve, reject) => init?.signal?.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")))));
-    await expect(new ApiTransport({ baseUrl: "https://api.example.test", timeoutMs: 5, fetch: fetcher as typeof fetch }).request("slow", { retry: false })).rejects.toMatchObject({ kind: "timeout" });
+    const fetcher = vi.fn(
+      (_url: URL | RequestInfo, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) =>
+          init?.signal?.addEventListener("abort", () =>
+            reject(new DOMException("Aborted", "AbortError")),
+          ),
+        ),
+    );
+    await expect(
+      new ApiTransport({
+        baseUrl: "https://api.example.test",
+        timeoutMs: 5,
+        fetch: fetcher as typeof fetch,
+      }).request("slow", { retry: false }),
+    ).rejects.toMatchObject({ kind: "timeout" });
   });
 
   it("refreshes once after a 401 and retries with the rotated access token", async () => {
     let token = "expired";
     const fetcher = vi.fn(async (_url: URL | RequestInfo, init?: RequestInit) => {
       const auth = new Headers(init?.headers).get("authorization");
-      return auth === "Bearer rotated" ? json({ recovered: true }) : json({ detail: "Expired" }, { status: 401 });
+      return auth === "Bearer rotated"
+        ? json({ recovered: true })
+        : json({ detail: "Expired" }, { status: 401 });
     });
-    const refresh = vi.fn(async () => { token = "rotated"; return token; });
-    const transport = new ApiTransport({ baseUrl: "https://api.example.test", fetch: fetcher as typeof fetch, getAccessToken: () => token, refreshAccessToken: refresh });
+    const refresh = vi.fn(async () => {
+      token = "rotated";
+      return token;
+    });
+    const transport = new ApiTransport({
+      baseUrl: "https://api.example.test",
+      fetch: fetcher as typeof fetch,
+      getAccessToken: () => token,
+      refreshAccessToken: refresh,
+    });
     await expect(transport.request("auth/me")).resolves.toEqual({ recovered: true });
     expect(refresh).toHaveBeenCalledTimes(1);
     expect(fetcher).toHaveBeenCalledTimes(2);
@@ -80,7 +137,12 @@ describe("ApiTransport", () => {
   it("ends the session without a retry loop when refresh fails", async () => {
     const expired = vi.fn(async () => json({ detail: "Expired" }, { status: 401 }));
     const unauthorized = vi.fn();
-    const transport = new ApiTransport({ baseUrl: "https://api.example.test", fetch: expired as typeof fetch, refreshAccessToken: async () => null, onUnauthorized: unauthorized });
+    const transport = new ApiTransport({
+      baseUrl: "https://api.example.test",
+      fetch: expired as typeof fetch,
+      refreshAccessToken: async () => null,
+      onUnauthorized: unauthorized,
+    });
     await expect(transport.request("auth/me")).rejects.toMatchObject({ kind: "authentication" });
     expect(expired).toHaveBeenCalledTimes(1);
     expect(unauthorized).toHaveBeenCalledTimes(1);

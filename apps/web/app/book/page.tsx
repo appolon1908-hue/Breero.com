@@ -1,1 +1,4 @@
-import { redirect } from "next/navigation";export default function Page(){redirect("/booking")}
+import { redirect } from "next/navigation";
+export default function Page() {
+  redirect("/booking");
+}

@@ -10,8 +10,17 @@ describe("marketing system", () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it("uses the canonical booking CTA", () => {
-    render(<Hero title="Home services" description="Trusted help" image={{ src: "/images/hero/home-hero.webp", alt: "Professional arriving" }} />);
-    expect(screen.getByRole("link", { name: "Book a service" })).toHaveAttribute("href", "/booking");
+    render(
+      <Hero
+        title="Home services"
+        description="Trusted help"
+        image={{ src: "/images/hero/home-hero.webp", alt: "Professional arriving" }}
+      />,
+    );
+    expect(screen.getByRole("link", { name: "Book a service" })).toHaveAttribute(
+      "href",
+      "/booking",
+    );
   });
 
   it("links service cards to public service pages", () => {
@@ -25,31 +34,72 @@ describe("marketing system", () => {
   });
 
   it("labels preferred timing as a request when instant booking is disabled", async () => {
-    vi.stubGlobal("fetch", vi.fn((url: string) => Promise.resolve(new Response(JSON.stringify(
-      url.includes("capabilities")
-        ? { request_intake: true, instant_booking: false, online_payments: false, automatic_assignment: false, provider_self_service: false, marketplace_matching: false, messaging: false, reviews: false }
-        : [{ id: "service-1", slug: "plumbing", name: "Plumbing", is_active: true }],
-    ), { status: 200 }))));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url: string) =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify(
+              url.includes("capabilities")
+                ? {
+                    request_intake: true,
+                    instant_booking: false,
+                    online_payments: false,
+                    automatic_assignment: false,
+                    provider_self_service: false,
+                    marketplace_matching: false,
+                    messaging: false,
+                    reviews: false,
+                  }
+                : [{ id: "service-1", slug: "plumbing", name: "Plumbing", is_active: true }],
+            ),
+            { status: 200 },
+          ),
+        ),
+      ),
+    );
 
     render(<PublicIntakeForm kind="service" />);
 
-    await waitFor(() => expect(screen.getByLabelText("Preferred date (request only)")).toBeEnabled());
+    await waitFor(() =>
+      expect(screen.getByLabelText("Preferred date (request only)")).toBeEnabled(),
+    );
     expect(screen.getByRole("button", { name: "Send request" })).toBeEnabled();
   });
 
   it("keeps timing request-only when instant booking is enabled", async () => {
-    vi.stubGlobal("fetch", vi.fn((url: string) => Promise.resolve(new Response(JSON.stringify(
-      url.includes("capabilities")
-        ? { request_intake: true, instant_booking: true, online_payments: false, automatic_assignment: false, provider_self_service: false, marketplace_matching: false, messaging: false, reviews: false }
-        : [{ id: "service-1", slug: "plumbing", name: "Plumbing", is_active: true }],
-    ), { status: 200 }))));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url: string) =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify(
+              url.includes("capabilities")
+                ? {
+                    request_intake: true,
+                    instant_booking: true,
+                    online_payments: false,
+                    automatic_assignment: false,
+                    provider_self_service: false,
+                    marketplace_matching: false,
+                    messaging: false,
+                    reviews: false,
+                  }
+                : [{ id: "service-1", slug: "plumbing", name: "Plumbing", is_active: true }],
+            ),
+            { status: 200 },
+          ),
+        ),
+      ),
+    );
 
     render(<PublicIntakeForm kind="service" />);
 
-    await waitFor(() => expect(screen.getByLabelText("Preferred date (request only)")).toBeEnabled());
+    await waitFor(() =>
+      expect(screen.getByLabelText("Preferred date (request only)")).toBeEnabled(),
+    );
     expect(screen.getByLabelText("Preferred local time (request only)")).toBeEnabled();
     expect(screen.queryByLabelText("Appointment date")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Appointment time")).not.toBeInTheDocument();
   });
-
 });

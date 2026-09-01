@@ -9,8 +9,20 @@ describe("BREERO client", () => {
       expect(new Headers(init?.headers).get("idempotency-key")).toBe("booking-123456");
       return new Response(JSON.stringify({ id: "b" }), { status: 201 });
     });
-    const api = createBreeroApi({ baseUrl: "https://api.test/api/v1", fetch: fetcher as typeof fetch });
-    await api.bookings.create({ service_id: "s", address_id: "a", customer: { first_name: "A", last_name: "B", email: "a@b.test", phone: "12345" }, window: { start: "start", end: "end" }, answers: [] }, "booking-123456");
+    const api = createBreeroApi({
+      baseUrl: "https://api.test/api/v1",
+      fetch: fetcher as typeof fetch,
+    });
+    await api.bookings.create(
+      {
+        service_id: "s",
+        address_id: "a",
+        customer: { first_name: "A", last_name: "B", email: "a@b.test", phone: "12345" },
+        window: { start: "start", end: "end" },
+        answers: [],
+      },
+      "booking-123456",
+    );
   });
 
   it("switches all domains through one mock seam", async () => {

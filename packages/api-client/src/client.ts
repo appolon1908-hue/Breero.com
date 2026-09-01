@@ -1,50 +1,125 @@
 import type {
-  AddressValidation, AddressValidationRequest, AuthSession, AvailabilitySearchRequest,
-  AvailabilitySlot, Booking, BookingConfirmation, BookingCreateRequest, BookingCreateResponse, ChangePasswordRequest, CustomerAddress,
-  CustomerAddressInput, CustomerBookingList, CustomerPayment, CustomerProfile,
-  CustomerProfilePatch, ForgotPasswordRequest, LoginRequest, MessageResponse, Page,
-  Payment, PaymentIntentRequest, PublicCapabilities, Quote, RefreshRequest, RegisterRequest,
-  ResetPasswordRequest, ServiceDetail, ServiceQuestion, ServiceSummary, TokenRequest,
-  User, UUID,
+  AddressValidation,
+  AddressValidationRequest,
+  AuthSession,
+  AvailabilitySearchRequest,
+  AvailabilitySlot,
+  Booking,
+  BookingConfirmation,
+  BookingCreateRequest,
+  BookingCreateResponse,
+  ChangePasswordRequest,
+  CustomerAddress,
+  CustomerAddressInput,
+  CustomerBookingList,
+  CustomerPayment,
+  CustomerProfile,
+  CustomerProfilePatch,
+  ForgotPasswordRequest,
+  LoginRequest,
+  MessageResponse,
+  Page,
+  Payment,
+  PaymentIntentRequest,
+  PublicCapabilities,
+  Quote,
+  RefreshRequest,
+  RegisterRequest,
+  ResetPasswordRequest,
+  ServiceDetail,
+  ServiceQuestion,
+  ServiceSummary,
+  TokenRequest,
+  User,
+  UUID,
 } from "@breero/types";
 import { ApiTransport, type Transport, type TransportOptions } from "./transport";
 
-export interface PageParams { page?: number; pageSize?: number }
+export interface PageParams {
+  page?: number;
+  pageSize?: number;
+}
 export interface BreeroApi {
   public: { capabilities(signal?: AbortSignal): Promise<PublicCapabilities> };
   auth: {
-    login(input: LoginRequest): Promise<AuthSession>; register(input: RegisterRequest): Promise<AuthSession>;
-    refresh(input: RefreshRequest): Promise<AuthSession>; logout(input: RefreshRequest): Promise<void>;
-    logoutAll(signal?: AbortSignal): Promise<void>; forgotPassword(input: ForgotPasswordRequest): Promise<MessageResponse>;
-    resetPassword(input: ResetPasswordRequest): Promise<MessageResponse>; changePassword(input: ChangePasswordRequest): Promise<MessageResponse>;
-    verifyEmail(input: TokenRequest): Promise<MessageResponse>; resendVerification(signal?: AbortSignal): Promise<MessageResponse>;
+    login(input: LoginRequest): Promise<AuthSession>;
+    register(input: RegisterRequest): Promise<AuthSession>;
+    refresh(input: RefreshRequest): Promise<AuthSession>;
+    logout(input: RefreshRequest): Promise<void>;
+    logoutAll(signal?: AbortSignal): Promise<void>;
+    forgotPassword(input: ForgotPasswordRequest): Promise<MessageResponse>;
+    resetPassword(input: ResetPasswordRequest): Promise<MessageResponse>;
+    changePassword(input: ChangePasswordRequest): Promise<MessageResponse>;
+    verifyEmail(input: TokenRequest): Promise<MessageResponse>;
+    resendVerification(signal?: AbortSignal): Promise<MessageResponse>;
     me(signal?: AbortSignal): Promise<User>;
   };
-  services: { list(signal?: AbortSignal): Promise<ServiceSummary[]>; detail(id: UUID, signal?: AbortSignal): Promise<ServiceDetail>; questions(id: UUID, signal?: AbortSignal): Promise<ServiceQuestion[]> };
-  addresses: { validate(input: AddressValidationRequest, signal?: AbortSignal): Promise<AddressValidation> };
-  availability: { search(input: AvailabilitySearchRequest, signal?: AbortSignal): Promise<AvailabilitySlot[]> };
+  services: {
+    list(signal?: AbortSignal): Promise<ServiceSummary[]>;
+    detail(id: UUID, signal?: AbortSignal): Promise<ServiceDetail>;
+    questions(id: UUID, signal?: AbortSignal): Promise<ServiceQuestion[]>;
+  };
+  addresses: {
+    validate(input: AddressValidationRequest, signal?: AbortSignal): Promise<AddressValidation>;
+  };
+  availability: {
+    search(input: AvailabilitySearchRequest, signal?: AbortSignal): Promise<AvailabilitySlot[]>;
+  };
   bookings: {
-    create(input: BookingCreateRequest, idempotencyKey: string, signal?: AbortSignal): Promise<BookingCreateResponse>;
-    prepareGuestPayment(id: UUID, guestToken: string, idempotencyKey: string, signal?: AbortSignal): Promise<Payment>;
-    guestConfirmation(id: UUID, guestToken: string, signal?: AbortSignal): Promise<BookingConfirmation>;
+    create(
+      input: BookingCreateRequest,
+      idempotencyKey: string,
+      signal?: AbortSignal,
+    ): Promise<BookingCreateResponse>;
+    prepareGuestPayment(
+      id: UUID,
+      guestToken: string,
+      idempotencyKey: string,
+      signal?: AbortSignal,
+    ): Promise<Payment>;
+    guestConfirmation(
+      id: UUID,
+      guestToken: string,
+      signal?: AbortSignal,
+    ): Promise<BookingConfirmation>;
     mine(params?: PageParams, signal?: AbortSignal): Promise<Page<Booking> | CustomerBookingList>;
     getMine(id: UUID, signal?: AbortSignal): Promise<Booking>;
     cancelMine(id: UUID, signal?: AbortSignal): Promise<Booking>;
   };
-  payments: { createIntent(input: PaymentIntentRequest, idempotencyKey: string, signal?: AbortSignal): Promise<Payment> };
+  payments: {
+    createIntent(
+      input: PaymentIntentRequest,
+      idempotencyKey: string,
+      signal?: AbortSignal,
+    ): Promise<Payment>;
+  };
   customer: {
-    profile(signal?: AbortSignal): Promise<CustomerProfile>; updateProfile(input: CustomerProfilePatch, signal?: AbortSignal): Promise<CustomerProfile>;
-    addresses(signal?: AbortSignal): Promise<CustomerAddress[]>; addAddress(input: CustomerAddressInput, signal?: AbortSignal): Promise<CustomerAddress>;
-    updateAddress(id: UUID, input: CustomerAddressInput, signal?: AbortSignal): Promise<CustomerAddress>; deleteAddress(id: UUID, signal?: AbortSignal): Promise<void>;
+    profile(signal?: AbortSignal): Promise<CustomerProfile>;
+    updateProfile(input: CustomerProfilePatch, signal?: AbortSignal): Promise<CustomerProfile>;
+    addresses(signal?: AbortSignal): Promise<CustomerAddress[]>;
+    addAddress(input: CustomerAddressInput, signal?: AbortSignal): Promise<CustomerAddress>;
+    updateAddress(
+      id: UUID,
+      input: CustomerAddressInput,
+      signal?: AbortSignal,
+    ): Promise<CustomerAddress>;
+    deleteAddress(id: UUID, signal?: AbortSignal): Promise<void>;
     payments(params?: PageParams, signal?: AbortSignal): Promise<Page<CustomerPayment>>;
     payment(id: UUID, signal?: AbortSignal): Promise<CustomerPayment>;
   };
-  quotes: { list(params?: PageParams, signal?: AbortSignal): Promise<Page<Quote>>; get(id: UUID, signal?: AbortSignal): Promise<Quote>; decide(id: UUID, approve: boolean, signal?: AbortSignal): Promise<Quote> };
+  quotes: {
+    list(params?: PageParams, signal?: AbortSignal): Promise<Page<Quote>>;
+    get(id: UUID, signal?: AbortSignal): Promise<Quote>;
+    decide(id: UUID, approve: boolean, signal?: AbortSignal): Promise<Quote>;
+  };
 }
 
 const encoded = (value: string) => encodeURIComponent(value);
-const pageQuery = ({ page = 1, pageSize = 20 }: PageParams = {}) => `?page=${page}&page_size=${pageSize}`;
-export function createBreeroApi(options: TransportOptions): BreeroApi { return createApiClient(new ApiTransport(options)); }
+const pageQuery = ({ page = 1, pageSize = 20 }: PageParams = {}) =>
+  `?page=${page}&page_size=${pageSize}`;
+export function createBreeroApi(options: TransportOptions): BreeroApi {
+  return createApiClient(new ApiTransport(options));
+}
 
 export function createApiClient(http: Transport): BreeroApi {
   return {
@@ -54,12 +129,18 @@ export function createApiClient(http: Transport): BreeroApi {
       register: (body) => http.request("/auth/register", { method: "POST", body, retry: false }),
       refresh: (body) => http.request("/auth/refresh", { method: "POST", body, retry: false }),
       logout: (body) => http.request("/auth/logout", { method: "POST", body, retry: false }),
-      logoutAll: (signal) => http.request("/auth/logout-all", { method: "POST", signal, retry: false }),
-      forgotPassword: (body) => http.request("/auth/password/forgot", { method: "POST", body, retry: false }),
-      resetPassword: (body) => http.request("/auth/password/reset", { method: "POST", body, retry: false }),
-      changePassword: (body) => http.request("/auth/password/change", { method: "POST", body, retry: false }),
-      verifyEmail: (body) => http.request("/auth/email/verify", { method: "POST", body, retry: false }),
-      resendVerification: (signal) => http.request("/auth/email/resend-verification", { method: "POST", signal, retry: false }),
+      logoutAll: (signal) =>
+        http.request("/auth/logout-all", { method: "POST", signal, retry: false }),
+      forgotPassword: (body) =>
+        http.request("/auth/password/forgot", { method: "POST", body, retry: false }),
+      resetPassword: (body) =>
+        http.request("/auth/password/reset", { method: "POST", body, retry: false }),
+      changePassword: (body) =>
+        http.request("/auth/password/change", { method: "POST", body, retry: false }),
+      verifyEmail: (body) =>
+        http.request("/auth/email/verify", { method: "POST", body, retry: false }),
+      resendVerification: (signal) =>
+        http.request("/auth/email/resend-verification", { method: "POST", signal, retry: false }),
       me: (signal) => http.request("/auth/me", { signal }),
     },
     services: {
@@ -67,33 +148,89 @@ export function createApiClient(http: Transport): BreeroApi {
       detail: (id, signal) => http.request(`/services/${encoded(id)}`, { signal }),
       questions: (id, signal) => http.request(`/services/${encoded(id)}/questions`, { signal }),
     },
-    addresses: { validate: (body, signal) => http.request("/addresses/validate", { method: "POST", body, signal, retry: false }) },
-    availability: { search: (body, signal) => http.request("/availability/search", { method: "POST", body, signal, retry: false }) },
+    addresses: {
+      validate: (body, signal) =>
+        http.request("/addresses/validate", { method: "POST", body, signal, retry: false }),
+    },
+    availability: {
+      search: (body, signal) =>
+        http.request("/availability/search", { method: "POST", body, signal, retry: false }),
+    },
     bookings: {
-      create: (body, key, signal) => http.request("/bookings", { method: "POST", body, signal, retry: false, headers: { "Idempotency-Key": key } }),
-      prepareGuestPayment: (id, token, key, signal) => http.request(`/bookings/${encoded(id)}/payment`, { method: "POST", signal, retry: false, headers: { Authorization: `Bearer ${token}`, "Idempotency-Key": key } }),
-      guestConfirmation: (id, token, signal) => http.request(`/bookings/${encoded(id)}/confirmation`, { signal, retry: false, headers: { Authorization: `Bearer ${token}` } }),
+      create: (body, key, signal) =>
+        http.request("/bookings", {
+          method: "POST",
+          body,
+          signal,
+          retry: false,
+          headers: { "Idempotency-Key": key },
+        }),
+      prepareGuestPayment: (id, token, key, signal) =>
+        http.request(`/bookings/${encoded(id)}/payment`, {
+          method: "POST",
+          signal,
+          retry: false,
+          headers: { Authorization: `Bearer ${token}`, "Idempotency-Key": key },
+        }),
+      guestConfirmation: (id, token, signal) =>
+        http.request(`/bookings/${encoded(id)}/confirmation`, {
+          signal,
+          retry: false,
+          headers: { Authorization: `Bearer ${token}` },
+        }),
       mine: (params, signal) => http.request(`/customer/bookings${pageQuery(params)}`, { signal }),
       getMine: (id, signal) => http.request(`/customer/bookings/${encoded(id)}`, { signal }),
-      cancelMine: (id, signal) => http.request(`/customer/bookings/${encoded(id)}/cancel`, { method: "POST", signal, retry: false }),
+      cancelMine: (id, signal) =>
+        http.request(`/customer/bookings/${encoded(id)}/cancel`, {
+          method: "POST",
+          signal,
+          retry: false,
+        }),
     },
     payments: {
-      createIntent: (body, key, signal) => http.request("/payments/intents", { method: "POST", body, signal, retry: false, headers: { "Idempotency-Key": key } }),
+      createIntent: (body, key, signal) =>
+        http.request("/payments/intents", {
+          method: "POST",
+          body,
+          signal,
+          retry: false,
+          headers: { "Idempotency-Key": key },
+        }),
     },
     customer: {
       profile: (signal) => http.request("/customer/profile", { signal }),
-      updateProfile: (body, signal) => http.request("/customer/profile", { method: "PATCH", body, signal, retry: false }),
+      updateProfile: (body, signal) =>
+        http.request("/customer/profile", { method: "PATCH", body, signal, retry: false }),
       addresses: (signal) => http.request("/customer/addresses", { signal }),
-      addAddress: (body, signal) => http.request("/customer/addresses", { method: "POST", body, signal, retry: false }),
-      updateAddress: (id, body, signal) => http.request(`/customer/addresses/${encoded(id)}`, { method: "PATCH", body, signal, retry: false }),
-      deleteAddress: (id, signal) => http.request(`/customer/addresses/${encoded(id)}`, { method: "DELETE", signal, retry: false }),
-      payments: (params, signal) => http.request(`/customer/payments${pageQuery(params)}`, { signal }),
+      addAddress: (body, signal) =>
+        http.request("/customer/addresses", { method: "POST", body, signal, retry: false }),
+      updateAddress: (id, body, signal) =>
+        http.request(`/customer/addresses/${encoded(id)}`, {
+          method: "PATCH",
+          body,
+          signal,
+          retry: false,
+        }),
+      deleteAddress: (id, signal) =>
+        http.request(`/customer/addresses/${encoded(id)}`, {
+          method: "DELETE",
+          signal,
+          retry: false,
+        }),
+      payments: (params, signal) =>
+        http.request(`/customer/payments${pageQuery(params)}`, { signal }),
       payment: (id, signal) => http.request(`/customer/payments/${encoded(id)}`, { signal }),
     },
     quotes: {
       list: (params, signal) => http.request(`/customer/quotes${pageQuery(params)}`, { signal }),
       get: (id, signal) => http.request(`/customer/quotes/${encoded(id)}`, { signal }),
-      decide: (id, approve, signal) => http.request(`/customer/quotes/${encoded(id)}/decision`, { method: "POST", body: { approve }, signal, retry: false }),
+      decide: (id, approve, signal) =>
+        http.request(`/customer/quotes/${encoded(id)}/decision`, {
+          method: "POST",
+          body: { approve },
+          signal,
+          retry: false,
+        }),
     },
   };
 }

@@ -38,7 +38,11 @@ async function mockCapabilities(
 
 async function mockCatalog(page: import("@playwright/test").Page) {
   await page.route("**/api/services", (route) =>
-    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([service]) }),
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([service]),
+    }),
   );
 }
 
@@ -48,14 +52,26 @@ for (const width of [375, 430, 768, 1024, 1280, 1440])
     await mockCatalog(page);
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/");
-    await expect(page.getByRole("heading", { name: /home services, without the hassle/i })).toBeVisible();
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    await expect(
+      page.getByRole("heading", { name: /home services, without the hassle/i }),
+    ).toBeVisible();
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+      ),
+    ).toBe(true);
 
     await page.goto("/booking?service=cleaning");
     await page.waitForURL("**/request-service");
-    await expect(page.getByRole("heading", { name: /tell us what your home needs/i })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /tell us what your home needs/i }),
+    ).toBeVisible();
     await expect(page.getByRole("button", { name: "Send request" })).toBeEnabled();
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+      ),
+    ).toBe(true);
   });
 
 test("request-service submission remains pending manual dispatch", async ({ page }) => {
@@ -100,7 +116,9 @@ test("request-service submission remains pending manual dispatch", async ({ page
   await page.getByLabel(/may contact me about this request/i).check();
   await page.getByRole("button", { name: "Send request" }).click();
 
-  await expect(page.getByText(/does not yet confirm availability or provider assignment/i)).toBeVisible();
+  await expect(
+    page.getByText(/does not yet confirm availability or provider assignment/i),
+  ).toBeVisible();
   expect(submitted).toMatchObject({
     name: "Owner Controlled Canary",
     service_slug: "cleaning",
@@ -123,8 +141,12 @@ test("catalog failure keeps manual request recovery visible", async ({ page }) =
   await mockCapabilities(page);
   await page.route("**/api/services", (route) => route.fulfill({ status: 503 }));
   await page.goto("/request-service");
-  await expect(page.getByText("Live services are unavailable right now. Please try again shortly.")).toBeVisible();
-  await expect(page.getByText(/not a confirmed booking, provider assignment, price or appointment/i)).toBeVisible();
+  await expect(
+    page.getByText("Live services are unavailable right now. Please try again shortly."),
+  ).toBeVisible();
+  await expect(
+    page.getByText(/not a confirmed booking, provider assignment, price or appointment/i),
+  ).toBeVisible();
 });
 
 test("disabled request-intake capability keeps submission fail-closed", async ({ page }) => {

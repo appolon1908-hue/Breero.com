@@ -1,1 +1,1 @@
-export const footerStatement="Home services, without the hassle.";
+export const footerStatement = "Home services, without the hassle.";

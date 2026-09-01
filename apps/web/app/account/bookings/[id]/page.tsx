@@ -18,22 +18,17 @@ import { useApiResource } from "@/lib/customer/use-api-resource";
 export default function BookingDetail() {
   const id = String(useParams<{ id: string }>().id);
   const [cancelState, setCancelState] = useState<"idle" | "busy" | "done" | "error">("idle");
-  const load = useCallback(
-    (signal: AbortSignal) => customerApi.bookings.getMine(id, signal),
-    [id],
-  );
+  const load = useCallback((signal: AbortSignal) => customerApi.bookings.getMine(id, signal), [id]);
   const { value: booking, error, retry } = useApiResource(load);
   if (error)
-    return (
-      <ErrorState
-        title="Booking not available"
-        description={error.message}
-        onRetry={retry}
-      />
-    );
+    return <ErrorState title="Booking not available" description={error.message} onRetry={retry} />;
   if (!booking) return <LoadingState label="Loading booking details" />;
   const status = booking.status.toLowerCase().replaceAll("_", "-") as
-    "pending" | "confirmed" | "in-progress" | "completed" | "cancelled";
+    | "pending"
+    | "confirmed"
+    | "in-progress"
+    | "completed"
+    | "cancelled";
   async function cancelBooking() {
     setCancelState("busy");
     try {
@@ -56,13 +51,8 @@ export default function BookingDetail() {
           <p>Booking {booking.reference}</p>
         </div>
         <div className="detail-hero__amount">
-          <small>
-            {booking.payment_required ? "Payment required" : "Booking total"}
-          </small>
-          <Price
-            amount={Number(booking.total_amount)}
-            currency={booking.currency}
-          />
+          <small>{booking.payment_required ? "Payment required" : "Booking total"}</small>
+          <Price amount={Number(booking.total_amount)} currency={booking.currency} />
         </div>
       </div>
       <div className="account-grid">
@@ -113,24 +103,34 @@ export default function BookingDetail() {
           </div>
           {!terminalBooking(booking.status) && (
             <div className="detail-actions">
-              <button className="br-button br-button--outline br-button--md" type="button" disabled={cancelState === "busy"} onClick={cancelBooking}>
+              <button
+                className="br-button br-button--outline br-button--md"
+                type="button"
+                disabled={cancelState === "busy"}
+                onClick={cancelBooking}
+              >
                 {cancelState === "busy" ? "Cancelling…" : "Cancel booking"}
               </button>
-              {cancelState === "done" && <p role="status">Cancellation recorded. Any refund status shown by BREERO comes from the backend and may take time.</p>}
-              {cancelState === "error" && <p className="auth-message auth-error" role="alert">Cancellation could not be completed. No refund has been assumed.</p>}
+              {cancelState === "done" && (
+                <p role="status">
+                  Cancellation recorded. Any refund status shown by BREERO comes from the backend
+                  and may take time.
+                </p>
+              )}
+              {cancelState === "error" && (
+                <p className="auth-message auth-error" role="alert">
+                  Cancellation could not be completed. No refund has been assumed.
+                </p>
+              )}
             </div>
           )}
         </Card>
         <Card className="account-col-12 detail-section">
           <h2>Payment summary</h2>
-          <Price
-            amount={Number(booking.total_amount)}
-            currency={booking.currency}
-          />
+          <Price amount={Number(booking.total_amount)} currency={booking.currency} />
           <p className="safe-payment-note">
             <ShieldIcon size={18} />
-            Provider secrets, internal pricing, and professional compensation
-            are never exposed.
+            Provider secrets, internal pricing, and professional compensation are never exposed.
           </p>
         </Card>
       </div>

@@ -35,15 +35,9 @@ export function AccountNav() {
         <nav aria-label="Account navigation">
           {links.map((link) => {
             const active =
-              link.href === "/account"
-                ? pathname === link.href
-                : pathname.startsWith(link.href);
+              link.href === "/account" ? pathname === link.href : pathname.startsWith(link.href);
             return (
-              <a
-                key={link.href}
-                href={link.href}
-                aria-current={active ? "page" : undefined}
-              >
+              <a key={link.href} href={link.href} aria-current={active ? "page" : undefined}>
                 {link.icon}
                 <span>{link.label}</span>
               </a>
@@ -66,9 +60,7 @@ export function AccountNav() {
             id="account-section"
             value={
               links.find((link) =>
-                link.href === "/account"
-                  ? pathname === link.href
-                  : pathname.startsWith(link.href),
+                link.href === "/account" ? pathname === link.href : pathname.startsWith(link.href),
               )?.href ?? "/account"
             }
             onChange={(event) => window.location.assign(event.target.value)}

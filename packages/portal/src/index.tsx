@@ -3,7 +3,11 @@
 import { FormEvent, useEffect, useState } from "react";
 
 export type PortalRole = "vendor_admin" | "operations" | "finance" | "admin";
-export interface PortalSection { label: string; path?: string; description: string }
+export interface PortalSection {
+  label: string;
+  path?: string;
+  description: string;
+}
 export interface PortalConfig {
   name: string;
   eyebrow: string;
@@ -27,16 +31,26 @@ async function request<T>(path: string, token?: string, init?: RequestInit): Pro
   if (token) headers.set("Authorization", `Bearer ${token}`);
   const response = await fetch(`${apiBase()}${path}`, { ...init, headers, cache: "no-store" });
   if (!response.ok) {
-    const body = await response.json().catch(() => ({})) as { message?: string; detail?: string };
+    const body = (await response.json().catch(() => ({}))) as { message?: string; detail?: string };
     throw new Error(body.message ?? body.detail ?? `Request failed (${response.status})`);
   }
-  return response.status === 204 ? undefined as T : response.json() as Promise<T>;
+  return response.status === 204 ? (undefined as T) : (response.json() as Promise<T>);
 }
 
 function safeRows(value: unknown): Record<string, unknown>[] {
-  if (Array.isArray(value)) return value.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object");
-  if (value && typeof value === "object" && "items" in value && Array.isArray((value as { items: unknown }).items)) {
-    return (value as { items: unknown[] }).items.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object");
+  if (Array.isArray(value))
+    return value.filter(
+      (item): item is Record<string, unknown> => Boolean(item) && typeof item === "object",
+    );
+  if (
+    value &&
+    typeof value === "object" &&
+    "items" in value &&
+    Array.isArray((value as { items: unknown }).items)
+  ) {
+    return (value as { items: unknown[] }).items.filter(
+      (item): item is Record<string, unknown> => Boolean(item) && typeof item === "object",
+    );
   }
   return value && typeof value === "object" ? [value as Record<string, unknown>] : [];
 }
@@ -52,45 +66,178 @@ export function PortalApp({ config }: { config: PortalConfig }) {
 
   useEffect(() => {
     const raw = sessionStorage.getItem("breero-portal-session");
-    if (raw) try { setSession(JSON.parse(raw) as Session); } catch { sessionStorage.removeItem("breero-portal-session"); }
+    if (raw)
+      try {
+        setSession(JSON.parse(raw) as Session);
+      } catch {
+        sessionStorage.removeItem("breero-portal-session");
+      }
   }, []);
 
   async function login(event: FormEvent) {
-    event.preventDefault(); setError("");
+    event.preventDefault();
+    setError("");
     try {
-      const next = await request<Session>("/auth/login", undefined, { method: "POST", body: JSON.stringify({ email, password }) });
-      if (!config.allowedRoles.includes(next.user.role as PortalRole)) throw new Error("This account is not authorized for this portal.");
-      sessionStorage.setItem("breero-portal-session", JSON.stringify(next)); setSession(next);
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "Sign in failed"); }
+      const next = await request<Session>("/auth/login", undefined, {
+        method: "POST",
+        body: JSON.stringify({ email, password }),
+      });
+      if (!config.allowedRoles.includes(next.user.role as PortalRole))
+        throw new Error("This account is not authorized for this portal.");
+      sessionStorage.setItem("breero-portal-session", JSON.stringify(next));
+      setSession(next);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Sign in failed");
+    }
   }
 
   async function load(section: PortalSection) {
-    setActive(section); setRows([]); setError("");
+    setActive(section);
+    setRows([]);
+    setError("");
     if (!section.path || !session) return;
     setLoading(true);
-    try { setRows(safeRows(await request<unknown>(section.path, session.access_token))); }
-    catch (reason) { setError(reason instanceof Error ? reason.message : "Unable to load data"); }
-    finally { setLoading(false); }
+    try {
+      setRows(safeRows(await request<unknown>(section.path, session.access_token)));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Unable to load data");
+    } finally {
+      setLoading(false);
+    }
   }
 
-  if (!session) return <main className="portal-login"><section className="portal-login__card" aria-labelledby="login-title">
-    <p className="portal-eyebrow">{config.eyebrow}</p><h1 id="login-title">{config.name}</h1>
-    <p>Sign in with an authorized BREERO account. This portal uses the live BREERO API and never displays fixture data.</p>
-    <form onSubmit={login}><label>Email<input type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} /></label>
-      <label>Password<input type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} /></label>
-      {error && <p className="portal-error" role="alert">{error}</p>}<button type="submit">Sign in</button></form>
-    <a href="https://breero.com">Return to BREERO</a>
-  </section></main>;
+  if (!session)
+    return (
+      <main className="portal-login">
+        <section className="portal-login__card" aria-labelledby="login-title">
+          <p className="portal-eyebrow">{config.eyebrow}</p>
+          <h1 id="login-title">{config.name}</h1>
+          <p>
+            Sign in with an authorized BREERO account. This portal uses the live BREERO API and
+            never displays fixture data.
+          </p>
+          <form onSubmit={login}>
+            <label>
+              Email
+              <input
+                type="email"
+                autoComplete="username"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </label>
+            <label>
+              Password
+              <input
+                type="password"
+                autoComplete="current-password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </label>
+            {error && (
+              <p className="portal-error" role="alert">
+                {error}
+              </p>
+            )}
+            <button type="submit">Sign in</button>
+          </form>
+          <a href="https://breero.com">Return to BREERO</a>
+        </section>
+      </main>
+    );
 
-  return <div className="portal-shell"><aside><a className="portal-brand" href="https://breero.com" aria-label="BREERO home">BREERO</a>
-    <p>{config.name}</p><nav aria-label="Portal navigation">{config.sections.map((section) => <button key={section.label} className={active.label === section.label ? "is-active" : ""} onClick={() => void load(section)}>{section.label}</button>)}</nav>
-    <button className="portal-signout" onClick={() => { sessionStorage.removeItem("breero-portal-session"); setSession(null); }}>Sign out</button></aside>
-    <main><header><div><p className="portal-eyebrow">{config.eyebrow}</p><h1>{active.label}</h1></div><p>{session.user.full_name}<br/><small>{session.user.email}</small></p></header>
-      <section className="portal-panel"><h2>{active.label}</h2><p>{active.description}</p>
-        {!active.path && <div className="portal-notice">This capability is not exposed by the canonical API yet. No placeholder data is shown.</div>}
-        {loading && <p role="status">Loading live data…</p>}{error && <p className="portal-error" role="alert">{error}</p>}
-        {active.path && !loading && !error && rows.length === 0 && <p className="portal-empty">No records are currently available.</p>}
-        {rows.length > 0 && <div className="portal-table-wrap"><table><thead><tr>{Object.keys(rows[0]).slice(0, 6).map((key) => <th key={key}>{key.replaceAll("_", " ")}</th>)}</tr></thead>
-          <tbody>{rows.map((row, index) => <tr key={String(row.id ?? index)}>{Object.keys(rows[0]).slice(0, 6).map((key) => <td key={key}>{typeof row[key] === "object" ? JSON.stringify(row[key]) : String(row[key] ?? "—")}</td>)}</tr>)}</tbody></table></div>}
-      </section></main></div>;
+  return (
+    <div className="portal-shell">
+      <aside>
+        <a className="portal-brand" href="https://breero.com" aria-label="BREERO home">
+          BREERO
+        </a>
+        <p>{config.name}</p>
+        <nav aria-label="Portal navigation">
+          {config.sections.map((section) => (
+            <button
+              key={section.label}
+              className={active.label === section.label ? "is-active" : ""}
+              onClick={() => void load(section)}
+            >
+              {section.label}
+            </button>
+          ))}
+        </nav>
+        <button
+          className="portal-signout"
+          onClick={() => {
+            sessionStorage.removeItem("breero-portal-session");
+            setSession(null);
+          }}
+        >
+          Sign out
+        </button>
+      </aside>
+      <main>
+        <header>
+          <div>
+            <p className="portal-eyebrow">{config.eyebrow}</p>
+            <h1>{active.label}</h1>
+          </div>
+          <p>
+            {session.user.full_name}
+            <br />
+            <small>{session.user.email}</small>
+          </p>
+        </header>
+        <section className="portal-panel">
+          <h2>{active.label}</h2>
+          <p>{active.description}</p>
+          {!active.path && (
+            <div className="portal-notice">
+              This capability is not exposed by the canonical API yet. No placeholder data is shown.
+            </div>
+          )}
+          {loading && <p role="status">Loading live data…</p>}
+          {error && (
+            <p className="portal-error" role="alert">
+              {error}
+            </p>
+          )}
+          {active.path && !loading && !error && rows.length === 0 && (
+            <p className="portal-empty">No records are currently available.</p>
+          )}
+          {rows.length > 0 && (
+            <div className="portal-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    {Object.keys(rows[0])
+                      .slice(0, 6)
+                      .map((key) => (
+                        <th key={key}>{key.replaceAll("_", " ")}</th>
+                      ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row, index) => (
+                    <tr key={String(row.id ?? index)}>
+                      {Object.keys(rows[0])
+                        .slice(0, 6)
+                        .map((key) => (
+                          <td key={key}>
+                            {typeof row[key] === "object"
+                              ? JSON.stringify(row[key])
+                              : String(row[key] ?? "—")}
+                          </td>
+                        ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      </main>
+    </div>
+  );
 }

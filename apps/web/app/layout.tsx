@@ -19,12 +19,26 @@ export const metadata: Metadata = {
     title: "BREERO — Home services, without the hassle",
     description: "Book trusted professionals for repairs, maintenance and everyday home services.",
     url: "/",
-    images: [{ url: "/brand/og-default.png", width: 1200, height: 630, alt: "BREERO home services" }],
+    images: [
+      { url: "/brand/og-default.png", width: 1200, height: 630, alt: "BREERO home services" },
+    ],
   },
   twitter: { card: "summary_large_image", images: ["/brand/og-default.png"] },
-  icons: { icon: [{ url: "/brand/breero-favicon.svg", type: "image/svg+xml" }, { url: "/brand/favicon.ico" }], apple: "/brand/apple-touch-icon.png" },
+  icons: {
+    icon: [
+      { url: "/brand/breero-favicon.svg", type: "image/svg+xml" },
+      { url: "/brand/favicon.ico" },
+    ],
+    apple: "/brand/apple-touch-icon.png",
+  },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en" className={manrope.variable}><body><AppShell>{children}</AppShell></body></html>;
+  return (
+    <html lang="en" className={manrope.variable}>
+      <body>
+        <AppShell>{children}</AppShell>
+      </body>
+    </html>
+  );
 }

@@ -1,1 +1,3 @@
-export async function GET() { return Response.json({ status: "ok", service: "breero-admin" }); }
+export async function GET() {
+  return Response.json({ status: "ok", service: "breero-admin" });
+}

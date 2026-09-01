@@ -1,6 +1,16 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { Button, Checkbox, DateSelector, Dialog, ErrorState, FormField, Input, Price, Tabs } from "./index";
+import {
+  Button,
+  Checkbox,
+  DateSelector,
+  Dialog,
+  ErrorState,
+  FormField,
+  Input,
+  Price,
+  Tabs,
+} from "./index";
 
 describe("shared UI", () => {
   it("announces loading and disables the button", () => {
@@ -10,7 +20,11 @@ describe("shared UI", () => {
   });
 
   it("connects form labels to controls", () => {
-    render(<FormField label="Postcode" htmlFor="postcode"><Input id="postcode" /></FormField>);
+    render(
+      <FormField label="Postcode" htmlFor="postcode">
+        <Input id="postcode" />
+      </FormField>,
+    );
     expect(screen.getByLabelText("Postcode")).toBeInTheDocument();
   });
 
@@ -22,7 +36,11 @@ describe("shared UI", () => {
 
   it("closes a dialog with Escape", () => {
     const onChange = vi.fn();
-    render(<Dialog open onOpenChange={onChange} title="Confirm booking">Details</Dialog>);
+    render(
+      <Dialog open onOpenChange={onChange} title="Confirm booking">
+        Details
+      </Dialog>,
+    );
     expect(screen.getByRole("dialog", { name: "Confirm booking" })).toBeInTheDocument();
     fireEvent.keyDown(document, { key: "Escape" });
     expect(onChange).toHaveBeenCalledWith(false);
@@ -39,14 +57,26 @@ describe("shared UI", () => {
   });
 
   it("supports arrow-key navigation between tabs", () => {
-    render(<Tabs tabs={[{ value: "one", label: "One", content: "First" }, { value: "two", label: "Two", content: "Second" }]} />);
+    render(
+      <Tabs
+        tabs={[
+          { value: "one", label: "One", content: "First" },
+          { value: "two", label: "Two", content: "Second" },
+        ]}
+      />,
+    );
     fireEvent.keyDown(screen.getByRole("tab", { name: "One" }), { key: "ArrowRight" });
     expect(screen.getByRole("tab", { name: "Two" })).toHaveAttribute("aria-selected", "true");
   });
 
   it("isolates multiple date selector groups", () => {
     const dates = [{ value: "today", day: "Mon", date: "11" }];
-    render(<><DateSelector label="First dates" dates={dates} /><DateSelector label="Second dates" dates={dates} /></>);
+    render(
+      <>
+        <DateSelector label="First dates" dates={dates} />
+        <DateSelector label="Second dates" dates={dates} />
+      </>,
+    );
     const radios = screen.getAllByRole("radio");
     expect(radios[0]).not.toHaveAttribute("name", radios[1].getAttribute("name"));
   });
