@@ -51,7 +51,7 @@ class WorkRequestRead(ORMModel):
     job_id: uuid.UUID
     status: WorkRequestStatus
     description: str
-    line_items: list
+    line_items: list[WorkLineItem]
     subtotal_minor: int
     tax_minor: int
     total_minor: int
