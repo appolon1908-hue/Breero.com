@@ -45,7 +45,20 @@ ledger, not a formatting choice.
 | ARCH-01 | HIGH | branch topology | None of the eight branches on `origin`, including `ops/portal-production-release`, fixes any of BE-01..BE-04, OPS-01 or OPS-02. The release stack as it stands would ship password hashing on the event loop and a topology with no scheduler | Merge the critical fixes **before** the release layer | Merge authority |
 | OBS-02 | MEDIUM | observability | Two competing implementations. `be/analytics-observability-v1` has `app/observability.py`, an OTel collector and Alloy log shipping. `feat/observability-and-dr` has `app/core/metrics.py`, the scheduler heartbeat, alert rules and a promtool CI gate. Neither is a superset of the other | Reconcile into one: keep collector and Alloy from the former, heartbeat, alerts and promtool from the latter | Requires running both suites |
 | API-01 | MEDIUM | portal contracts | `be/portal-read-models` adds `app/api/v1/portal.py` and `domains/portal/`, the canonical portal read models the mission requires. Unmerged and unreconciled with the layering ratchet | Review, rebase onto the critical fixes, merge first in dependency order | Merge authority |
+| BE-05 | HIGH | Availability | `app/core/rate_limit.py` | The rate limiter opens and closes a Redis connection per request, on the login, webhook and public-form paths, and fails closed with 503 on any transient Redis error | Pool one client in a FastAPI lifespan on `app.state`; consider a sliding window once pooled | Not started |
+| BE-06 | HIGH | Availability | `app/db/session.py`, `app/main.py` | `create_async_engine` takes SQLAlchemy defaults (`pool_size=5`, `max_overflow=10`): a hard ceiling of 30 connections across two workers, with no `pool_recycle`, no `pool_timeout` and no lifespan, so the engine is never disposed | Explicit pool parameters from settings plus a lifespan that warms the pool, holds the shared Redis client and disposes the engine | Not started |
+| BE-07 | HIGH | Performance | `app/domains/auth/dependencies.py` | The effective access context is rebuilt from the database on every guarded request; a route with two guards pays for it twice | Resolve once per request and memoise on `request.state`; short-TTL Redis cache keyed by user and `credential_version` if still hot | Not started |
 | FE-04 | MEDIUM | frontend contract | `@breero/types` is hand-written and `contract:check` verifies only path and method presence, never field names, types or nullability | Generate types from `openapi.json`, fail CI on diff | Not started |
+
+## Count correction
+
+An earlier revision of this ledger reported `HIGH_OPEN=2`. That was wrong. BE-05,
+BE-06 and BE-07 were classified HIGH in the original architecture review and were
+never fixed; they were omitted from the Open table by mistake, not by a severity
+judgement. The corrected figure is `HIGH_OPEN=5`. Verified against
+`feat/observability-and-dr`: the rate limiter still calls `redis.from_url` per
+request, `app/main.py` contains no lifespan, and `dependencies.py` still resolves the
+access context three separate times.
 
 ## Corrected dependency order
 

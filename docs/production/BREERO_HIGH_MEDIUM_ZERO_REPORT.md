@@ -10,17 +10,25 @@ staged on `feat/observability-and-dr` and unmerged.
 | Category | HIGH found | HIGH fixed | HIGH open | MEDIUM found | MEDIUM fixed | MEDIUM open |
 | --- | --- | --- | --- | --- | --- | --- |
 | Security | 3 | 3 | 0 | 1 | 1 | 0 |
-| Availability | 1 | 1 | 0 | 0 | 0 | 0 |
+| Availability | 3 | 1 | 2 | 0 | 0 | 0 |
 | Correctness | 1 | 1 | 0 | 1 | 1 | 0 |
 | Deployment | 1 | 1 | 0 | 1 | 1 | 0 |
+| Performance | 1 | 0 | 1 | 0 | 0 | 0 |
 | Architecture | 1 | 0 | 1 | 3 | 2 | 1 |
 | Frontend | 1 | 0 | 1 | 2 | 1 | 1 |
 | Observability | 0 | 0 | 0 | 2 | 1 | 1 |
 | Dependencies | — | — | — | — | — | — |
-| **Total** | **8** | **6** | **2** | **10** | **7** | **3** |
+| **Total** | **11** | **6** | **5** | **10** | **7** | **3** |
 
-`HIGH_FOUND_INITIAL=8`, `HIGH_FIXED=6`, `HIGH_OPEN=2`
+`HIGH_FOUND_INITIAL=11`, `HIGH_FIXED=6`, `HIGH_OPEN=5`
 `MEDIUM_FOUND_INITIAL=10`, `MEDIUM_FIXED=7`, `MEDIUM_OPEN=3`
+
+**Correction.** A previous revision of this report gave `HIGH_OPEN=2`. BE-05, BE-06
+and BE-07 were rated HIGH in the original architecture review and remain unfixed;
+omitting them was an accounting error, not a re-rating. Verified against
+`feat/observability-and-dr`: `rate_limit.py` still calls `redis.from_url` per request,
+`main.py` contains no lifespan, and `dependencies.py` still resolves the access
+context three separate times.
 
 These counts cover findings discovered by direct source review. They are **not**
 complete, and must not be read as a clean bill of health:
@@ -54,6 +62,20 @@ Verified by grep against all eight exact branch heads: none of `main`,
 worker engine, a `beat` service in the production compose file, or `--proxy-headers`
 in the image default. Activating `ops/portal-production-release` would ship all six
 critical findings into production. Blocked on merge order and merge authority.
+
+**BE-05 — the rate limiter opens a Redis connection per request.**
+A full TCP connect and AUTH handshake on every limited call, on the hottest paths,
+and a 503 on any transient Redis error turns a blip into an outage on login and the
+Stripe webhook. Fix: one pooled client on `app.state`, created in a lifespan.
+
+**BE-06 — no connection pool sizing and no lifespan.**
+SQLAlchemy defaults give a hard ceiling of 30 connections across two workers, with no
+`pool_recycle`, so connections outlive a Postgres restart or a proxy idle timeout. The
+app declares no lifespan at all, so the engine is never disposed on shutdown.
+
+**BE-07 — RBAC costs two or more database round trips per request.**
+`current_user` loads the user, then each permission guard rebuilds the effective
+access context from scratch. A route with two guards pays twice, on every request.
 
 ## Open MEDIUM
 
