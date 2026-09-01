@@ -31,8 +31,9 @@ describe("portal routing safety", () => {
   });
 
   it("creates a nonce-bound restrictive policy", () => {
-    const policy = buildContentSecurityPolicy("abc123");
-    expect(policy).toContain("script-src 'self' 'nonce-abc123' 'strict-dynamic'");
+    const nonce = "abc123_DEF456-ghi";
+    const policy = buildContentSecurityPolicy(nonce);
+    expect(policy).toContain(`script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`);
     expect(policy).toContain("frame-ancestors 'none'");
     expect(policy).toContain("object-src 'none'");
   });
