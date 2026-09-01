@@ -103,6 +103,9 @@ def release_earnings() -> int:
 
 @celery_app.task(name="app.workers.tasks.generate_weekly_payout_candidates")
 def generate_weekly_payout_candidates() -> str:
+    if not settings.payout_enabled:
+        return "disabled"
+
     async def run() -> str:
         async with SessionLocal() as session:
             try:

@@ -5,6 +5,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.domains.common.outbox import AuditLog, EventStatus, IntegrationEvent
 from app.domains.jobs.models import Job, JobStatus
 from app.integrations.payouts import (
@@ -33,6 +34,11 @@ class FinanceService:
         self.repo = FinanceRepository(session)
         self.payout_gateway = payout_gateway or get_payout_gateway()
 
+    @staticmethod
+    def require_payout_execution() -> None:
+        if not settings.payout_enabled:
+            raise HTTPException(409, "Payout execution is disabled")
+
     def audit(self, actor_id, action: str, resource_type: str, resource_id, metadata=None):
         self.session.add(
             AuditLog(
@@ -53,8 +59,13 @@ class FinanceService:
         plan = VendorCompensationPlan(**payload.model_dump(), active=True)
         self.session.add(plan)
         await self.session.flush()
-        self.audit(actor_id, "compensation_plan.change", "vendor_compensation_plan", plan.id,
-                   {"method": plan.method.value, "vendor_id": str(plan.vendor_id)})
+        self.audit(
+            actor_id,
+            "compensation_plan.change",
+            "vendor_compensation_plan",
+            plan.id,
+            {"method": plan.method.value, "vendor_id": str(plan.vendor_id)},
+        )
         await self.session.commit()
         await self.session.refresh(plan)
         return plan
@@ -134,9 +145,15 @@ class FinanceService:
         return len(rows)
 
     async def adjust_earning(
-        self, earning_id, amount_minor: int, adjustment_type: AdjustmentType, reason: str,
-        idempotency_key: str, actor_id=None,
+        self,
+        earning_id,
+        amount_minor: int,
+        adjustment_type: AdjustmentType,
+        reason: str,
+        idempotency_key: str,
+        actor_id=None,
     ) -> EarningAdjustment:
+        self.require_payout_execution()
         earning = await self.session.scalar(
             select(VendorEarning).where(VendorEarning.id == earning_id).with_for_update()
         )
@@ -151,8 +168,12 @@ class FinanceService:
         if existing:
             return existing
         adjustment = EarningAdjustment(
-            earning_id=earning_id, amount_minor=amount_minor, adjustment_type=adjustment_type,
-            reason=reason, idempotency_key=idempotency_key, actor_id=actor_id,
+            earning_id=earning_id,
+            amount_minor=amount_minor,
+            adjustment_type=adjustment_type,
+            reason=reason,
+            idempotency_key=idempotency_key,
+            actor_id=actor_id,
         )
         self.session.add(adjustment)
         earning.adjustment_total_minor += amount_minor
@@ -160,13 +181,28 @@ class FinanceService:
             earning.status = EarningStatus.REVERSED
         elif adjustment_type == AdjustmentType.DISPUTE:
             earning.status = EarningStatus.HELD
-        self.audit(actor_id, "earning.adjustment", "vendor_earning", earning.id,
-                   {"amount_minor": amount_minor, "type": adjustment_type.value, "reason": reason})
+        self.audit(
+            actor_id,
+            "earning.adjustment",
+            "vendor_earning",
+            earning.id,
+            {
+                "amount_minor": amount_minor,
+                "type": adjustment_type.value,
+                "reason": reason,
+            },
+        )
         await self.session.commit()
         await self.session.refresh(adjustment)
         return adjustment
 
-    async def create_batch(self, currency: str, vendor_id=None, actor_id=None) -> PayoutBatch:
+    async def create_batch(
+        self,
+        currency: str,
+        vendor_id=None,
+        actor_id=None,
+    ) -> PayoutBatch:
+        self.require_payout_execution()
         earnings = await self.repo.available_earnings(currency, vendor_id, lock=True)
         if not earnings:
             raise HTTPException(409, "No available earnings")
@@ -189,12 +225,19 @@ class FinanceService:
         await self.session.refresh(batch)
         return batch
 
-    async def approve_batch(self, batch_id: uuid.UUID, approver_id: uuid.UUID) -> PayoutBatch:
+    async def approve_batch(
+        self,
+        batch_id: uuid.UUID,
+        approver_id: uuid.UUID,
+    ) -> PayoutBatch:
+        self.require_payout_execution()
         batch = await self.repo.get_batch(batch_id, lock=True)
         if not batch:
             raise HTTPException(404, "Payout batch not found")
         if batch.status != PayoutStatus.PENDING_APPROVAL:
             raise HTTPException(409, "Batch is not awaiting approval")
+        if batch.reviewed_by == approver_id:
+            raise HTTPException(409, "Batch reviewer cannot approve the same payout")
         batch.status = PayoutStatus.APPROVED
         batch.approved_by = approver_id
         batch.approved_at = datetime.now(UTC)
@@ -204,6 +247,7 @@ class FinanceService:
         return batch
 
     async def submit_batch(self, batch_id: uuid.UUID, actor_id: uuid.UUID) -> PayoutBatch:
+        self.require_payout_execution()
         batch = await self.repo.get_batch(batch_id, lock=True)
         if not batch:
             raise HTTPException(404, "Payout batch not found")
@@ -211,6 +255,8 @@ class FinanceService:
             return batch
         if batch.status != PayoutStatus.APPROVED:
             raise HTTPException(409, "Only approved batches can be submitted")
+        if batch.approved_by == actor_id:
+            raise HTTPException(409, "Batch approver cannot submit the same payout")
         key = batch.idempotency_key or f"payout-batch:{batch.id}"
         batch.idempotency_key = key
         # Persist the stable key before the external call; retries reuse it.
@@ -248,8 +294,13 @@ class FinanceService:
                 available_at=datetime.now(UTC),
             )
         )
-        self.audit(actor_id, "payout.submit", "payout_batch", batch.id,
-                   {"provider_status": result.status})
+        self.audit(
+            actor_id,
+            "payout.submit",
+            "payout_batch",
+            batch.id,
+            {"provider_status": result.status},
+        )
         await self.session.commit()
         await self.session.refresh(batch)
         return batch
