@@ -1,7 +1,12 @@
 import type { PortalCapabilities } from "@breero/portal";
 
 export type StatusCount = { status: string; count: number };
-export type MoneyStatus = { status: string; currency: string; count: number; amount_minor: number };
+export type MoneyStatus = {
+  status: string;
+  currency: string;
+  count: number;
+  amount_minor: number;
+};
 export type Capabilities = PortalCapabilities;
 export type ListResponse<T> = { items: T[]; total: number };
 
@@ -72,24 +77,36 @@ export type AccessCatalog = {
 
 export type ServiceZone = {
   id: string;
+  legal_entity_id: string;
   name: string;
-  country_code: string;
-  timezone_name: string;
+  country_code: string | null;
+  state_code: string | null;
+  city: string | null;
+  postal_codes: string[];
+  service_ids: string[];
+  center: { latitude: number; longitude: number } | null;
+  radius_miles: number | null;
+  boundary_configured: boolean;
+  priority: number;
+  regular_service_enabled: boolean;
+  emergency_enabled: boolean;
   active: boolean;
-  boundary: Record<string, unknown>;
+  version: number;
   created_at: string;
   updated_at: string;
 };
 
 export type PostalCode = {
   id: string;
-  service_zone_id: string;
-  country_code: string;
+  service_area_id: string;
   postal_code: string;
   city: string | null;
-  state_region: string | null;
-  timezone_name: string;
+  state_code: string | null;
   active: boolean;
+  regular_service_enabled: boolean;
+  emergency_service_enabled: boolean;
+  priority: number;
+  version: number;
   created_at: string;
   updated_at: string;
 };
@@ -153,16 +170,18 @@ export type PayoutBatch = {
 export type IntegrationConfig = {
   middleware_enabled: boolean;
   middleware_url_configured: boolean;
-  middleware_api_key_configured: boolean;
-  middleware_webhook_secret_configured: boolean;
+  middleware_ca_configured: boolean;
+  middleware_client_certificate_configured: boolean;
+  middleware_hmac_configured: boolean;
+  middleware_identity_configured: boolean;
   odoo_enabled: boolean;
   odoo_url_configured: boolean;
-  odoo_api_key_configured: boolean;
+  odoo_credentials_configured: boolean;
 };
 
 export type IntegrationOperation = {
   id: string;
-  operation_type: string;
+  operation_type: "activate_pending" | "park_unconfigured";
   actor_id: string | null;
   before_counts: Record<string, number>;
   after_counts: Record<string, number>;
