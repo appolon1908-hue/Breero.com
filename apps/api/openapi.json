@@ -633,6 +633,84 @@
         "title": "BookingConfirmation",
         "type": "object"
       },
+      "BookingCoverageRead": {
+        "description": "Current coverage for a worker.\n\nThe read counterpart to BookingCoverageWrite. Without it the operations console\ncould only replace coverage blind: the write takes a complete replacement set, so\nediting without first seeing the current one risks silently dropping ZIPs.\n\nShaped to round-trip: what this returns can be edited and sent straight back.",
+        "properties": {
+          "capacity": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capacity"
+          },
+          "end_time": {
+            "anyOf": [
+              {
+                "format": "time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Time"
+          },
+          "postal_codes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Postal Codes",
+            "type": "array"
+          },
+          "service_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Service Ids",
+            "type": "array"
+          },
+          "start_time": {
+            "anyOf": [
+              {
+                "format": "time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Time"
+          },
+          "weekdays": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Weekdays",
+            "type": "array"
+          },
+          "worker_id": {
+            "format": "uuid",
+            "title": "Worker Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "worker_id",
+          "service_ids",
+          "postal_codes",
+          "weekdays",
+          "start_time",
+          "end_time",
+          "capacity"
+        ],
+        "title": "BookingCoverageRead",
+        "type": "object"
+      },
       "BookingCoverageWrite": {
         "properties": {
           "capacity": {
@@ -13218,6 +13296,53 @@
       }
     },
     "/api/v1/operations/workers/{worker_id}/booking-coverage": {
+      "get": {
+        "description": "Current coverage for a worker.\n\nThe counterpart to the PUT below, which takes a complete replacement set. Without\na read, an operator editing coverage cannot see what they are about to overwrite,\nand a dropped ZIP is invisible until nobody can book in it.",
+        "operationId": "read_booking_coverage_api_v1_operations_workers__worker_id__booking_coverage_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "worker_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Worker Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookingCoverageRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Read Booking Coverage",
+        "tags": [
+          "operations"
+        ]
+      },
       "put": {
         "operationId": "replace_booking_coverage_api_v1_operations_workers__worker_id__booking_coverage_put",
         "parameters": [

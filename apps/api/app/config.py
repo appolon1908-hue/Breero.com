@@ -56,6 +56,7 @@ class Settings(BaseSettings):
     marketplace_matching_enabled: bool = False
     marketplace_messaging_enabled: bool = False
     marketplace_reviews_enabled: bool = False
+    third_party_api_enabled: bool = False
     transactional_email_mode: str = "controlled_canary"
     transactional_sms_mode: str = "controlled_canary"
     marketing_email_enabled: bool = False
@@ -169,6 +170,7 @@ class Settings(BaseSettings):
             "MARKETPLACE_MATCHING_ENABLED": self.marketplace_matching_enabled,
             "MARKETPLACE_MESSAGING_ENABLED": self.marketplace_messaging_enabled,
             "MARKETPLACE_REVIEWS_ENABLED": self.marketplace_reviews_enabled,
+            "THIRD_PARTY_API_ENABLED": self.third_party_api_enabled,
             "MARKETING_EMAIL_ENABLED": self.marketing_email_enabled,
             "MARKETING_SMS_ENABLED": self.marketing_sms_enabled,
         }

@@ -1473,7 +1473,15 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Read Booking Coverage
+         * @description Current coverage for a worker.
+         *
+         *     The counterpart to the PUT below, which takes a complete replacement set. Without
+         *     a read, an operator editing coverage cannot see what they are about to overwrite,
+         *     and a dropped ZIP is invisible until nobody can book in it.
+         */
+        get: operations["read_booking_coverage_api_v1_operations_workers__worker_id__booking_coverage_get"];
         /** Replace Booking Coverage */
         put: operations["replace_booking_coverage_api_v1_operations_workers__worker_id__booking_coverage_put"];
         post?: never;
@@ -2387,6 +2395,35 @@ export interface components {
              * Format: date-time
              */
             window_start: string;
+        };
+        /**
+         * BookingCoverageRead
+         * @description Current coverage for a worker.
+         *
+         *     The read counterpart to BookingCoverageWrite. Without it the operations console
+         *     could only replace coverage blind: the write takes a complete replacement set, so
+         *     editing without first seeing the current one risks silently dropping ZIPs.
+         *
+         *     Shaped to round-trip: what this returns can be edited and sent straight back.
+         */
+        BookingCoverageRead: {
+            /** Capacity */
+            capacity: number | null;
+            /** End Time */
+            end_time: string | null;
+            /** Postal Codes */
+            postal_codes: string[];
+            /** Service Ids */
+            service_ids: string[];
+            /** Start Time */
+            start_time: string | null;
+            /** Weekdays */
+            weekdays: number[];
+            /**
+             * Worker Id
+             * Format: uuid
+             */
+            worker_id: string;
         };
         /** BookingCoverageWrite */
         BookingCoverageWrite: {
@@ -8322,6 +8359,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VendorRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_booking_coverage_api_v1_operations_workers__worker_id__booking_coverage_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                worker_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingCoverageRead"];
                 };
             };
             /** @description Validation Error */

@@ -24,6 +24,7 @@ from app.domains.public_submissions.schemas import (
 from app.domains.workforce.models import ProviderCredential
 from app.domains.workforce.repository import WorkforceRepository
 from app.domains.workforce.schemas import (
+    BookingCoverageRead,
     BookingCoverageWrite,
     ProviderCredentialRead,
     ProviderCredentialWrite,
@@ -225,6 +226,40 @@ async def update_dispatcher_queue_item(
         )
     )
     await session.commit()
+
+
+@router.get("/workers/{worker_id}/booking-coverage", response_model=BookingCoverageRead)
+async def read_booking_coverage(
+    worker_id: uuid.UUID,
+    session: AsyncSession = Depends(get_db),
+    _: User = Depends(require_roles(UserRole.operations, UserRole.admin)),
+) -> BookingCoverageRead:
+    """Current coverage for a worker.
+
+    The counterpart to the PUT below, which takes a complete replacement set. Without
+    a read, an operator editing coverage cannot see what they are about to overwrite,
+    and a dropped ZIP is invisible until nobody can book in it.
+    """
+    from fastapi import HTTPException
+
+    repository = WorkforceRepository(session)
+    worker = await repository.get_worker(worker_id)
+    if not worker:
+        raise HTTPException(404, "Worker not found")
+
+    coverage, hours = await repository.booking_coverage(worker_id)
+    first = hours[0] if hours else None
+    return BookingCoverageRead(
+        worker_id=worker_id,
+        service_ids=sorted({row.service_id for row in coverage}),
+        postal_codes=sorted({row.postal_code for row in coverage}),
+        weekdays=sorted({row.weekday for row in hours}),
+        # Fixed policy values, identical across rows by construction; the first row
+        # is representative rather than arbitrary.
+        start_time=first.start_time if first else None,
+        end_time=first.end_time if first else None,
+        capacity=first.capacity if first else None,
+    )
 
 
 @router.put("/workers/{worker_id}/booking-coverage", status_code=204)
