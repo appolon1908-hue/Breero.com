@@ -36,6 +36,10 @@ ALLOWED_SQLALCHEMY_MODULES = frozenset({"sqlalchemy.ext.asyncio", "sqlalchemy.ex
 # router reaching into persistence, and unpicking it is a separate refactor.
 EXEMPT_MODEL_MODULES = frozenset({"app.domains.auth.models"})
 
+# Constructing or running a query is what makes a module a persistence site.
+QUERY_BUILDERS = frozenset({"select", "insert", "update", "delete", "text"})
+QUERY_EXECUTORS = frozenset({"execute", "scalar", "scalars", "stream", "stream_scalars"})
+
 
 def _imported_modules(tree: ast.Module) -> list[str]:
     modules: list[str] = []
@@ -47,19 +51,40 @@ def _imported_modules(tree: ast.Module) -> list[str]:
     return modules
 
 
+def _builds_queries(tree: ast.Module) -> bool:
+    """Whether the module actually constructs or executes a query.
+
+    This is the signal that a router is doing persistence. Importing a model without
+    it is usually type annotation -- an enum for a query parameter, or the entity a
+    dependency already returns -- which is not the harm this rule exists to prevent.
+    """
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call):
+            function = node.func
+            if isinstance(function, ast.Name) and function.id in QUERY_BUILDERS:
+                return True
+            if isinstance(function, ast.Attribute) and function.attr in QUERY_EXECUTORS:
+                return True
+    return False
+
+
 def _violations_for(path: Path) -> list[tuple[str, str, str]]:
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     relative = path.relative_to(API_ROOT).as_posix()
+    queries = _builds_queries(tree)
     found: list[tuple[str, str, str]] = []
     for module in _imported_modules(tree):
         root = module.split(".")[0]
         if root == "sqlalchemy" and module not in ALLOWED_SQLALCHEMY_MODULES:
             found.append((relative, "sqlalchemy-query", module))
         elif (
-            module.startswith("app.domains.")
+            queries
+            and module.startswith("app.domains.")
             and module.endswith(".models")
             and module not in EXEMPT_MODEL_MODULES
         ):
+            # Only counted alongside query construction. A router that imports a
+            # model and never queries is annotating, not reaching into persistence.
             found.append((relative, "orm-model", module))
     return found
 

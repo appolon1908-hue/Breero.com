@@ -45,10 +45,32 @@ def test_sqlalchemy_sql_is_a_violation(tmp_path) -> None:
     ]
 
 
-def test_orm_model_import_is_a_violation(tmp_path) -> None:
-    assert _violations(tmp_path, "from app.domains.jobs.models import Job\n") == [
-        ("orm-model", "app.domains.jobs.models")
+def test_a_model_import_without_a_query_is_not_a_violation(tmp_path) -> None:
+    # An enum for a query parameter, or the entity a dependency already returns, is
+    # annotation rather than persistence. portal.py does exactly this and is correct.
+    assert _violations(tmp_path, "from app.domains.jobs.models import JobStatus\n") == []
+
+
+def test_a_model_import_alongside_a_query_is_a_violation(tmp_path) -> None:
+    source = (
+        "from sqlalchemy import select\n"
+        "from app.domains.jobs.models import Job\n"
+        "async def handler(session):\n"
+        "    return await session.scalars(select(Job))\n"
+    )
+    assert sorted(_violations(tmp_path, source)) == [
+        ("orm-model", "app.domains.jobs.models"),
+        ("sqlalchemy-query", "sqlalchemy"),
     ]
+
+
+def test_query_execution_counts_even_without_a_select_import(tmp_path) -> None:
+    source = (
+        "from app.domains.jobs.models import Job\n"
+        "async def handler(session):\n"
+        "    return await session.execute(Job.__table__.select())\n"
+    )
+    assert _violations(tmp_path, source) == [("orm-model", "app.domains.jobs.models")]
 
 
 def test_auth_models_are_exempt(tmp_path) -> None:

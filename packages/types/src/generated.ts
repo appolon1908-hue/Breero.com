@@ -247,6 +247,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/access/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Current Access Context */
+        get: operations["current_access_context_api_v1_auth_access_me_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/access/users/{user_id}": {
         parameters: {
             query?: never;
@@ -1004,6 +1021,127 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/finance/compensation-plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Compensation Plans */
+        get: operations["list_compensation_plans_api_v1_finance_compensation_plans_get"];
+        put?: never;
+        /** Create Compensation Plan */
+        post: operations["create_compensation_plan_api_v1_finance_compensation_plans_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/finance/earnings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Earnings */
+        get: operations["list_earnings_api_v1_finance_earnings_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/finance/earnings/{earning_id}/adjustments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Adjust Earning */
+        post: operations["adjust_earning_api_v1_finance_earnings__earning_id__adjustments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/finance/payout-batches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Payout Batches */
+        get: operations["list_payout_batches_api_v1_finance_payout_batches_get"];
+        put?: never;
+        /** Create Batch */
+        post: operations["create_batch_api_v1_finance_payout_batches_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/finance/payout-batches/{batch_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve Batch */
+        post: operations["approve_batch_api_v1_finance_payout_batches__batch_id__approve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/finance/payout-batches/{batch_id}/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit Batch */
+        post: operations["submit_batch_api_v1_finance_payout_batches__batch_id__submit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/finance/vendors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Finance Vendors */
+        get: operations["list_finance_vendors_api_v1_finance_vendors_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/integrations/events/{event_id}/retry": {
         parameters: {
             query?: never;
@@ -1338,6 +1476,176 @@ export interface paths {
         get?: never;
         /** Replace Booking Coverage */
         put: operations["replace_booking_coverage_api_v1_operations_workers__worker_id__booking_coverage_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/portal/admin/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin Audit */
+        get: operations["admin_audit_api_v1_portal_admin_audit_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/portal/admin/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin Overview */
+        get: operations["admin_overview_api_v1_portal_admin_overview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/portal/capabilities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Portal Capabilities */
+        get: operations["portal_capabilities_api_v1_portal_capabilities_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/portal/operations/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Operations Overview */
+        get: operations["operations_overview_api_v1_portal_operations_overview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/portal/provider/credentials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Provider Credentials */
+        get: operations["provider_credentials_api_v1_portal_provider_credentials_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/portal/provider/earnings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Provider Earnings */
+        get: operations["provider_earnings_api_v1_portal_provider_earnings_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/portal/provider/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Provider Jobs */
+        get: operations["provider_jobs_api_v1_portal_provider_jobs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/portal/provider/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Provider Overview */
+        get: operations["provider_overview_api_v1_portal_provider_overview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/portal/provider/payout-batches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Provider Payout Batches */
+        get: operations["provider_payout_batches_api_v1_portal_provider_payout_batches_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/portal/provider/workers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Provider Workers */
+        get: operations["provider_workers_api_v1_portal_provider_workers_get"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -1875,6 +2183,45 @@ export interface components {
             /** Postal Code */
             postal_code: string;
         };
+        /**
+         * AdjustmentType
+         * @enum {string}
+         */
+        AdjustmentType: "REFUND" | "DISPUTE" | "MANUAL" | "REVERSAL";
+        /** AdminOverview */
+        AdminOverview: {
+            /** Bookings */
+            bookings: components["schemas"]["StatusCount"][];
+            capabilities: components["schemas"]["EffectiveCapabilities"];
+            /** Customers Total */
+            customers_total: number;
+            /** Earnings */
+            earnings: components["schemas"]["MoneyStatus"][];
+            /** Jobs */
+            jobs: components["schemas"]["StatusCount"][];
+            /** Outbox */
+            outbox: components["schemas"]["StatusCount"][];
+            /** Payout Batches */
+            payout_batches: components["schemas"]["StatusCount"][];
+            /** Postal Codes Active */
+            postal_codes_active: number;
+            /** Postal Codes Total */
+            postal_codes_total: number;
+            /** Provider Applications */
+            provider_applications: components["schemas"]["StatusCount"][];
+            /** Recent Audit */
+            recent_audit: components["schemas"]["AuditEventRead"][];
+            /** Service Zones Active */
+            service_zones_active: number;
+            /** Service Zones Total */
+            service_zones_total: number;
+            /** Users Active */
+            users_active: number;
+            /** Users Total */
+            users_total: number;
+            /** Vendors */
+            vendors: components["schemas"]["StatusCount"][];
+        };
         /** ApiError */
         ApiError: {
             /** Code */
@@ -1927,6 +2274,43 @@ export interface components {
          * @enum {string}
          */
         AssignmentStatus: "ACTIVE" | "RELEASED" | "COMPLETED";
+        /** AuditEventList */
+        AuditEventList: {
+            /** Items */
+            items: components["schemas"]["AuditEventRead"][];
+            /** Total */
+            total: number;
+        };
+        /** AuditEventRead */
+        AuditEventRead: {
+            /** Action */
+            action: string;
+            /** Actor Id */
+            actor_id: string | null;
+            /** Actor Type */
+            actor_type: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Metadata Json */
+            metadata_json: {
+                [key: string]: unknown;
+            };
+            /**
+             * Resource Id
+             * Format: uuid
+             */
+            resource_id: string;
+            /** Resource Type */
+            resource_type: string;
+        };
         /** AvailabilitySearchRequest */
         AvailabilitySearchRequest: {
             /**
@@ -2263,6 +2647,91 @@ export interface components {
              */
             transactionalSms: boolean;
         };
+        /**
+         * CompensationMethod
+         * @enum {string}
+         */
+        CompensationMethod: "FIXED_MINOR" | "PERCENTAGE" | "SERVICE_RATE";
+        /** CompensationPlanCreate */
+        CompensationPlanCreate: {
+            /**
+             * Currency
+             * @default USD
+             */
+            currency: string;
+            /**
+             * Effective From
+             * Format: date-time
+             */
+            effective_from: string;
+            /** Fixed Minor */
+            fixed_minor?: number | null;
+            /**
+             * Hold Days
+             * @default 7
+             */
+            hold_days: number;
+            method: components["schemas"]["CompensationMethod"];
+            /** Name */
+            name: string;
+            /** Percentage Bps */
+            percentage_bps?: number | null;
+            /**
+             * Vendor Id
+             * Format: uuid
+             */
+            vendor_id: string;
+        };
+        /** CompensationPlanList */
+        CompensationPlanList: {
+            /** Items */
+            items: components["schemas"]["CompensationPlanRead"][];
+            /** Total */
+            total: number;
+        };
+        /** CompensationPlanRead */
+        CompensationPlanRead: {
+            /** Active */
+            active: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Currency */
+            currency: string;
+            /**
+             * Effective From
+             * Format: date-time
+             */
+            effective_from: string;
+            /** Effective To */
+            effective_to: string | null;
+            /** Fixed Minor */
+            fixed_minor: number | null;
+            /** Hold Days */
+            hold_days: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            method: components["schemas"]["CompensationMethod"];
+            /** Name */
+            name: string;
+            /** Percentage Bps */
+            percentage_bps: number | null;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /**
+             * Vendor Id
+             * Format: uuid
+             */
+            vendor_id: string;
+        };
         /** ContactCreate */
         ContactCreate: {
             /**
@@ -2453,6 +2922,93 @@ export interface components {
             note?: string | null;
             /** Required Follow Up */
             required_follow_up?: boolean | null;
+        };
+        /** EarningAdjustmentCreate */
+        EarningAdjustmentCreate: {
+            adjustment_type: components["schemas"]["AdjustmentType"];
+            /** Amount Minor */
+            amount_minor: number;
+            /** Idempotency Key */
+            idempotency_key: string;
+            /** Reason */
+            reason: string;
+        };
+        /** EarningRead */
+        EarningRead: {
+            /** Adjustment Total Minor */
+            adjustment_total_minor: number;
+            /**
+             * Available At
+             * Format: date-time
+             */
+            available_at: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Currency */
+            currency: string;
+            /** Fee Minor */
+            fee_minor: number;
+            /** Gross Minor */
+            gross_minor: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Job Id
+             * Format: uuid
+             */
+            job_id: string;
+            /** Net Minor */
+            net_minor: number;
+            /** Payable Minor */
+            payable_minor: number;
+            /** Payout Batch Id */
+            payout_batch_id: string | null;
+            status: components["schemas"]["EarningStatus"];
+            /**
+             * Vendor Id
+             * Format: uuid
+             */
+            vendor_id: string;
+        };
+        /**
+         * EarningStatus
+         * @enum {string}
+         */
+        EarningStatus: "PENDING" | "AVAILABLE" | "HELD" | "APPROVED" | "BATCHED" | "PAID" | "CANCELLED" | "REVERSED";
+        /** EffectiveCapabilities */
+        EffectiveCapabilities: {
+            /** Automatic Assignment */
+            automatic_assignment: boolean;
+            /** Instant Booking */
+            instant_booking: boolean;
+            /** Marketplace Matching */
+            marketplace_matching: boolean;
+            /** Messaging */
+            messaging: boolean;
+            /** Middleware Delivery */
+            middleware_delivery: boolean;
+            /** Online Payments */
+            online_payments: boolean;
+            /** Payouts */
+            payouts: boolean;
+            /** Provider Self Service */
+            provider_self_service: boolean;
+            /** Request Intake */
+            request_intake: boolean;
+            /** Reviews */
+            reviews: boolean;
+            /** Scheduling */
+            scheduling: boolean;
+            /** Transactional Email Mode */
+            transactional_email_mode: string;
+            /** Transactional Sms Mode */
+            transactional_sms_mode: string;
         };
         /** EmailComposeRequest */
         EmailComposeRequest: {
@@ -2710,6 +3266,20 @@ export interface components {
             /** Vendor Id */
             vendor_id: string | null;
         };
+        /** FinanceVendorRead */
+        FinanceVendorRead: {
+            /** Display Name */
+            display_name: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Legal Name */
+            legal_name: string;
+            /** Status */
+            status: string;
+        };
         /** ForgotPasswordRequest */
         ForgotPasswordRequest: {
             /**
@@ -2833,6 +3403,17 @@ export interface components {
             /** Message */
             message: string;
         };
+        /** MoneyStatus */
+        MoneyStatus: {
+            /** Amount Minor */
+            amount_minor: number;
+            /** Count */
+            count: number;
+            /** Currency */
+            currency: string;
+            /** Status */
+            status: string;
+        };
         /** OfferDecision */
         OfferDecision: {
             /** Accept */
@@ -2873,6 +3454,24 @@ export interface components {
          * @enum {string}
          */
         OfferStatus: "PENDING" | "ACCEPTED" | "DECLINED" | "EXPIRED" | "WITHDRAWN";
+        /** OperationsOverview */
+        OperationsOverview: {
+            /** Bookings */
+            bookings: components["schemas"]["StatusCount"][];
+            capabilities: components["schemas"]["EffectiveCapabilities"];
+            /** Intake Items Total */
+            intake_items_total: number;
+            /** Jobs */
+            jobs: components["schemas"]["StatusCount"][];
+            /** Outbox */
+            outbox: components["schemas"]["StatusCount"][];
+            /** Provider Applications */
+            provider_applications: components["schemas"]["StatusCount"][];
+            /** Recent Jobs */
+            recent_jobs: components["schemas"]["JobRead"][];
+            /** Vendors */
+            vendors: components["schemas"]["StatusCount"][];
+        };
         /** OperatorBookingConfirmation */
         OperatorBookingConfirmation: {
             /** Reason */
@@ -2894,6 +3493,64 @@ export interface components {
             /** Total */
             total: number;
         };
+        /** PayoutBatchCreate */
+        PayoutBatchCreate: {
+            /**
+             * Currency
+             * @default USD
+             */
+            currency: string;
+            /** Vendor Id */
+            vendor_id?: string | null;
+        };
+        /** PayoutBatchList */
+        PayoutBatchList: {
+            /** Items */
+            items: components["schemas"]["PayoutBatchRead"][];
+            /** Total */
+            total: number;
+        };
+        /** PayoutBatchRead */
+        PayoutBatchRead: {
+            /** Approved At */
+            approved_at: string | null;
+            /** Approved By */
+            approved_by: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Currency */
+            currency: string;
+            /** Earning Count */
+            earning_count: number;
+            /** Failure Reason */
+            failure_reason: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Provider Status */
+            provider_status: string | null;
+            /** Reference */
+            reference: string;
+            /** Reviewed At */
+            reviewed_at: string | null;
+            /** Reviewed By */
+            reviewed_by: string | null;
+            status: components["schemas"]["PayoutStatus"];
+            /** Submitted At */
+            submitted_at: string | null;
+            /** Total Minor */
+            total_minor: number;
+        };
+        /**
+         * PayoutStatus
+         * @enum {string}
+         */
+        PayoutStatus: "DRAFT" | "PENDING_APPROVAL" | "APPROVED" | "PROCESSING" | "PAID" | "FAILED" | "CANCELLED";
         /** PortalContext */
         PortalContext: {
             /** Assignments */
@@ -3259,6 +3916,13 @@ export interface components {
          * @enum {string}
          */
         ProviderApplicationStatus: "DRAFT" | "PENDING" | "INFORMATION_REQUESTED" | "APPROVED" | "REJECTED";
+        /** ProviderCredentialList */
+        ProviderCredentialList: {
+            /** Items */
+            items: components["schemas"]["ProviderCredentialRead"][];
+            /** Total */
+            total: number;
+        };
         /** ProviderCredentialRead */
         ProviderCredentialRead: {
             credential_type: components["schemas"]["ProviderCredentialType"];
@@ -3309,6 +3973,13 @@ export interface components {
              * @default false
              */
             verified: boolean;
+        };
+        /** ProviderEarningList */
+        ProviderEarningList: {
+            /** Items */
+            items: components["schemas"]["EarningRead"][];
+            /** Total */
+            total: number;
         };
         /** ProviderInterestCreate */
         ProviderInterestCreate: {
@@ -3412,6 +4083,13 @@ export interface components {
             /** Utm Term */
             utm_term?: string | null;
         };
+        /** ProviderJobList */
+        ProviderJobList: {
+            /** Items */
+            items: components["schemas"]["JobRead"][];
+            /** Total */
+            total: number;
+        };
         /** ProviderOnboardingUpdate */
         ProviderOnboardingUpdate: {
             /** Availability */
@@ -3454,6 +4132,43 @@ export interface components {
             services?: string[] | null;
             /** Skills */
             skills?: string[] | null;
+        };
+        /** ProviderOverview */
+        ProviderOverview: {
+            application: components["schemas"]["ProviderApplicationRead"] | null;
+            capabilities: components["schemas"]["EffectiveCapabilities"];
+            /** Credentials Expiring Soon */
+            credentials_expiring_soon: number;
+            /** Credentials Total */
+            credentials_total: number;
+            /** Credentials Verified */
+            credentials_verified: number;
+            /** Earnings */
+            earnings: components["schemas"]["MoneyStatus"][];
+            /** Jobs */
+            jobs: components["schemas"]["StatusCount"][];
+            /** Recent Earnings */
+            recent_earnings: components["schemas"]["EarningRead"][];
+            /** Recent Jobs */
+            recent_jobs: components["schemas"]["JobRead"][];
+            /** Recent Payout Batches */
+            recent_payout_batches: components["schemas"]["PayoutBatchRead"][];
+            /** Services Active */
+            services_active: number;
+            /** Skills Active */
+            skills_active: number;
+            vendor: components["schemas"]["VendorRead"];
+            /** Workers Available */
+            workers_available: number;
+            /** Workers Total */
+            workers_total: number;
+        };
+        /** ProviderPayoutBatchList */
+        ProviderPayoutBatchList: {
+            /** Items */
+            items: components["schemas"]["PayoutBatchRead"][];
+            /** Total */
+            total: number;
         };
         /** ProviderProfileUpdate */
         ProviderProfileUpdate: {
@@ -3624,6 +4339,13 @@ export interface components {
              * Format: uuid
              */
             worker_id: string;
+        };
+        /** ProviderWorkerList */
+        ProviderWorkerList: {
+            /** Items */
+            items: components["schemas"]["WorkerRead"][];
+            /** Total */
+            total: number;
         };
         /** PublicCapabilities */
         PublicCapabilities: {
@@ -4139,6 +4861,13 @@ export interface components {
             message: string;
             /** Phone */
             phone: string;
+        };
+        /** StatusCount */
+        StatusCount: {
+            /** Count */
+            count: number;
+            /** Status */
+            status: string;
         };
         /** SubmissionAccepted */
         SubmissionAccepted: {
@@ -5041,6 +5770,37 @@ export interface operations {
                     "application/json": {
                         [key: string]: string[];
                     };
+                };
+            };
+        };
+    };
+    current_access_context_api_v1_auth_access_me_get: {
+        parameters: {
+            query?: {
+                brand_key?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PortalContext"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -6643,6 +7403,303 @@ export interface operations {
             };
         };
     };
+    list_compensation_plans_api_v1_finance_compensation_plans_get: {
+        parameters: {
+            query?: {
+                vendor_id?: string | null;
+                active?: boolean | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompensationPlanList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_compensation_plan_api_v1_finance_compensation_plans_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompensationPlanCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompensationPlanRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_earnings_api_v1_finance_earnings_get: {
+        parameters: {
+            query?: {
+                vendor_id?: string | null;
+                status?: components["schemas"]["EarningStatus"] | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EarningRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    adjust_earning_api_v1_finance_earnings__earning_id__adjustments_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                earning_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EarningAdjustmentCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_payout_batches_api_v1_finance_payout_batches_get: {
+        parameters: {
+            query?: {
+                status?: components["schemas"]["PayoutStatus"] | null;
+                vendor_id?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PayoutBatchList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_batch_api_v1_finance_payout_batches_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PayoutBatchCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PayoutBatchRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    approve_batch_api_v1_finance_payout_batches__batch_id__approve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PayoutBatchRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    submit_batch_api_v1_finance_payout_batches__batch_id__submit_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PayoutBatchRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_finance_vendors_api_v1_finance_vendors_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FinanceVendorRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     retry_event_api_v1_integrations_events__event_id__retry_post: {
         parameters: {
             query?: never;
@@ -7299,6 +8356,281 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_audit_api_v1_portal_admin_audit_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditEventList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_overview_api_v1_portal_admin_overview_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminOverview"];
+                };
+            };
+        };
+    };
+    portal_capabilities_api_v1_portal_capabilities_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EffectiveCapabilities"];
+                };
+            };
+        };
+    };
+    operations_overview_api_v1_portal_operations_overview_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationsOverview"];
+                };
+            };
+        };
+    };
+    provider_credentials_api_v1_portal_provider_credentials_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderCredentialList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    provider_earnings_api_v1_portal_provider_earnings_get: {
+        parameters: {
+            query?: {
+                status?: components["schemas"]["EarningStatus"] | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderEarningList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    provider_jobs_api_v1_portal_provider_jobs_get: {
+        parameters: {
+            query?: {
+                status?: components["schemas"]["JobStatus"] | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderJobList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    provider_overview_api_v1_portal_provider_overview_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderOverview"];
+                };
+            };
+        };
+    };
+    provider_payout_batches_api_v1_portal_provider_payout_batches_get: {
+        parameters: {
+            query?: {
+                status?: components["schemas"]["PayoutStatus"] | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderPayoutBatchList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    provider_workers_api_v1_portal_provider_workers_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderWorkerList"];
+                };
             };
             /** @description Validation Error */
             422: {
