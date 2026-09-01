@@ -4,9 +4,9 @@ import threading
 import time
 from dataclasses import dataclass
 
-import redis.asyncio as redis
 import structlog
 from fastapi import HTTPException, Request
+from redis.exceptions import RedisError
 
 from app.core.redis_client import redis_client_from_request
 
@@ -128,7 +128,7 @@ async def enforce_rate_limit(
                 requests,
                 window_seconds * 1_000,
             )
-        except redis.RedisError as exc:
+        except RedisError as exc:
             logger.warning(
                 "rate_limit_redis_degraded",
                 scope=scope,
