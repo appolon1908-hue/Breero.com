@@ -9,19 +9,19 @@ staged on `feat/observability-and-dr` and unmerged.
 
 | Category | HIGH found | HIGH fixed | HIGH open | MEDIUM found | MEDIUM fixed | MEDIUM open |
 | --- | --- | --- | --- | --- | --- | --- |
-| Security | 3 | 3 | 0 | 1 | 1 | 0 |
+| Security | 4 | 4 | 0 | 2 | 2 | 0 |
 | Availability | 3 | 3 | 0 | 0 | 0 | 0 |
 | Correctness | 1 | 1 | 0 | 1 | 1 | 0 |
 | Deployment | 1 | 1 | 0 | 1 | 1 | 0 |
 | Performance | 1 | 1 | 0 | 0 | 0 | 0 |
 | Architecture | 1 | 0 | 1 | 3 | 2 | 1 |
-| Frontend | 1 | 0 | 1 | 2 | 1 | 1 |
+| Frontend | 1 | 0 | 1 | 2 | 2 | 0 |
 | Observability | 0 | 0 | 0 | 2 | 1 | 1 |
 | Dependencies | — | — | — | — | — | — |
-| **Total** | **11** | **9** | **2** | **10** | **7** | **3** |
+| **Total** | **12** | **10** | **2** | **12** | **10** | **2** |
 
-`HIGH_FOUND_INITIAL=11`, `HIGH_FIXED=9`, `HIGH_OPEN=2`
-`MEDIUM_FOUND_INITIAL=10`, `MEDIUM_FIXED=7`, `MEDIUM_OPEN=3`
+`HIGH_FOUND_INITIAL=12`, `HIGH_FIXED=10`, `HIGH_OPEN=2`
+`MEDIUM_FOUND_INITIAL=12`, `MEDIUM_FIXED=10`, `MEDIUM_OPEN=2`
 
 **Correction.** A previous revision of this report gave `HIGH_OPEN=2`. BE-05, BE-06
 and BE-07 were rated HIGH in the original architecture review and remain unfixed;
@@ -76,11 +76,6 @@ metric registries and two runbooks.
 `be/portal-read-models` adds `app/api/v1/portal.py` and `app/domains/portal/`, plus
 finance-safe provider directory contracts. This is the backend contract layer the
 portal stack should consume, and it is first in the corrected dependency order.
-
-**FE-04 — the frontend contract is structurally unverified.**
-`@breero/types` is hand-maintained and `scripts/check-frontend-openapi.mjs` asserts
-only that paths and methods exist. No field name, type, nullability or enum value is
-compared, so a backend rename ships green and fails at runtime.
 
 ## Fixed in this work
 

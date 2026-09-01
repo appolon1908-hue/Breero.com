@@ -8,11 +8,13 @@
     "lint": "pnpm format:check && turbo lint",
     "typecheck": "turbo typecheck",
     "test": "turbo test",
-    "contract:check": "node scripts/check-frontend-openapi.mjs",
+    "contract:check": "node scripts/check-frontend-openapi.mjs && node scripts/check-generated-types.mjs",
     "format": "prettier --write \"apps/**/*.{ts,tsx,css,json}\" \"packages/**/*.{ts,tsx,css,json}\" \"*.json\"",
-    "format:check": "prettier --check \"apps/**/*.{ts,tsx,css,json}\" \"packages/**/*.{ts,tsx,css,json}\" \"*.json\""
+    "format:check": "prettier --check \"apps/**/*.{ts,tsx,css,json}\" \"packages/**/*.{ts,tsx,css,json}\" \"*.json\"",
+    "gen:types": "openapi-typescript apps/api/openapi.json -o packages/types/src/generated.ts"
   },
   "devDependencies": {
+    "openapi-typescript": "7.5.2",
     "prettier": "3.4.2",
     "turbo": "^2.3.0"
   },

@@ -10,6 +10,8 @@
 # Generated or externally owned
 pnpm-lock.yaml
 apps/api/openapi.json
+# Generator output, compared byte-for-byte by scripts/check-generated-types.mjs
+packages/types/src/generated.ts
 apps/web/next-env.d.ts
 
 # Prose is left alone: reformatting Markdown produces churn without making any
