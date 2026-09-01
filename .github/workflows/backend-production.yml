@@ -114,6 +114,8 @@ jobs:
           DATABASE_URL=postgresql+psycopg://breero:test-only@localhost:5432/breero_finance alembic upgrade head
       - run: python scripts/generate_openapi.py
       - run: test -s openapi.json
+      - name: Reject committed OpenAPI drift
+        run: git diff --exit-code -- openapi.json
       - name: Dependency audit
         run: pip-audit
       - name: Secret scan
