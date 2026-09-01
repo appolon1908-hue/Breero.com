@@ -1,6 +1,7 @@
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
 
@@ -105,7 +106,12 @@ class BookingConfirmation(BaseModel):
     window_end: datetime
     amount_minor: int
     currency: str
-    next_action: str
+    next_action: Literal[
+        "confirmed",
+        "retry_payment",
+        "booking_unavailable",
+        "await_payment_confirmation",
+    ]
 
 
 class CustomerBookingList(BaseModel):
