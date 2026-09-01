@@ -8,9 +8,12 @@
     "lint": "turbo lint",
     "typecheck": "turbo typecheck",
     "test": "turbo test",
-    "contract:check": "node scripts/check-frontend-openapi.mjs"
+    "types:generate": "openapi-typescript apps/api/openapi.json --output packages/types/src/generated/openapi.ts",
+    "types:check": "pnpm types:generate && git diff --exit-code -- packages/types/src/generated/openapi.ts",
+    "contract:check": "pnpm types:check && node scripts/check-frontend-openapi.mjs"
   },
   "devDependencies": {
+    "openapi-typescript": "7.13.0",
     "turbo": "^2.3.0"
   },
   "pnpm": {
