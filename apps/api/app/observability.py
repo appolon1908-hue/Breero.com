@@ -3,12 +3,14 @@ from __future__ import annotations
 import logging
 import os
 import re
+import time
 from collections.abc import Mapping
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
 
-import redis.asyncio as redis
+import redis as redis_sync
+import redis.asyncio as redis_async
 import structlog
 from fastapi import FastAPI, Request, Response
 from opentelemetry import trace
@@ -98,9 +100,9 @@ OUTBOX_OLDEST_PENDING_AGE = Gauge(
     "Age of the oldest pending durable outbox event.",
     multiprocess_mode="max",
 )
-RUNTIME_HEARTBEAT_AGE = Gauge(
-    "breero_runtime_heartbeat_age_seconds",
-    "Age of the latest worker/scheduler heartbeat.",
+WORKER_HEARTBEAT_AGE = Gauge(
+    "breero_worker_heartbeat_age_seconds",
+    "Age of the latest Celery worker heartbeat.",
     multiprocess_mode="max",
 )
 
@@ -203,9 +205,18 @@ def configure_worker_observability() -> None:
     RedisInstrumentor().instrument(tracer_provider=provider)
 
 
-def configure_observability(app: FastAPI) -> None:
-    configure_logging()
-    configure_tracing(app)
+def record_worker_heartbeat() -> None:
+    client = redis_sync.from_url(
+        settings.redis_url,
+        socket_connect_timeout=2,
+        socket_timeout=2,
+    )
+    try:
+        client.set(observability_settings.runtime_heartbeat_key, str(time.time()), ex=90)
+    except Exception:
+        structlog.get_logger().exception("worker_heartbeat_write_failed")
+    finally:
+        client.close()
 
 
 def route_template(request: Request) -> str:
@@ -265,14 +276,14 @@ async def _refresh_operational_metrics() -> None:
         else:
             OUTBOX_OLDEST_PENDING_AGE.set(0)
 
-    client = redis.from_url(settings.redis_url, socket_connect_timeout=1, socket_timeout=1)
+    client = redis_async.from_url(settings.redis_url, socket_connect_timeout=1, socket_timeout=1)
     try:
         raw = await client.get(observability_settings.runtime_heartbeat_key)
         if raw is None:
-            RUNTIME_HEARTBEAT_AGE.set(-1)
+            WORKER_HEARTBEAT_AGE.set(-1)
             return
         timestamp = datetime.fromtimestamp(float(raw), tz=UTC)
-        RUNTIME_HEARTBEAT_AGE.set(max(0.0, (datetime.now(UTC) - timestamp).total_seconds()))
+        WORKER_HEARTBEAT_AGE.set(max(0.0, (datetime.now(UTC) - timestamp).total_seconds()))
     finally:
         await client.aclose()
 

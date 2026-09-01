@@ -51,6 +51,8 @@ jobs:
           GEOAPIFY_API_KEY_REFERENCE: /tmp/breero-geoapify
           POSTGRES_PASSWORD_REFERENCE: /tmp/breero-postgres-password
           REDIS_PASSWORD_REFERENCE: /tmp/breero-redis-password
+          BREERO_OTLP_TRACES_ENDPOINT: http://otel-collector:4318/v1/traces
+          BREERO_OTLP_HEADERS_FILE_REFERENCE: /tmp/breero-otlp-headers
           BREERO_STAGING_API_IMAGE: ghcr.io/example/breero-api@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
           BREERO_STAGING_API_ENV: api.env.example
           BREERO_STAGING_POSTGRES_ENV: postgres.env.example
@@ -69,6 +71,7 @@ jobs:
                 /tmp/breero-geoapify \
                 /tmp/breero-postgres-password \
                 /tmp/breero-redis-password \
+                /tmp/breero-otlp-headers \
                 /tmp/breero-staging-database-url \
                 /tmp/breero-staging-redis-url \
                 /tmp/breero-staging-jwt-access \
@@ -76,6 +79,10 @@ jobs:
                 /tmp/breero-staging-postgres-password \
                 /tmp/breero-staging-redis-password
           docker compose -f deploy/production/docker-compose.backend.yml config --quiet
+          docker compose \
+            -f deploy/production/docker-compose.backend.yml \
+            -f deploy/observability/docker-compose.observability.yml \
+            config --quiet
           docker compose -f deploy/staging/docker-compose.backend.yml config --quiet
       - run: ruff check .
       - run: mypy app

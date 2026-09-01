@@ -8,7 +8,7 @@ services:
       OTEL_ENABLED: ${BREERO_OTEL_ENABLED:-true}
       OTEL_SERVICE_NAME: breero-api
       OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: ${BREERO_OTLP_TRACES_ENDPOINT:?Set BREERO_OTLP_TRACES_ENDPOINT}
-      OTEL_EXPORTER_OTLP_HEADERS_FILE: ${BREERO_OTLP_HEADERS_FILE:-}
+      OTEL_EXPORTER_OTLP_HEADERS_FILE: /run/secrets/breero_otlp_headers
       OTEL_TRACE_SAMPLE_RATIO: ${BREERO_OTEL_TRACE_SAMPLE_RATIO:-0.10}
       PROMETHEUS_MULTIPROC_DIR: /tmp/prometheus
     command:
@@ -18,6 +18,8 @@ services:
         rm -rf /tmp/prometheus && mkdir -p /tmp/prometheus &&
         exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2
         --proxy-headers --forwarded-allow-ips 172.16.0.0/12
+    secrets:
+      - breero_otlp_headers
     labels:
       com.codestra.product: breero
       com.codestra.component: api
@@ -31,23 +33,15 @@ services:
       OTEL_ENABLED: ${BREERO_OTEL_ENABLED:-true}
       OTEL_SERVICE_NAME: breero-worker
       OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: ${BREERO_OTLP_TRACES_ENDPOINT:?Set BREERO_OTLP_TRACES_ENDPOINT}
-      OTEL_EXPORTER_OTLP_HEADERS_FILE: ${BREERO_OTLP_HEADERS_FILE:-}
+      OTEL_EXPORTER_OTLP_HEADERS_FILE: /run/secrets/breero_otlp_headers
       OTEL_TRACE_SAMPLE_RATIO: ${BREERO_OTEL_TRACE_SAMPLE_RATIO:-0.10}
+    secrets:
+      - breero_otlp_headers
     labels:
       com.codestra.product: breero
       com.codestra.component: worker
       com.codestra.observability.logs: "true"
 
-  scheduler:
-    environment:
-      LOG_FORMAT: json
-      LOG_LEVEL: ${BREERO_LOG_LEVEL:-INFO}
-      OTEL_ENABLED: ${BREERO_OTEL_ENABLED:-true}
-      OTEL_SERVICE_NAME: breero-scheduler
-      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: ${BREERO_OTLP_TRACES_ENDPOINT:?Set BREERO_OTLP_TRACES_ENDPOINT}
-      OTEL_EXPORTER_OTLP_HEADERS_FILE: ${BREERO_OTLP_HEADERS_FILE:-}
-      OTEL_TRACE_SAMPLE_RATIO: ${BREERO_OTEL_TRACE_SAMPLE_RATIO:-0.10}
-    labels:
-      com.codestra.product: breero
-      com.codestra.component: scheduler
-      com.codestra.observability.logs: "true"
+secrets:
+  breero_otlp_headers:
+    file: ${BREERO_OTLP_HEADERS_FILE_REFERENCE:?Set BREERO_OTLP_HEADERS_FILE_REFERENCE}

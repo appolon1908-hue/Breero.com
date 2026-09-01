@@ -19,17 +19,19 @@ from app.core.errors import (
 )
 from app.db.session import engine
 from app.observability import (
-    configure_observability,
+    configure_logging,
+    configure_tracing,
     metrics_response,
     observability_settings,
     record_dependency,
     record_http_request,
+    route_template,
 )
 
 EXPECTED_SCHEMA_REVISION = "022_provider_services_skills"
 TRACE_ID_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}")
 app = FastAPI(title=settings.app_name, version="2.0.0")
-configure_observability(app)
+configure_logging()
 logger = structlog.get_logger()
 install_error_handlers(app)
 app.include_router(api_v1_router, prefix=settings.api_v1_prefix)
@@ -68,7 +70,7 @@ async def request_context(request: Request, call_next):
             request_id=request_id,
             correlation_id=correlation_id,
             method=request.method,
-            path=request.url.path,
+            route=route_template(request),
         )
         if not is_v2_request(request):
             raise
@@ -89,7 +91,7 @@ async def request_context(request: Request, call_next):
         request_id=request_id,
         correlation_id=correlation_id,
         method=request.method,
-        path=request.url.path,
+        route=route_template(request),
         status=status_code,
         duration=duration_ms,
     )
@@ -147,3 +149,7 @@ async def ready() -> dict[str, str]:
     if checks.get("schema") != "ok":
         raise HTTPException(503, detail={"status": "not_ready", "checks": checks})
     return {"status": "ready", **checks}
+
+
+# Add tracing last so its middleware surrounds request logging and supplies trace IDs.
+configure_tracing(app)
