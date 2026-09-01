@@ -1,7 +1,15 @@
 import type { ServiceDetail } from "@breero/types";
 
+const catalogDefaults = {
+  category: "home-services",
+  pricing_model: "fixed",
+  is_active: true,
+  is_bookable: true,
+} satisfies Pick<ServiceDetail, "category" | "pricing_model" | "is_active" | "is_bookable">;
+
 export const serviceCatalog: ServiceDetail[] = [
   {
+    ...catalogDefaults,
     id: "cleaning", slug: "home-cleaning", name: "Home cleaning", description: "A reliable, detail-focused clean tailored to your home.", base_price: "89.00", duration_minutes: 120,
     questions: [
       { id: "cleaning-type", key: "cleaning_type", label: "What kind of clean do you need?", help_text: null, question_type: "single_choice", required: true, options: [{ value: "standard", label: "Standard clean" }, { value: "deep", label: "Deep clean" }, { value: "move", label: "Move in or out" }], validation: null, sort_order: 1 },
@@ -11,6 +19,7 @@ export const serviceCatalog: ServiceDetail[] = [
     ],
   },
   {
+    ...catalogDefaults,
     id: "plumbing", slug: "plumbing-repair", name: "Plumbing repair", description: "Diagnosis and repair for leaks, fixtures, drains, and common plumbing faults.", base_price: "109.00", duration_minutes: 90,
     questions: [
       { id: "issue", key: "issue", label: "Describe the problem", help_text: "Tell us what you see, hear, or smell.", question_type: "textarea", required: true, options: null, validation: null, sort_order: 1 },
@@ -18,13 +27,14 @@ export const serviceCatalog: ServiceDetail[] = [
     ],
   },
   {
+    ...catalogDefaults,
     id: "electrical", slug: "electrical-help", name: "Electrical help", description: "Qualified help for outlets, switches, lights, and electrical troubleshooting.", base_price: "119.00", duration_minutes: 90, questions: [
       { id: "details", key: "details", label: "What needs attention?", help_text: null, question_type: "text", required: true, options: null, validation: null, sort_order: 1 },
     ],
   },
-  { id: "handyman", slug: "handyman", name: "Handyman", description: "Practical help with mounting, assembly, minor repairs, and home projects.", base_price: "79.00", duration_minutes: 120, questions: [] },
-  { id: "garden", slug: "garden-care", name: "Garden care", description: "Seasonal garden maintenance, tidy-ups, pruning, and lawn care.", base_price: "75.00", duration_minutes: 120, questions: [] },
-  { id: "appliance", slug: "appliance-repair", name: "Appliance repair", description: "Diagnosis and repair for common household appliances.", base_price: "99.00", duration_minutes: 90, questions: [] },
+  { ...catalogDefaults, id: "handyman", slug: "handyman", name: "Handyman", description: "Practical help with mounting, assembly, minor repairs, and home projects.", base_price: "79.00", duration_minutes: 120, questions: [] },
+  { ...catalogDefaults, id: "garden", slug: "garden-care", name: "Garden care", description: "Seasonal garden maintenance, tidy-ups, pruning, and lawn care.", base_price: "75.00", duration_minutes: 120, questions: [] },
+  { ...catalogDefaults, id: "appliance", slug: "appliance-repair", name: "Appliance repair", description: "Diagnosis and repair for common household appliances.", base_price: "99.00", duration_minutes: 90, questions: [] },
 ];
 
 export const serviceBySlug = (slug: string) => serviceCatalog.find((service) => service.slug === slug);
