@@ -1,0 +1,28 @@
+# Normalize line endings in the repository AND in the working tree on every
+# platform. Without `eol=lf`, a Windows checkout with core.autocrlf=true gets a
+# CRLF working tree, which fails Prettier's endOfLine rule and produces diffs
+# that are invisible on one platform and total on the other.
+* text=auto eol=lf
+
+# Windows shims have to keep CRLF to remain executable.
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+*.ps1  text eol=crlf
+
+# Never touched.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.webp binary
+*.avif binary
+*.pdf  binary
+*.woff binary
+*.woff2 binary
+*.mp4  binary
+*.zip  binary
+
+# Generated; keep it out of language statistics and diff review.
+pnpm-lock.yaml     linguist-generated=true -diff
+apps/api/openapi.json linguist-generated=true -diff

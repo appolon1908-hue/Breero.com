@@ -10,7 +10,7 @@
   "scripts": {
     "lint": "eslint src --max-warnings=0",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
+    "test": "vitest run --coverage",
     "build": "tsc --noEmit"
   },
   "peerDependencies": {
