@@ -133,6 +133,33 @@ jobs:
           DATABASE_URL=postgresql+psycopg://breero:test-only@localhost:5432/breero_auth alembic upgrade head
           DATABASE_URL=postgresql+psycopg://breero:test-only@localhost:5432/breero_finance alembic upgrade 006_finance_integrations
           DATABASE_URL=postgresql+psycopg://breero:test-only@localhost:5432/breero_finance alembic upgrade head
+      - name: Prove a backup can actually be restored
+        env:
+          PGPASSWORD: test-only
+          DATABASE_URL: postgresql://breero:test-only@localhost:5432/breero_test
+        # An untested backup is a hypothesis. This takes a real dump of the schema the
+        # migrations just built, restores it into a scratch database, and asserts the
+        # restore is usable -- so the procedure in docs/backup-and-recovery.md cannot
+        # rot unnoticed between incidents.
+        run: |
+          mkdir -p /tmp/breero-backups
+          BACKUP_DIR=/tmp/breero-backups bash ../../scripts/backup/backup.sh
+          dump="$(find /tmp/breero-backups -name 'breero-*.dump' | head -n1)"
+          createdb -h localhost -U breero breero_restore_drill
+          scratch=postgresql://breero:test-only@localhost:5432/breero_restore_drill
+          SOURCE_DATABASE_URL="$DATABASE_URL" bash ../../scripts/backup/restore-drill.sh "$dump" "$scratch"
+      - name: Reject a corrupt backup
+        # The drill is only worth having if it fails when it should.
+        env:
+          PGPASSWORD: test-only
+        run: |
+          printf 'not a postgres dump' > /tmp/corrupt.dump
+          createdb -h localhost -U breero breero_corrupt_drill
+          scratch=postgresql://breero:test-only@localhost:5432/breero_corrupt_drill
+          if bash ../../scripts/backup/restore-drill.sh /tmp/corrupt.dump "$scratch"; then
+            echo "::error::restore drill accepted a corrupt dump"
+            exit 1
+          fi
       - name: Prove the documented rollback path is reversible
         env:
           PGPASSWORD: test-only

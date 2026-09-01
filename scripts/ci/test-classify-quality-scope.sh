@@ -19,6 +19,9 @@ assert_scope frontend-only $'backend=false\nfrontend=true\nbootstrap=false' apps
 assert_scope backend-and-frontend $'backend=true\nfrontend=true\nbootstrap=false' apps/api/app/main.py apps/web/app/page.tsx
 assert_scope workflow-only $'backend=false\nfrontend=false\nbootstrap=false' .github/workflows/quality.yml
 assert_scope documentation-only $'backend=false\nfrontend=false\nbootstrap=false' docs/runbook.md
+assert_scope observability-config $'backend=true\nfrontend=false\nbootstrap=false' deploy/observability/alerts.yml
+assert_scope backup-compose $'backend=true\nfrontend=false\nbootstrap=false' deploy/backup/docker-compose.backup.yml
+assert_scope backup-scripts $'backend=true\nfrontend=false\nbootstrap=false' scripts/backup/backup.sh
 
 test_cross_boundary_rename() {
   local fixture base head actual expected
