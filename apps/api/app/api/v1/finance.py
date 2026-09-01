@@ -1,6 +1,7 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
@@ -14,11 +15,13 @@ from app.domains.finance.schemas import (
     CompensationPlanRead,
     EarningAdjustmentCreate,
     EarningRead,
+    FinanceVendorRead,
     PayoutBatchCreate,
     PayoutBatchList,
     PayoutBatchRead,
 )
 from app.domains.finance.service import FinanceService
+from app.domains.workforce.models import Vendor
 
 router = APIRouter()
 
@@ -34,6 +37,26 @@ async def payout_command_actor(user: User = Depends(current_user)) -> User:
         raise HTTPException(404, "Not found")
     FinanceService.require_payout_execution()
     return user
+
+
+@router.get("/vendors", response_model=list[FinanceVendorRead])
+async def list_finance_vendors(
+    limit: int = Query(500, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    session: AsyncSession = Depends(get_db),
+    _: User = Depends(require_roles(UserRole.finance, UserRole.admin)),
+) -> list[FinanceVendorRead]:
+    vendors = list(
+        (
+            await session.scalars(
+                select(Vendor)
+                .order_by(Vendor.display_name, Vendor.id)
+                .limit(limit)
+                .offset(offset)
+            )
+        ).all()
+    )
+    return [FinanceVendorRead.model_validate(vendor) for vendor in vendors]
 
 
 @router.post("/compensation-plans", response_model=CompensationPlanRead, status_code=201)
