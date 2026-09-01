@@ -6,6 +6,15 @@ from pydantic import BaseModel, ConfigDict, Field
 from .models import AdjustmentType, CompensationMethod, EarningStatus, PayoutStatus
 
 
+class FinanceVendorRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    legal_name: str
+    display_name: str
+    status: str
+
+
 class CompensationPlanCreate(BaseModel):
     vendor_id: uuid.UUID
     name: str = Field(min_length=1, max_length=160)
