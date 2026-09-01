@@ -13,6 +13,7 @@
     "contract:check": "pnpm contract:generate && git diff --exit-code -- packages/types/src/openapi.generated.ts && pnpm contract:check:policy"
   },
   "devDependencies": {
+    "openapi-typescript": "7.13.0",
     "turbo": "^2.3.0"
   },
   "pnpm": {
