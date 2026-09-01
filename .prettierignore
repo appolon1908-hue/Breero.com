@@ -1,0 +1,27 @@
+# Build output and caches
+**/.next/
+**/dist/
+**/coverage/
+**/node_modules/
+**/test-results/
+**/playwright-report/
+**/.turbo/
+
+# Generated or externally owned
+pnpm-lock.yaml
+apps/api/openapi.json
+apps/web/next-env.d.ts
+
+# Prose is left alone: reformatting Markdown produces churn without making any
+# diff more reviewable, which is the whole point of this pass.
+**/*.md
+
+# Python, shell and infrastructure keep their own formatters (ruff, actionlint)
+apps/api/
+odoo-addons/
+scripts/ci/
+.github/
+deploy/
+docs/
+*.py
+*.sh
