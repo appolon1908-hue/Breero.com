@@ -23,7 +23,14 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.sdk.trace.sampling import ParentBased, TraceIdRatioBased
-from prometheus_client import CollectorRegistry, Counter, Gauge, Histogram, REGISTRY, generate_latest
+from prometheus_client import (
+    REGISTRY,
+    CollectorRegistry,
+    Counter,
+    Gauge,
+    Histogram,
+    generate_latest,
+)
 from prometheus_client.exposition import CONTENT_TYPE_LATEST
 from prometheus_client.multiprocess import MultiProcessCollector
 from pydantic import Field, model_validator
