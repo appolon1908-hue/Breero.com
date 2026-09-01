@@ -1,6 +1,7 @@
 import asyncio
 from datetime import UTC, datetime
 
+import redis.asyncio as redis
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,6 +13,7 @@ from app.domains.finance.service import FinanceService
 from app.domains.public_submissions.models import DownstreamStatus, PublicSubmission
 from app.integrations.email import EmailAdapter
 from app.integrations.middleware import MiddlewareAdapter
+from app.observability import observability_settings
 from app.workers.celery_app import celery_app
 
 
@@ -38,6 +40,24 @@ async def expire_booking_holds(session: AsyncSession, *, now: datetime) -> int:
         booking.status = BookingStatus.EXPIRED
     await session.commit()
     return len(rows)
+
+
+@celery_app.task(name="app.workers.tasks.runtime_heartbeat")
+def runtime_heartbeat() -> str:
+    async def run() -> str:
+        client = redis.from_url(settings.redis_url, socket_connect_timeout=2, socket_timeout=2)
+        try:
+            timestamp = datetime.now(UTC).timestamp()
+            await client.set(
+                observability_settings.runtime_heartbeat_key,
+                str(timestamp),
+                ex=90,
+            )
+            return "ok"
+        finally:
+            await client.aclose()
+
+    return asyncio.run(run())
 
 
 @celery_app.task(name="app.workers.tasks.expire_bookings")
