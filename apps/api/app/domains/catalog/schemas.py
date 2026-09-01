@@ -6,6 +6,12 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from app.domains.catalog.models import QuestionType
 
 
+class QuestionOption(BaseModel):
+    value: str = Field(min_length=1, max_length=200)
+    label: str = Field(min_length=1, max_length=240)
+    description: str | None = Field(default=None, max_length=1000)
+
+
 class QuestionRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID
@@ -14,8 +20,8 @@ class QuestionRead(BaseModel):
     help_text: str | None
     question_type: QuestionType
     required: bool
-    options: list[dict] | None
-    validation: dict | None
+    options: list[QuestionOption] | None
+    validation: dict[str, object] | None
     sort_order: int
 
 
@@ -43,8 +49,8 @@ class QuestionWrite(BaseModel):
     help_text: str | None = None
     question_type: QuestionType
     required: bool = False
-    options: list[dict] | None = None
-    validation: dict | None = None
+    options: list[QuestionOption] | None = None
+    validation: dict[str, object] | None = None
     sort_order: int = 0
 
     @model_validator(mode="after")
