@@ -1,10 +1,12 @@
 import uuid
 from datetime import datetime
-from typing import Any
+from typing import Generic, TypeVar
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 from app.domains.payments.models import PaymentPurpose, PaymentStatus
+
+T = TypeVar("T")
 
 
 class ProfilePatch(BaseModel):
@@ -39,8 +41,8 @@ class AddressRead(BaseModel):
     country_code: str
 
 
-class Page(BaseModel):
-    items: list[Any]
+class Page(BaseModel, Generic[T]):
+    items: list[T]
     total: int
     page: int
     page_size: int
