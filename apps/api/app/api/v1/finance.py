@@ -1,10 +1,10 @@
 import uuid
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
-from app.domains.auth.dependencies import require_roles
+from app.domains.auth.dependencies import current_user, require_roles
 from app.domains.auth.models import User, UserRole
 from app.domains.finance.models import EarningStatus, PayoutStatus
 from app.domains.finance.repository import FinanceRepository
@@ -23,8 +23,17 @@ from app.domains.finance.service import FinanceService
 router = APIRouter()
 
 
-def payout_execution_guard() -> None:
+async def payout_command_actor(user: User = Depends(current_user)) -> User:
+    """Authorize payout commands before evaluating the runtime capability.
+
+    Operations and customer users continue to receive a concealed 404, matching the
+    previous unmounted-route behavior. Authorized finance/admin users receive the
+    explicit disabled-capability response while PAYOUT_ENABLED is false.
+    """
+    if user.role not in {UserRole.finance, UserRole.admin}:
+        raise HTTPException(404, "Not found")
     FinanceService.require_payout_execution()
+    return user
 
 
 @router.post("/compensation-plans", response_model=CompensationPlanRead, status_code=201)
@@ -54,16 +63,12 @@ async def list_compensation_plans(
     )
 
 
-@router.post(
-    "/earnings/{earning_id}/adjustments",
-    status_code=201,
-    dependencies=[Depends(payout_execution_guard)],
-)
+@router.post("/earnings/{earning_id}/adjustments", status_code=201)
 async def adjust_earning(
     earning_id: uuid.UUID,
     payload: EarningAdjustmentCreate,
     session: AsyncSession = Depends(get_db),
-    user: User = Depends(require_roles(UserRole.finance, UserRole.admin)),
+    user: User = Depends(payout_command_actor),
 ):
     return await FinanceService(session).adjust_earning(
         earning_id,
@@ -105,16 +110,11 @@ async def list_payout_batches(
     )
 
 
-@router.post(
-    "/payout-batches",
-    response_model=PayoutBatchRead,
-    status_code=201,
-    dependencies=[Depends(payout_execution_guard)],
-)
+@router.post("/payout-batches", response_model=PayoutBatchRead, status_code=201)
 async def create_batch(
     payload: PayoutBatchCreate,
     session: AsyncSession = Depends(get_db),
-    user: User = Depends(require_roles(UserRole.finance, UserRole.admin)),
+    user: User = Depends(payout_command_actor),
 ):
     return await FinanceService(session).create_batch(
         payload.currency,
@@ -123,27 +123,19 @@ async def create_batch(
     )
 
 
-@router.post(
-    "/payout-batches/{batch_id}/approve",
-    response_model=PayoutBatchRead,
-    dependencies=[Depends(payout_execution_guard)],
-)
+@router.post("/payout-batches/{batch_id}/approve", response_model=PayoutBatchRead)
 async def approve_batch(
     batch_id: uuid.UUID,
     session: AsyncSession = Depends(get_db),
-    user: User = Depends(require_roles(UserRole.finance, UserRole.admin)),
+    user: User = Depends(payout_command_actor),
 ):
     return await FinanceService(session).approve_batch(batch_id, user.id)
 
 
-@router.post(
-    "/payout-batches/{batch_id}/submit",
-    response_model=PayoutBatchRead,
-    dependencies=[Depends(payout_execution_guard)],
-)
+@router.post("/payout-batches/{batch_id}/submit", response_model=PayoutBatchRead)
 async def submit_batch(
     batch_id: uuid.UUID,
     session: AsyncSession = Depends(get_db),
-    user: User = Depends(require_roles(UserRole.finance, UserRole.admin)),
+    user: User = Depends(payout_command_actor),
 ):
     return await FinanceService(session).submit_batch(batch_id, user.id)
