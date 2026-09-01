@@ -10,5 +10,6 @@
     "skipLibCheck": true,
     "esModuleInterop": true
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx"]
+  "include": ["src/**/*.ts", "src/**/*.tsx", "vitest.setup.ts"],
+  "exclude": ["node_modules"]
 }
