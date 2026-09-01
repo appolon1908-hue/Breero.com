@@ -1,11 +1,11 @@
 import type {
   AddressValidation, AddressValidationRequest, AuthSession, AvailabilitySearchRequest,
-  AvailabilitySlot, Booking, BookingConfirmation, BookingCreateRequest, BookingCreateResponse, ChangePasswordRequest, CustomerAddress,
-  CustomerAddressInput, CustomerBookingList, CustomerPayment, CustomerProfile,
-  CustomerProfilePatch, ForgotPasswordRequest, LoginRequest, MessageResponse, Page,
-  Payment, PaymentIntentRequest, PublicCapabilities, Quote, RefreshRequest, RegisterRequest,
-  ResetPasswordRequest, ServiceDetail, ServiceQuestion, ServiceSummary, TokenRequest,
-  User, UUID,
+  AvailabilitySlot, Booking, BookingConfirmation, BookingCreateRequest, BookingCreateResponse,
+  ChangePasswordRequest, CustomerAddress, CustomerAddressInput, CustomerBookingList,
+  CustomerPayment, CustomerPaymentList, CustomerProfile, CustomerProfilePatch,
+  ForgotPasswordRequest, LoginRequest, MessageResponse, Payment, PaymentIntentRequest,
+  PublicCapabilities, Quote, QuoteList, RefreshRequest, RegisterRequest, ResetPasswordRequest,
+  ServiceDetail, ServiceQuestion, ServiceSummary, TokenRequest, User, UUID,
 } from "@breero/types";
 import { ApiTransport, type Transport, type TransportOptions } from "./transport";
 
@@ -27,7 +27,7 @@ export interface BreeroApi {
     create(input: BookingCreateRequest, idempotencyKey: string, signal?: AbortSignal): Promise<BookingCreateResponse>;
     prepareGuestPayment(id: UUID, guestToken: string, idempotencyKey: string, signal?: AbortSignal): Promise<Payment>;
     guestConfirmation(id: UUID, guestToken: string, signal?: AbortSignal): Promise<BookingConfirmation>;
-    mine(params?: PageParams, signal?: AbortSignal): Promise<Page<Booking> | CustomerBookingList>;
+    mine(params?: PageParams, signal?: AbortSignal): Promise<CustomerBookingList>;
     getMine(id: UUID, signal?: AbortSignal): Promise<Booking>;
     cancelMine(id: UUID, signal?: AbortSignal): Promise<Booking>;
   };
@@ -36,10 +36,10 @@ export interface BreeroApi {
     profile(signal?: AbortSignal): Promise<CustomerProfile>; updateProfile(input: CustomerProfilePatch, signal?: AbortSignal): Promise<CustomerProfile>;
     addresses(signal?: AbortSignal): Promise<CustomerAddress[]>; addAddress(input: CustomerAddressInput, signal?: AbortSignal): Promise<CustomerAddress>;
     updateAddress(id: UUID, input: CustomerAddressInput, signal?: AbortSignal): Promise<CustomerAddress>; deleteAddress(id: UUID, signal?: AbortSignal): Promise<void>;
-    payments(params?: PageParams, signal?: AbortSignal): Promise<Page<CustomerPayment>>;
+    payments(params?: PageParams, signal?: AbortSignal): Promise<CustomerPaymentList>;
     payment(id: UUID, signal?: AbortSignal): Promise<CustomerPayment>;
   };
-  quotes: { list(params?: PageParams, signal?: AbortSignal): Promise<Page<Quote>>; get(id: UUID, signal?: AbortSignal): Promise<Quote>; decide(id: UUID, approve: boolean, signal?: AbortSignal): Promise<Quote> };
+  quotes: { list(params?: PageParams, signal?: AbortSignal): Promise<QuoteList>; get(id: UUID, signal?: AbortSignal): Promise<Quote>; decide(id: UUID, approve: boolean, signal?: AbortSignal): Promise<Quote> };
 }
 
 const encoded = (value: string) => encodeURIComponent(value);
