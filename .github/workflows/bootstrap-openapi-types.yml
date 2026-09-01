@@ -1,0 +1,44 @@
+name: Bootstrap generated OpenAPI types
+
+on:
+  push:
+    branches: ["fe/generated-openapi-types"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: bootstrap-openapi-types
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.0.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+      - name: Resolve the pinned generator into the lockfile
+        run: pnpm install --no-frozen-lockfile
+      - name: Generate the committed OpenAPI contract
+        run: |
+          mkdir -p packages/types/src/generated
+          pnpm types:generate
+          node -e 'const fs=require("node:fs"); const spec=JSON.parse(fs.readFileSync("apps/api/openapi.json","utf8")); fs.writeFileSync("packages/types/src/generated/schema-names.txt", Object.keys(spec.components?.schemas ?? {}).sort().join("\n") + "\n")'
+      - name: Commit deterministic generated artifacts
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pnpm-lock.yaml packages/types/src/generated/openapi.ts packages/types/src/generated/schema-names.txt
+          if git diff --cached --quiet; then
+            echo "Generated artifacts are already current"
+            exit 0
+          fi
+          git commit -m "chore(types): commit generated OpenAPI contract"
+          git push
