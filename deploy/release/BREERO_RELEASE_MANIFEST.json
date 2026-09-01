@@ -1,0 +1,43 @@
+{
+  "$comment": "NOT A RELEASE RECORD. No image was built and no digest exists. This file documents the required shape so the release workflow has a schema to populate. Every null below is an unmet GATE 7 requirement.",
+  "schemaVersion": 1,
+  "status": "NOT_BUILT",
+  "release": {
+    "tag": null,
+    "sourceSha": null,
+    "createdAt": null,
+    "approvedBy": null
+  },
+  "images": {
+    "api": { "repository": null, "digest": null, "sbom": null, "provenance": null, "signature": null },
+    "partner": { "repository": null, "digest": null, "sbom": null, "provenance": null, "signature": null },
+    "ops": { "repository": null, "digest": null, "sbom": null, "provenance": null, "signature": null },
+    "admin": { "repository": null, "digest": null, "sbom": null, "provenance": null, "signature": null }
+  },
+  "database": {
+    "schemaRevisionBefore": null,
+    "schemaRevisionAfter": null,
+    "backupIdentifier": null,
+    "backupChecksum": null,
+    "restoreTestResult": null
+  },
+  "capabilities": {
+    "payments": false,
+    "payouts": false,
+    "automaticAssignment": false,
+    "marketplaceMatching": false,
+    "marketplaceMessaging": false,
+    "marketplaceReviews": false,
+    "providerSelfService": false,
+    "middlewareDelivery": false,
+    "transactionalEmailMode": "controlled_canary",
+    "transactionalSmsMode": "controlled_canary"
+  },
+  "blockedBy": [
+    "Unauthenticated GitHub API: no release tag, no environment approval, no workflow dispatch.",
+    "No container runtime: no image build, digest, SBOM, provenance, signature or container scan.",
+    "No PostgreSQL/PostGIS or Redis: no migration job, backup or restore validation.",
+    "ARCH-01: no branch on origin carries the six critical API fixes; the release stack must not be activated before they merge."
+  ],
+  "sshChanged": false
+}
