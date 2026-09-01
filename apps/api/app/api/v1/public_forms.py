@@ -6,6 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import DomainError
 from app.core.rate_limit import (
     enforce_rate_limit as enforce_shared_rate_limit,
+)
+from app.core.rate_limit import (
     source_for_request,
 )
 from app.db.session import get_db
