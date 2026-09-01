@@ -17,13 +17,13 @@ from app.domains.jobs.service import JobService
 router = APIRouter()
 
 
-@router.get("/quotes", response_model=Page)
+@router.get("/quotes", response_model=Page[WorkRequestRead])
 async def quotes(
     user: Annotated[User, Depends(current_user)],
     session: Annotated[AsyncSession, Depends(get_db)],
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
-) -> Page:
+) -> Page[WorkRequestRead]:
     customer = await customer_for(session, user)
     base = (
         select(WorkRequest)
@@ -40,8 +40,8 @@ async def quotes(
         page,
         page_size,
     )
-    return Page(
-        items=[WorkRequestRead.model_validate(item).model_dump() for item in items],
+    return Page[WorkRequestRead](
+        items=[WorkRequestRead.model_validate(item) for item in items],
         total=total,
         page=page,
         page_size=page_size,
