@@ -13,7 +13,7 @@ jobs:
         working-directory: apps/api
     services:
       postgres:
-        image: postgis/postgis:17-3.5
+        image: postgis/postgis:17-3.5@sha256:0a23a2b5e4fbd9b4c6980d20ee80dd6b63dec52669379c75a506db58a4116708
         env:
           POSTGRES_DB: breero_test
           POSTGRES_USER: breero
@@ -23,15 +23,15 @@ jobs:
           --health-cmd "pg_isready -U breero -d breero_test"
           --health-interval 5s --health-timeout 5s --health-retries 20
       redis:
-        image: redis:7.4-alpine
+        image: redis:7.4-alpine@sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf
         ports: ["6379:6379"]
     env:
       APP_ENV: test
       DATABASE_URL: postgresql+psycopg://breero:test-only@localhost:5432/breero_test
       REDIS_URL: redis://localhost:6379/0
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.12"
           cache: pip
@@ -88,7 +88,7 @@ jobs:
         # discovered when the alert it was supposed to raise fails to fire.
         run: |
           docker run --rm -v "$PWD/deploy/observability:/rules:ro" \
-            --entrypoint promtool prom/prometheus:v3.1.0 \
+            --entrypoint promtool prom/prometheus:v3.1.0@sha256:6559acbd5d770b15bb3c954629ce190ac3cbbdb2b7f1c30f0385c4e05104e218 \
             check rules /rules/alerts.yml
         working-directory: .
       - run: ruff check .
@@ -177,7 +177,7 @@ jobs:
       - name: Dependency audit
         run: pip-audit
       - name: Secret scan
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: fs
           scan-ref: .
@@ -186,7 +186,7 @@ jobs:
       - run: docker build -t breero-api:${{ github.sha }} .
         working-directory: apps/api
       - name: Container HIGH/CRITICAL scan
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: breero-api:${{ github.sha }}
           trivyignores: .trivyignore

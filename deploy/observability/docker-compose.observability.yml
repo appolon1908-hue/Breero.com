@@ -19,7 +19,7 @@ x-hardened: &hardened
 services:
   prometheus:
     <<: *hardened
-    image: prom/prometheus:v3.1.0
+    image: prom/prometheus:v3.1.0@sha256:6559acbd5d770b15bb3c954629ce190ac3cbbdb2b7f1c30f0385c4e05104e218
     container_name: breero-prod-prometheus
     user: "65534:65534"
     read_only: true
@@ -44,7 +44,7 @@ services:
 
   alertmanager:
     <<: *hardened
-    image: prom/alertmanager:v0.28.0
+    image: prom/alertmanager:v0.28.0@sha256:d5155cfac40a6d9250ffc97c19db2c5e190c7bc57c6b67125c94903358f8c7d8
     container_name: breero-prod-alertmanager
     user: "65534:65534"
     read_only: true
@@ -59,7 +59,7 @@ services:
   # the API's default OTEL_EXPORTER_ENDPOINT already points here.
   tempo:
     <<: *hardened
-    image: grafana/tempo:2.7.1
+    image: grafana/tempo:2.7.1@sha256:4443be217c396b065ee34845534199c36fdba4dc619cb96550e228d73fba6e69
     container_name: breero-prod-tempo
     user: "10001:10001"
     command: ["-config.file=/etc/tempo/tempo.yml"]
@@ -69,7 +69,7 @@ services:
 
   grafana:
     <<: *hardened
-    image: grafana/grafana:11.5.1
+    image: grafana/grafana:11.5.1@sha256:5781759b3d27734d4d548fcbaf60b1180dbf4290e708f01f292faa6ae764c5e6
     container_name: breero-prod-grafana
     user: "472:472"
     environment:
