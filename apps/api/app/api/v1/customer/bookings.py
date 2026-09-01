@@ -21,13 +21,13 @@ from app.domains.jobs.service import JobService
 router = APIRouter()
 
 
-@router.get("/bookings", response_model=Page)
+@router.get("/bookings", response_model=Page[BookingResponse])
 async def bookings(
     user: Annotated[User, Depends(current_user)],
     session: Annotated[AsyncSession, Depends(get_db)],
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
-) -> Page:
+) -> Page[BookingResponse]:
     customer = await customer_for(session, user)
     items, total = await paginate(
         session,
@@ -38,8 +38,8 @@ async def bookings(
         page,
         page_size,
     )
-    return Page(
-        items=[booking_to_response(item).model_dump() for item in items],
+    return Page[BookingResponse](
+        items=[booking_to_response(item) for item in items],
         total=total,
         page=page,
         page_size=page_size,
