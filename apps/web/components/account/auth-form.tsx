@@ -8,11 +8,14 @@ import { notifyCustomerSessionChanged } from "@/lib/customer/session-actions";
 import { keycloak } from "@/lib/keycloak";
 
 type Mode = "login" | "register" | "forgot" | "reset" | "verify";
-
 type SubmissionState = "idle" | "loading" | "success" | "error";
+
+const safeNextPath = (value: string | null) =>
+  value && value.startsWith("/") && !value.startsWith("//") ? value : "/account";
 
 export function AuthForm({ mode }: { mode: Mode }) {
   const query = useSearchParams();
+  const nextPath = safeNextPath(query.get("next"));
   const [state, setState] = useState<SubmissionState>("idle");
   const [message, setMessage] = useState("");
 
@@ -23,7 +26,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
     try {
       if (mode === "login") {
         if (keycloak.enabled) {
-          await keycloak.login();
+          await keycloak.login(nextPath);
           return;
         }
         const session = await customerApi.auth.login({
@@ -88,7 +91,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
                 ? "Sign in using your new password."
                 : "Continue to your account."}
         </p>
-        <a href={accountReady ? "/account" : "/account/login"}>
+        <a href={accountReady ? nextPath : "/account/login"}>
           {accountReady ? "Continue to account" : "Go to sign in"} →
         </a>
       </div>
