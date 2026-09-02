@@ -1,20 +1,45 @@
 "use client";
 
-import { usePathname } from "next/navigation";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ArrowRightIcon, CloseIcon, IconButton, MenuIcon, ShieldIcon, UserIcon } from "@breero/ui";
 import { Logo } from "./brand/Logo";
 import { navigation } from "@/content/navigation";
 import { breeroDomains } from "@/content/domains";
+import {
+  CUSTOMER_SESSION_EVENT,
+  hasCustomerSession,
+  logoutCustomerSession,
+} from "@/lib/customer/session-actions";
 
 const links = navigation;
 
 export function SiteHeader() {
   const [open, setOpen] = useState(false);
+  const [authenticated, setAuthenticated] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const pathname = usePathname();
 
-  useEffect(() => setOpen(false), [pathname]);
+  useEffect(() => {
+    setOpen(false);
+    setAuthenticated(hasCustomerSession());
+  }, [pathname]);
+
+  useEffect(() => {
+    const syncSession = () => setAuthenticated(hasCustomerSession());
+    syncSession();
+    window.addEventListener("focus", syncSession);
+    window.addEventListener("pageshow", syncSession);
+    window.addEventListener("storage", syncSession);
+    window.addEventListener(CUSTOMER_SESSION_EVENT, syncSession);
+    return () => {
+      window.removeEventListener("focus", syncSession);
+      window.removeEventListener("pageshow", syncSession);
+      window.removeEventListener("storage", syncSession);
+      window.removeEventListener(CUSTOMER_SESSION_EVENT, syncSession);
+    };
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -24,6 +49,34 @@ export function SiteHeader() {
     document.addEventListener("keydown", close);
     return () => document.removeEventListener("keydown", close);
   }, [open]);
+
+  const logout = async () => {
+    setOpen(false);
+    setSigningOut(true);
+    await logoutCustomerSession("/");
+  };
+
+  const accountControls = authenticated ? (
+    <>
+      <Link className="header-signin hz-button hz-button--secondary hz-button--small" href="/account">
+        <UserIcon size={18} />
+        Account
+      </Link>
+      <button
+        className="hz-button hz-button--primary hz-button--small"
+        type="button"
+        disabled={signingOut}
+        onClick={() => void logout()}
+      >
+        {signingOut ? "Signing out…" : "Log out"}
+      </button>
+    </>
+  ) : (
+    <Link className="header-signin hz-button hz-button--secondary hz-button--small" href="/account/login">
+      <UserIcon size={18} />
+      Sign in
+    </Link>
+  );
 
   return (
     <header className="site-header hz-site-header">
@@ -47,10 +100,7 @@ export function SiteHeader() {
         </nav>
 
         <div className="site-header__actions hz-header-actions">
-          <Link className="header-signin hz-button hz-button--secondary hz-button--small" href="/account">
-            <UserIcon size={18} />
-            Sign in
-          </Link>
+          {accountControls}
           <Link
             className="br-button br-button--primary br-button--sm header-book hz-button hz-button--primary hz-button--small"
             href="/booking"
@@ -84,9 +134,25 @@ export function SiteHeader() {
                 {link.label}<ArrowRightIcon size={18} />
               </Link>
             ))}
-            <Link className="hz-site-nav__link" href="/account" onClick={() => setOpen(false)}>
-              <UserIcon size={19} />Sign in
-            </Link>
+            {authenticated ? (
+              <>
+                <Link className="hz-site-nav__link" href="/account" onClick={() => setOpen(false)}>
+                  <UserIcon size={19} />Account
+                </Link>
+                <button
+                  className="hz-site-nav__link"
+                  type="button"
+                  disabled={signingOut}
+                  onClick={() => void logout()}
+                >
+                  {signingOut ? "Signing out…" : "Log out"}
+                </button>
+              </>
+            ) : (
+              <Link className="hz-site-nav__link" href="/account/login" onClick={() => setOpen(false)}>
+                <UserIcon size={19} />Sign in
+              </Link>
+            )}
             <a className="hz-site-nav__link" href={breeroDomains.partners}>Partner portal</a>
           </nav>
           <Link
