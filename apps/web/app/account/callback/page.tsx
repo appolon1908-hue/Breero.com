@@ -23,7 +23,7 @@ export default function KeycloakCallback() {
       .then((session) => {
         customerSession.save(session);
         notifyCustomerSessionChanged();
-        window.location.replace("/account");
+        window.location.replace(keycloak.consumeReturnTo());
       })
       .catch(() => setError(true));
   }, []);
