@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { isPortalSessionUsable, type PortalSession } from "./index";
 
 const token = (expiresAtSeconds: number) => {
@@ -16,20 +16,25 @@ const session = (role: string, expiresAtSeconds: number): PortalSession => ({
 });
 
 describe("isPortalSessionUsable", () => {
-  it("accepts an unexpired session for an allowed role", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-09-02T20:00:00Z"));
-    expect(
-      isPortalSessionUsable(session("operations", 1_788_400_000), ["operations", "admin"]),
-    ).toBe(true);
+  });
+
+  afterEach(() => {
     vi.useRealTimers();
   });
 
+  it("accepts an unexpired session for an allowed role", () => {
+    expect(
+      isPortalSessionUsable(session("operations", 1_788_400_000), ["operations", "admin"]),
+    ).toBe(true);
+  });
+
   it("rejects an expired session", () => {
-    vi.setSystemTime(new Date("2026-09-02T20:00:00Z"));
     expect(
       isPortalSessionUsable(session("operations", 1_700_000_000), ["operations", "admin"]),
     ).toBe(false);
-    vi.useRealTimers();
   });
 
   it("rejects a session whose role is not allowed by the portal", () => {
