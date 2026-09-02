@@ -120,52 +120,54 @@ export function SiteHeader() {
         </div>
       </div>
 
-      <div id="mobile-navigation" className="mobile-nav hz-mobile-panel" data-open={open}>
-        <div className="hz-container hz-mobile-panel__inner">
-          <nav aria-label="Mobile navigation">
-            {links.map((link) => (
-              <Link
-                className="hz-site-nav__link"
-                key={link.href}
-                href={link.href}
-                aria-current={pathname === link.href ? "page" : undefined}
-                onClick={() => setOpen(false)}
-              >
-                {link.label}<ArrowRightIcon size={18} />
-              </Link>
-            ))}
-            {authenticated ? (
-              <>
-                <Link className="hz-site-nav__link" href="/account" onClick={() => setOpen(false)}>
-                  <UserIcon size={19} />Account
-                </Link>
-                <button
+      {open && (
+        <div id="mobile-navigation" className="mobile-nav hz-mobile-panel" data-open="true">
+          <div className="hz-container hz-mobile-panel__inner">
+            <nav aria-label="Mobile navigation">
+              {links.map((link) => (
+                <Link
                   className="hz-site-nav__link"
-                  type="button"
-                  disabled={signingOut}
-                  onClick={() => void logout()}
+                  key={link.href}
+                  href={link.href}
+                  aria-current={pathname === link.href ? "page" : undefined}
+                  onClick={() => setOpen(false)}
                 >
-                  {signingOut ? "Signing out…" : "Log out"}
-                </button>
-              </>
-            ) : (
-              <Link className="hz-site-nav__link" href="/account/login" onClick={() => setOpen(false)}>
-                <UserIcon size={19} />Sign in
-              </Link>
-            )}
-            <a className="hz-site-nav__link" href={breeroDomains.partners}>Partner portal</a>
-          </nav>
-          <Link
-            className="br-button br-button--primary br-button--lg br-button--full hz-button hz-button--primary"
-            href="/booking"
-            onClick={() => setOpen(false)}
-            data-cta="mobile-book"
-          >
-            Book a service <ArrowRightIcon />
-          </Link>
-          <p><ShieldIcon size={17} />Verified professionals. Clear booking.</p>
+                  {link.label}<ArrowRightIcon size={18} />
+                </Link>
+              ))}
+              {authenticated ? (
+                <>
+                  <Link className="hz-site-nav__link" href="/account" onClick={() => setOpen(false)}>
+                    <UserIcon size={19} />Account
+                  </Link>
+                  <button
+                    className="hz-site-nav__link"
+                    type="button"
+                    disabled={signingOut}
+                    onClick={() => void logout()}
+                  >
+                    {signingOut ? "Signing out…" : "Log out"}
+                  </button>
+                </>
+              ) : (
+                <Link className="hz-site-nav__link" href="/account/login" onClick={() => setOpen(false)}>
+                  <UserIcon size={19} />Sign in
+                </Link>
+              )}
+              <a className="hz-site-nav__link" href={breeroDomains.partners}>Partner portal</a>
+            </nav>
+            <Link
+              className="br-button br-button--primary br-button--lg br-button--full hz-button hz-button--primary"
+              href="/booking"
+              onClick={() => setOpen(false)}
+              data-cta="mobile-book"
+            >
+              Book a service <ArrowRightIcon />
+            </Link>
+            <p><ShieldIcon size={17} />Verified professionals. Clear booking.</p>
+          </div>
         </div>
-      </div>
+      )}
     </header>
   );
 }
