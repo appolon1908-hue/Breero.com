@@ -6,8 +6,29 @@ import { keycloak } from "@/lib/keycloak";
 const REFRESH_KEY = "breero_refresh_token";
 export const CUSTOMER_SESSION_EVENT = "breero:customer-session-change";
 
+function isExpiredJwt(token: string): boolean {
+  const payload = token.split(".")[1];
+  if (!payload) return false;
+
+  try {
+    const normalized = payload.replaceAll("-", "+").replaceAll("_", "/");
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+    const decoded = JSON.parse(atob(padded)) as { exp?: number };
+    return typeof decoded.exp === "number" && decoded.exp * 1000 <= Date.now();
+  } catch {
+    // Opaque access tokens are still supported; the API remains authoritative.
+    return false;
+  }
+}
+
 export function hasCustomerSession(): boolean {
-  return Boolean(customerSession.accessToken());
+  const token = customerSession.accessToken();
+  if (!token) return false;
+  if (!isExpiredJwt(token)) return true;
+
+  customerSession.clear();
+  notifyCustomerSessionChanged();
+  return false;
 }
 
 export function notifyCustomerSessionChanged(): void {
@@ -18,8 +39,8 @@ export function notifyCustomerSessionChanged(): void {
 
 /**
  * Performs provider/API logout before clearing the local session.
- * The caller supplies the post-logout route so public and account shells can
- * share one durable logout implementation.
+ * Local sign-out is fail-safe: an unavailable revocation endpoint does not
+ * leave browser credentials behind.
  */
 export async function logoutCustomerSession(redirectTo = "/account/login"): Promise<void> {
   if (typeof window === "undefined") return;
@@ -37,6 +58,8 @@ export async function logoutCustomerSession(redirectTo = "/account/login"): Prom
     if (refreshToken) {
       await customerApi.auth.logout({ refresh_token: refreshToken });
     }
+  } catch {
+    // The browser session must still be cleared when remote revocation is unavailable.
   } finally {
     customerSession.clear();
     notifyCustomerSessionChanged();
