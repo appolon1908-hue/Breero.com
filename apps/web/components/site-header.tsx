@@ -63,7 +63,7 @@ export function SiteHeader() {
         Account
       </Link>
       <button
-        className="hz-button hz-button--primary hz-button--small"
+        className="header-signin hz-button hz-button--primary hz-button--small"
         type="button"
         disabled={signingOut}
         onClick={() => void logout()}
