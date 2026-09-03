@@ -38,7 +38,10 @@ logger = structlog.get_logger()
 PASSWORD_HASH = PasswordHash.recommended()
 KEYCLOAK_JWKS_CLIENT = jwt.PyJWKClient(
     KEYCLOAK_JWKS_URI,
-    cache_keys=True,
+    # Keep the bounded JWK-set cache, but do not retain individual signing keys
+    # in PyJWT's lifetime-unbounded LRU. A refreshed set must immediately stop
+    # authorizing a removed or compromised kid without requiring worker restart.
+    cache_keys=False,
     cache_jwk_set=True,
     lifespan=KEYCLOAK_JWKS_CACHE_SECONDS,
     timeout=KEYCLOAK_JWKS_TIMEOUT_SECONDS,
