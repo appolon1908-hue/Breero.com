@@ -44,6 +44,7 @@ return {allowed, retry_ms}
 """
 
 logger = structlog.get_logger()
+LOCAL_BUCKET_MAX_KEYS = 1_024
 
 
 @dataclass(slots=True)
@@ -74,12 +75,22 @@ def _consume_local_bucket(
     now = time.monotonic()
     refill_per_second = capacity / window_seconds
     with _LOCAL_BUCKET_LOCK:
-        if len(_LOCAL_BUCKETS) > 1_024:
+        if len(_LOCAL_BUCKETS) >= LOCAL_BUCKET_MAX_KEYS:
             expired = [name for name, bucket in _LOCAL_BUCKETS.items() if bucket.expires_at <= now]
             for name in expired:
                 _LOCAL_BUCKETS.pop(name, None)
+
         bucket = _LOCAL_BUCKETS.get(key)
-        if bucket is None or bucket.expires_at <= now:
+        if bucket is not None and bucket.expires_at <= now:
+            _LOCAL_BUCKETS.pop(key, None)
+            bucket = None
+
+        if bucket is None:
+            # During a Redis outage, high-cardinality traffic must not make the
+            # process-local safety fallback grow without bound. Reclaim expired
+            # entries first, then fail closed for unseen identities at the cap.
+            if len(_LOCAL_BUCKETS) >= LOCAL_BUCKET_MAX_KEYS:
+                return False, max(1, window_seconds)
             bucket = _LocalBucket(
                 tokens=float(capacity),
                 updated_at=now,
