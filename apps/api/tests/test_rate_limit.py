@@ -89,6 +89,21 @@ async def test_missing_lifespan_client_uses_same_bounded_local_fallback() -> Non
     assert error.value.status_code == 429
 
 
+def test_local_fallback_rejects_unseen_identity_at_hard_cap(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(rate_limit_module, "LOCAL_BUCKET_MAX_KEYS", 2)
+
+    assert rate_limit_module._consume_local_bucket("first", 1, 60) == (True, 0)
+    assert rate_limit_module._consume_local_bucket("second", 1, 60) == (True, 0)
+
+    allowed, retry_after = rate_limit_module._consume_local_bucket("third", 1, 60)
+
+    assert allowed is False
+    assert retry_after == 60
+    assert set(rate_limit_module._LOCAL_BUCKETS) == {"first", "second"}
+
+
 def test_source_comes_from_proxy_normalized_request_client() -> None:
     app = FastAPI()
     assert rate_limit_module.source_for_request(request_for(app)) == "203.0.113.10"
