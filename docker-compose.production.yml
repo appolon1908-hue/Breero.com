@@ -17,6 +17,7 @@ x-app: &app
     - breero_redis_url
     - breero_jwt_access_secret
     - breero_jwt_refresh_secret
+    - breero_geoapify_api_key
   networks:
     - breero_private
   pids_limit: 256
