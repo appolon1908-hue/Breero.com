@@ -17,12 +17,13 @@ from app.core.errors import (
     is_v2_request,
     v2_unexpected_error_response,
 )
+from app.core.lifespan import lifespan
 from app.db.session import engine
 
 EXPECTED_SCHEMA_REVISION = "022_provider_services_skills"
 TRACE_ID_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}")
 logger = structlog.get_logger()
-app = FastAPI(title=settings.app_name, version="2.0.0")
+app = FastAPI(title=settings.app_name, version="2.0.0", lifespan=lifespan)
 install_error_handlers(app)
 app.include_router(api_v1_router, prefix=settings.api_v1_prefix)
 app.include_router(api_v2_router, prefix="/api/v2")
