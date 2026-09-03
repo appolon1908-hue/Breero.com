@@ -12,27 +12,47 @@ const groups = [
       ["Plumbing", "/services/plumbing"],
       ["Electrical", "/services/electrical"],
       ["Cleaning", "/services/cleaning"],
-      ["Request service", "/request-service"],
     ],
   },
   {
-    title: "Company & support",
+    title: "Customer support",
     links: [
-      ["About", "/about"],
-      ["How it works", "/how-it-works"],
+      ["Request service", "/request-service"],
       ["Help centre", "/help"],
       ["Contact", "/contact"],
+      ["Refund, rescheduling & cancellation", "/refund-cancellation"],
+      ["Service fulfillment", "/service-fulfillment"],
       ["Accessibility", "/accessibility"],
     ],
   },
   {
-    title: "Privacy & terms",
+    title: "Company",
+    links: [
+      ["About", "/about"],
+      ["How it works", "/how-it-works"],
+      ["Careers", "/careers"],
+      ["Press", "/press"],
+    ],
+  },
+  {
+    title: "Privacy & communications",
     links: [
       ["Privacy", "/privacy"],
       ["Privacy choices", "/privacy-choices"],
       ["Terms", "/terms"],
-      ["Cookies", "/cookies"],
+      ["Cookie notice", "/cookies"],
+      ["Cookie preferences", "/cookie-preferences"],
+      ["Communication preferences", "/communications-preferences"],
       ["SMS terms", "/sms-terms"],
+    ],
+  },
+  {
+    title: "Professionals",
+    links: [
+      ["Partner information", "/partners"],
+      ["Provider terms", "/provider-terms"],
+      ["Lead terms", "/lead-terms"],
+      ["Partner interest", "/partners#interest"],
     ],
   },
 ] as const;
@@ -47,7 +67,12 @@ export function SiteFooter() {
             <p className="hz-eyebrow">Codestra product network</p>
             <h2 id="breero-footer-title" className="hz-site-footer__title">Home services, without the hassle.</h2>
             <span className="footer__trust"><ShieldIcon size={18} />Quote required. No online payment is required or collected.</span>
-            <p><strong>{legalIdentity}</strong><br />{legalAddress}<br /><a href={`mailto:${legalBusiness.supportEmail}`}>{legalBusiness.supportEmail}</a></p>
+            <p className="hz-site-footer__legal-address">
+              <strong>{legalIdentity}</strong><br />
+              {legalAddress}<br />
+              <a href={`mailto:${legalBusiness.supportEmail}`}>{legalBusiness.supportEmail}</a><br />
+              <a href={legalBusiness.corporateSite}>Codestra.co</a>
+            </p>
             <div className="hz-domain-list" aria-label="Breero domains">
               <a className="hz-domain-chip" href={breeroDomains.public}>breero.com</a>
               <a className="hz-domain-chip" href={breeroDomains.partners}>partners.breero.com</a>
