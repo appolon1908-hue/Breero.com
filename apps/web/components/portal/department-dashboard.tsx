@@ -17,7 +17,11 @@ import {
 } from "@breero/ui";
 import type { Department, PortalContext } from "@breero/types";
 import { useApiResource } from "@/lib/customer/use-api-resource";
-import { canAccessDepartment, loadPortalContext } from "@/lib/portal";
+import {
+  canAccessDepartment,
+  loadPortalContext,
+  resolveUnauthorizedPortalDestination,
+} from "@/lib/portal";
 import {
   evaluateDashboardModules,
   filterDashboardModules,
@@ -68,7 +72,13 @@ export function DepartmentDashboard({
 
   useEffect(() => {
     if (context && !allowedDepartments.some((item) => canAccessDepartment(context, item))) {
-      window.location.replace(context.dashboard_path);
+      const destination = resolveUnauthorizedPortalDestination(
+        context.dashboard_path,
+        window.location.pathname,
+      );
+      if (destination !== window.location.pathname) {
+        window.location.replace(destination);
+      }
     }
   }, [context, allowedDepartments]);
 
