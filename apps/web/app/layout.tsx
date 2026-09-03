@@ -5,6 +5,7 @@ import "./globals.css";
 import "./marketplace.css";
 import "./brand.css";
 import "./horizon.css";
+import "./horizon-compatibility.css";
 import { AppShell } from "@/components/app-shell";
 
 const manrope = Manrope({ subsets: ["latin"], variable: "--font-br-sans", display: "swap" });
