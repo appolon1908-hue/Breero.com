@@ -1,7 +1,7 @@
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import model_validator
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -13,8 +13,15 @@ class Settings(BaseSettings):
     api_v1_prefix: str = "/api/v1"
     database_url: str = "postgresql+psycopg://breero:breero@postgres:5432/breero"
     database_url_file: str = ""
+    database_pool_size: int = Field(default=10, ge=1, le=100)
+    database_max_overflow: int = Field(default=5, ge=0, le=100)
+    database_pool_timeout_seconds: float = Field(default=5.0, gt=0, le=120)
+    database_pool_recycle_seconds: int = Field(default=300, ge=30, le=86_400)
     redis_url: str = "redis://redis:6379/0"
     redis_url_file: str = ""
+    redis_max_connections: int = Field(default=64, ge=4, le=1_000)
+    redis_socket_connect_timeout_seconds: float = Field(default=1.0, gt=0, le=30)
+    redis_socket_timeout_seconds: float = Field(default=1.0, gt=0, le=30)
     jwt_secret: str = "development-only-change-me"
     jwt_secret_file: str = ""
     jwt_refresh_secret: str = "development-only-change-me-too"

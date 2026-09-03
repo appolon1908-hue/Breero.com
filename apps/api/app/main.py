@@ -2,7 +2,6 @@ import re
 import time
 import uuid
 
-import redis.asyncio as redis
 import structlog
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -18,6 +17,7 @@ from app.core.errors import (
     v2_unexpected_error_response,
 )
 from app.core.lifespan import lifespan
+from app.core.redis_client import redis_client_from_request
 from app.db.session import engine
 
 EXPECTED_SCHEMA_REVISION = "022_provider_services_skills"
@@ -96,19 +96,18 @@ async def live() -> dict[str, str]:
 
 
 @app.get("/health/ready", tags=["health"])
-async def ready() -> dict[str, str]:
+async def ready(request: Request) -> dict[str, str]:
     checks: dict[str, str] = {}
     try:
         async with engine.connect() as connection:
             revision = await connection.scalar(text("SELECT version_num FROM alembic_version"))
             checks["postgres"] = "ok"
             checks["schema"] = "ok" if revision == EXPECTED_SCHEMA_REVISION else "outdated"
-        client = redis.from_url(settings.redis_url, socket_connect_timeout=1, socket_timeout=1)
-        try:
-            await client.ping()
-            checks["redis"] = "ok"
-        finally:
-            await client.aclose()
+        client = redis_client_from_request(request)
+        if client is None:
+            raise RuntimeError("Redis client is not initialized")
+        await client.ping()
+        checks["redis"] = "ok"
     except Exception as exc:
         logger.warning("readiness_failed", error=type(exc).__name__)
         raise HTTPException(503, "dependency unavailable") from exc
