@@ -96,43 +96,26 @@ async def test_replacing_assignments_with_empty_list_persists_revocation_marker(
 
 
 @pytest.mark.asyncio
-async def test_legacy_role_gate_uses_effective_assignments(monkeypatch) -> None:
+async def test_legacy_role_gate_uses_effective_assignments() -> None:
     user = make_user(UserRole.admin)
-
-    class DowngradedAccessService:
-        def __init__(self, _session) -> None:
-            pass
-
-        async def context(self, _user, _brand_key):
-            return SimpleNamespace(roles=[AccessRole.support], permissions=[])
-
-    monkeypatch.setattr(dependencies, "AccessService", DowngradedAccessService)
+    context = SimpleNamespace(roles=[AccessRole.support], permissions=[])
     gate = dependencies.require_roles(UserRole.admin)
 
     with pytest.raises(HTTPException) as exc_info:
-        await gate(user, object())
+        await gate(user, context)
 
     assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
 
 
 @pytest.mark.asyncio
-async def test_permission_gate_honors_deny_and_superadmin_wildcard(monkeypatch) -> None:
+async def test_permission_gate_honors_deny_and_superadmin_wildcard() -> None:
     user = make_user(UserRole.admin)
-    active_permissions: list[str] = []
-
-    class EffectiveAccessService:
-        def __init__(self, _session) -> None:
-            pass
-
-        async def context(self, _user, _brand_key):
-            return SimpleNamespace(roles=[AccessRole.admin], permissions=active_permissions)
-
-    monkeypatch.setattr(dependencies, "AccessService", EffectiveAccessService)
     gate = dependencies.require_permissions("admin.access.manage")
 
+    denied_context = SimpleNamespace(roles=[AccessRole.admin], permissions=[])
     with pytest.raises(HTTPException) as exc_info:
-        await gate(user, object())
+        await gate(user, denied_context)
     assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
 
-    active_permissions.append("*")
-    assert await gate(user, object()) is user
+    wildcard_context = SimpleNamespace(roles=[AccessRole.superadmin], permissions=["*"])
+    assert await gate(user, wildcard_context) is user
