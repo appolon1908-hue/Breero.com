@@ -59,8 +59,8 @@ async def test_rate_limiter_reuses_lifespan_redis_client() -> None:
     assert script == rate_limit_module.TOKEN_BUCKET_LUA
     assert key_count == 1
     assert key.startswith("ratelimit:login:")
-    assert capacity == 10
-    assert window_ms == 60_000
+    assert capacity == "10"
+    assert window_ms == "60000"
 
 
 @pytest.mark.asyncio
