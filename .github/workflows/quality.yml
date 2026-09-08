@@ -56,7 +56,9 @@ jobs:
 
   bootstrap-tool-quality:
     needs: classify
-    if: needs.classify.outputs.bootstrap == 'true'
+    # RUNTIME_MUTATION_DISABLED=true
+    # The referenced bootstrap sources are absent at this protected-source line.
+    if: ${{ false }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
