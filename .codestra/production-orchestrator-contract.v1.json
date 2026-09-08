@@ -7,7 +7,7 @@
   "release_intent_workflow": ".github/workflows/manual-release-intent.yml",
   "deployment_authority": true,
   "require_verified_commit": true,
-  "required_checks": ["orchestrator-contract", "backend-quality", "frontend-quality"],
+  "required_checks": ["orchestrator-contract", "quality"],
   "supported_phases": ["plan", "staging", "canary", "production"],
   "artifact_policy": {
     "minimum_images": 3,
