@@ -79,14 +79,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Validate BREERO scope
-        shell: bash
-        run: |
-          set -euo pipefail
-          needle="$(printf '%s%s' 'money' 'bee')"
-          if grep -RIni --exclude-dir=.git -- "$needle" .; then
-            echo "::error::Cross-project product reference detected."
-            exit 1
-          fi
+        run: scripts/ci/validate-breero-scope.sh
       - name: Validate Git whitespace
         env:
           EVENT_NAME: ${{ github.event_name }}
@@ -132,6 +125,8 @@ jobs:
             .github/workflows/release-images.yml)" -eq 3
       - name: Prove path-classification scenarios
         run: scripts/ci/test-classify-quality-scope.sh
+      - name: Prove BREERO scope scenarios
+        run: scripts/ci/test-validate-breero-scope.sh
 
   quality:
     name: quality
