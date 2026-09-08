@@ -84,6 +84,13 @@ jobs:
         run: >-
           docker run --rm -v "$PWD:/repo" -w /repo
           rhysd/actionlint@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667
+      - name: Validate portal candidate API bindings
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'ARG NEXT_PUBLIC_API_BASE_URL' deploy/portals/Dockerfile
+          test "$(grep -Fc 'NEXT_PUBLIC_API_BASE_URL=https://api.breero.com/api/v1' \
+            .github/workflows/release-images.yml)" -eq 3
       - name: Prove path-classification scenarios
         run: scripts/ci/test-classify-quality-scope.sh
 

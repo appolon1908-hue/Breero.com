@@ -36,17 +36,23 @@ jobs:
             repository: breero-partner
             context: .
             dockerfile: ./deploy/portals/Dockerfile
-            build_args: APP_NAME=partner
+            build_args: |
+              APP_NAME=partner
+              NEXT_PUBLIC_API_BASE_URL=https://api.breero.com/api/v1
           - component: ops
             repository: breero-ops
             context: .
             dockerfile: ./deploy/portals/Dockerfile
-            build_args: APP_NAME=ops
+            build_args: |
+              APP_NAME=ops
+              NEXT_PUBLIC_API_BASE_URL=https://api.breero.com/api/v1
           - component: admin
             repository: breero-admin
             context: .
             dockerfile: ./deploy/portals/Dockerfile
-            build_args: APP_NAME=admin
+            build_args: |
+              APP_NAME=admin
+              NEXT_PUBLIC_API_BASE_URL=https://api.breero.com/api/v1
     steps:
       - name: Check out the exact protected source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
