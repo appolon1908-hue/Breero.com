@@ -6544,7 +6544,6 @@
     },
     "/api/v1/auth/browser/password/set": {
       "post": {
-        "description": "Complete an auto-created account without leaving a revoked browser session.",
         "operationId": "browser_set_password_api_v1_auth_browser_password_set_post",
         "requestBody": {
           "content": {
@@ -6780,6 +6779,132 @@
           }
         },
         "summary": "Verify",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/keycloak/callback": {
+      "get": {
+        "operationId": "keycloak_callback_api_v1_auth_keycloak_callback_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "title": "Code",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "state",
+            "required": true,
+            "schema": {
+              "title": "State",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "307": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Keycloak Callback",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/keycloak/login": {
+      "get": {
+        "operationId": "keycloak_login_api_v1_auth_keycloak_login_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "return_to",
+            "required": false,
+            "schema": {
+              "default": "/account",
+              "title": "Return To",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "307": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Keycloak Login",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/keycloak/logout": {
+      "post": {
+        "operationId": "keycloak_logout_api_v1_auth_keycloak_logout_post",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Keycloak Logout",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/keycloak/status": {
+      "get": {
+        "operationId": "keycloak_status_api_v1_auth_keycloak_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "boolean"
+                      }
+                    ]
+                  },
+                  "title": "Response Keycloak Status Api V1 Auth Keycloak Status Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Keycloak Status",
         "tags": [
           "auth"
         ]

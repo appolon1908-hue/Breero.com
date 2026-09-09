@@ -87,8 +87,6 @@ def create_access_token(
 
 
 def decode_access_token(token: str) -> dict[str, Any]:
-    if settings.keycloak_enabled:
-        return decode_keycloak_access_token(token)
     error = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
     try:
         header, payload, signature = token.split(".")

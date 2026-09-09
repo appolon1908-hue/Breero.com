@@ -17,7 +17,7 @@ export function AccountNav() {
   const pathname = usePathname();
   const logout = async () => {
     if (keycloak.enabled) {
-      keycloak.logout();
+      await keycloak.logout();
       return;
     }
     try {

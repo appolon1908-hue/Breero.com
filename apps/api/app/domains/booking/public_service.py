@@ -6,7 +6,9 @@ from decimal import Decimal
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.core.errors import DomainError
+from app.domains.auth.keycloak_provisioner import KeycloakProvisioner
 from app.domains.auth.models import Session, User, UserRole
 from app.domains.auth.repository import UserRepository
 from app.domains.auth.security import (
@@ -139,6 +141,11 @@ class BookingRequestService:
                 )
         else:
             account_created = True
+            keycloak_subject = None
+            if settings.keycloak_enabled and settings.keycloak_provisioning_enabled:
+                keycloak_subject = await KeycloakProvisioner().ensure_client(
+                    email, data.customer.first_name, data.customer.last_name
+                )
             user = await self.users.add(
                 User(
                     email=email,
@@ -148,20 +155,25 @@ class BookingRequestService:
                     role=UserRole.customer,
                     status="ACTIVE",
                     password_set_required=True,
+                    keycloak_subject=keycloak_subject,
+                    keycloak_issuer=settings.keycloak_issuer.rstrip("/") if keycloak_subject else None,
+                    keycloak_username=email if keycloak_subject else None,
+                    keycloak_linked_at=now if keycloak_subject else None,
                 )
             )
-            refresh_token = new_opaque_token()
-            self.session.add(
-                Session(
-                    user_id=user.id,
-                    token_hash=hash_token(refresh_token),
-                    family_id=uuid.uuid4(),
-                    expires_at=now + timedelta(seconds=REFRESH_TOKEN_TTL_SECONDS),
+            if not settings.keycloak_enabled:
+                refresh_token = new_opaque_token()
+                self.session.add(
+                    Session(
+                        user_id=user.id,
+                        token_hash=hash_token(refresh_token),
+                        family_id=uuid.uuid4(),
+                        expires_at=now + timedelta(seconds=REFRESH_TOKEN_TTL_SECONDS),
+                    )
                 )
-            )
-            access_token = create_access_token(
-                user.id, user.role.value, credential_version=user.credential_version
-            )
+                access_token = create_access_token(
+                    user.id, user.role.value, credential_version=user.credential_version
+                )
         customer = await self.session.scalar(
             select(Customer).where(Customer.user_id == user.id).with_for_update()
         )

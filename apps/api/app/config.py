@@ -21,8 +21,20 @@ class Settings(BaseSettings):
     jwt_refresh_secret_file: str = ""
     jwt_algorithm: str = "HS256"
     keycloak_enabled: bool = False
+    breero_local_password_auth: bool = True
     keycloak_issuer: str = ""
-    keycloak_audience: str = "breero-api-production"
+    keycloak_audience: str = "breero-api"
+    keycloak_client_id: str = "breero-client-web"
+    keycloak_client_secret: str = ""
+    keycloak_client_secret_file: str = ""
+    keycloak_redirect_uri: str = ""
+    breero_web_url: str = "https://breero.com"
+    breero_provider_web_url: str = "https://provider.breero.com"
+    breero_admin_web_url: str = "https://admin.breero.com"
+    keycloak_provisioner_client_id: str = "breero-provisioner"
+    keycloak_provisioner_client_secret: str = ""
+    keycloak_provisioner_client_secret_file: str = ""
+    keycloak_provisioning_enabled: bool = False
     access_token_minutes: int = 30
     refresh_token_days: int = 30
     stripe_secret_key: str = ""
@@ -102,6 +114,8 @@ class Settings(BaseSettings):
             ("redis_url", "redis_url_file"),
             ("jwt_secret", "jwt_secret_file"),
             ("jwt_refresh_secret", "jwt_refresh_secret_file"),
+            ("keycloak_client_secret", "keycloak_client_secret_file"),
+            ("keycloak_provisioner_client_secret", "keycloak_provisioner_client_secret_file"),
             ("stripe_secret_key", "stripe_secret_key_file"),
             ("stripe_webhook_secret", "stripe_webhook_secret_file"),
             ("stripe_publishable_key", "stripe_publishable_key_file"),
@@ -217,7 +231,17 @@ class Settings(BaseSettings):
             required |= {
                 "KEYCLOAK_ISSUER": self.keycloak_issuer,
                 "KEYCLOAK_AUDIENCE": self.keycloak_audience,
+                "KEYCLOAK_CLIENT_ID": self.keycloak_client_id,
+                "KEYCLOAK_CLIENT_SECRET": self.keycloak_client_secret,
+                "KEYCLOAK_REDIRECT_URI": self.keycloak_redirect_uri,
             }
+            if self.keycloak_provisioning_enabled:
+                required |= {
+                    "KEYCLOAK_PROVISIONER_CLIENT_ID": self.keycloak_provisioner_client_id,
+                    "KEYCLOAK_PROVISIONER_CLIENT_SECRET": self.keycloak_provisioner_client_secret,
+                }
+            if self.breero_local_password_auth:
+                raise ValueError("BREERO_LOCAL_PASSWORD_AUTH must be false when Keycloak is enabled")
         if self.odoo_enabled:
             required["DIRECT_ODOO_PROHIBITED_USE_MIDDLEWARE"] = ""
         if self.middleware_enabled:

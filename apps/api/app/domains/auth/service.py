@@ -223,6 +223,14 @@ class AuthService:
         await self.session.commit()
         return token
 
+    async def application_session(
+        self, user: User, user_agent: str | None = None, ip: str | None = None
+    ) -> TokenResponse:
+        token = await self._tokens(user, user_agent, ip)
+        user.last_login_at = datetime.now(UTC)
+        await self.session.commit()
+        return token
+
     async def refresh(
         self, raw_token: str, user_agent: str | None = None, ip: str | None = None
     ) -> TokenResponse:

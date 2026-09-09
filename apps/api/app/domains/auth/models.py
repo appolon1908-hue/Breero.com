@@ -43,6 +43,10 @@ class User(Base):
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     credential_version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     password_set_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    keycloak_subject: Mapped[str | None] = mapped_column(String(255), unique=True, index=True)
+    keycloak_issuer: Mapped[str | None] = mapped_column(String(512))
+    keycloak_username: Mapped[str | None] = mapped_column(String(320))
+    keycloak_linked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

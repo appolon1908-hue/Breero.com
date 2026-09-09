@@ -22,6 +22,11 @@ class UserRepository:
     async def by_id(self, user_id: uuid.UUID) -> User | None:
         return await self.session.get(User, user_id)
 
+    async def by_keycloak_subject(self, issuer: str, subject: str) -> User | None:
+        return await self.session.scalar(
+            select(User).where(User.keycloak_issuer == issuer, User.keycloak_subject == subject)
+        )
+
     async def add(self, user: User) -> User:
         self.session.add(user)
         await self.session.flush()

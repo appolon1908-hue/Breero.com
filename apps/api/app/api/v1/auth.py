@@ -1,6 +1,7 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -13,6 +14,15 @@ from app.domains.auth.browser_session import (
     validate_csrf,
 )
 from app.domains.auth.dependencies import current_user
+from app.domains.auth.keycloak import (
+    OIDC_COOKIE,
+    authorization_url,
+    close_keycloak_session,
+    exchange_code,
+    link_identity,
+    read_transaction,
+    store_keycloak_session,
+)
 from app.domains.auth.models import User
 from app.domains.auth.schemas import (
     BrowserSessionResponse,
@@ -37,6 +47,11 @@ router = APIRouter()
 
 def client(request: Request) -> tuple[str | None, str | None]:
     return request.headers.get("user-agent"), request.client.host if request.client else None
+
+
+def require_local_password_auth() -> None:
+    if not settings.breero_local_password_auth:
+        raise HTTPException(403, "Password authentication is managed by the identity provider")
 
 
 @router.post("/register", response_model=TokenResponse, status_code=201)
@@ -90,6 +105,7 @@ async def login(
     session: Annotated[AsyncSession, Depends(get_db)],
     _: Annotated[None, Depends(rate_limit("login", 10, 60))],
 ) -> TokenResponse:
+    require_local_password_auth()
     return await AuthService(session).login(data, *client(request))
 
 
@@ -118,6 +134,7 @@ async def forgot(
     session: Annotated[AsyncSession, Depends(get_db)],
     _: Annotated[None, Depends(rate_limit("password-forgot", 5, 300))],
 ) -> MessageResponse:
+    require_local_password_auth()
     await AuthService(session).forgot_password(str(data.email))
     return MessageResponse(message="If the account exists, reset instructions have been sent")
 
@@ -128,6 +145,7 @@ async def reset(
     session: Annotated[AsyncSession, Depends(get_db)],
     _: Annotated[None, Depends(rate_limit("password-reset", 10, 300))],
 ) -> MessageResponse:
+    require_local_password_auth()
     await AuthService(session).reset_password(data.token, data.new_password)
     return MessageResponse(message="Password reset")
 
@@ -138,6 +156,7 @@ async def change(
     user: Annotated[User, Depends(current_user)],
     session: Annotated[AsyncSession, Depends(get_db)],
 ) -> MessageResponse:
+    require_local_password_auth()
     await AuthService(session).change_password(user, data.current_password, data.new_password)
     return MessageResponse(message="Password changed; active sessions revoked")
 
@@ -148,6 +167,7 @@ async def set_password(
     user: Annotated[User, Depends(current_user)],
     session: Annotated[AsyncSession, Depends(get_db)],
 ) -> MessageResponse:
+    require_local_password_auth()
     await AuthService(session).set_initial_password(user, data.new_password)
     return MessageResponse(message="Password set; active sessions revoked")
 
@@ -160,6 +180,7 @@ async def browser_set_password(
     user: Annotated[User, Depends(current_user)],
     session: Annotated[AsyncSession, Depends(get_db)],
 ) -> BrowserSessionResponse:
+    require_local_password_auth()
     """Complete an auto-created account without leaving a revoked browser session."""
     service = AuthService(session)
     await service.set_initial_password(user, data.new_password)
@@ -214,6 +235,7 @@ async def browser_login(
     session: Annotated[AsyncSession, Depends(get_db)],
     _: Annotated[None, Depends(rate_limit("browser-login", 10, 60))],
 ) -> BrowserSessionResponse:
+    require_local_password_auth()
     tokens = await AuthService(session).login(data, *client(request))
     set_browser_session(response, tokens)
     return BrowserSessionResponse(user=tokens.user)
@@ -275,3 +297,57 @@ async def browser_logout(
     if refresh_token:
         await AuthService(session).logout(refresh_token)
     clear_browser_session(response)
+
+
+@router.get("/keycloak/login", response_class=RedirectResponse)
+async def keycloak_login(return_to: str = Query(default="/account")) -> RedirectResponse:
+    if not settings.keycloak_enabled:
+        raise HTTPException(404, "Identity provider login is disabled")
+    url, transaction = await authorization_url(return_to)
+    response = RedirectResponse(url, status_code=302)
+    response.set_cookie(OIDC_COOKIE, transaction, httponly=True, secure=settings.app_env.lower() == "production", samesite="lax", max_age=600, path="/api/v1/auth/keycloak")
+    return response
+
+
+@router.get("/keycloak/callback", response_class=RedirectResponse)
+async def keycloak_callback(
+    request: Request,
+    code: str,
+    state: str,
+    session: Annotated[AsyncSession, Depends(get_db)],
+) -> RedirectResponse:
+    if not settings.keycloak_enabled:
+        raise HTTPException(404, "Identity provider login is disabled")
+    transaction = read_transaction(request.cookies.get(OIDC_COOKIE), state)
+    claims, keycloak_refresh_token, keycloak_refresh_ttl = await exchange_code(
+        code, str(transaction["verifier"]), str(transaction["nonce"])
+    )
+    user = await link_identity(session, claims)
+    tokens = await AuthService(session).application_session(user, *client(request))
+    await store_keycloak_session(
+        tokens.refresh_token, keycloak_refresh_token, keycloak_refresh_ttl
+    )
+    response = RedirectResponse(str(transaction["return_to"]), status_code=303)
+    set_browser_session(response, tokens)
+    response.delete_cookie(OIDC_COOKIE, path="/api/v1/auth/keycloak")
+    return response
+
+
+@router.post("/keycloak/logout")
+async def keycloak_logout(
+    request: Request,
+    response: Response,
+    session: Annotated[AsyncSession, Depends(get_db)],
+) -> dict[str, str]:
+    validate_csrf(request)
+    refresh_token = request.cookies.get(REFRESH_COOKIE)
+    if refresh_token:
+        await AuthService(session).logout(refresh_token)
+        await close_keycloak_session(refresh_token)
+    clear_browser_session(response)
+    return {"end_session_url": settings.breero_web_url.rstrip("/")}
+
+
+@router.get("/keycloak/status")
+async def keycloak_status() -> dict[str, str | bool]:
+    return {"enabled": settings.keycloak_enabled, "issuer": settings.keycloak_issuer if settings.keycloak_enabled else "", "local_password_auth": settings.breero_local_password_auth}
