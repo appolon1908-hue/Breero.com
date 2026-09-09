@@ -1,0 +1,50 @@
+# Structural layering contracts. See docs/architecture/system.md.
+#
+# Import Linter guards the coarse shape: which layer may depend on which. It cannot
+# express the finer router rule -- it squashes external packages, so it cannot tell
+# `sqlalchemy.ext.asyncio` (the AsyncSession annotation every router needs) apart from
+# the query constructors that belong in a repository. That rule lives in
+# scripts/check_layering.py, which ratchets it.
+#
+# Every contract here is currently kept. They exist to prevent regression, so a break
+# means a genuinely new dependency direction rather than pre-existing debt.
+
+[importlinter]
+root_package = app
+
+[importlinter:contract:layers]
+name = HTTP sits above domains, which sit above persistence
+type = layers
+layers =
+    app.api
+    app.domains
+    app.db
+exhaustive = False
+
+[importlinter:contract:workers-independent-of-http]
+name = Workers must not import the HTTP layer
+type = forbidden
+source_modules =
+    app.workers
+forbidden_modules =
+    app.api
+
+[importlinter:contract:integrations-independent-of-http]
+name = Integration adapters must not import the HTTP layer
+type = forbidden
+source_modules =
+    app.integrations
+forbidden_modules =
+    app.api
+
+[importlinter:contract:config-is-a-leaf]
+name = Configuration must not depend on any application layer
+type = forbidden
+source_modules =
+    app.config
+forbidden_modules =
+    app.api
+    app.domains
+    app.db
+    app.integrations
+    app.workers

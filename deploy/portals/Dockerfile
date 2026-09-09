@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 ARG APP_NAME
-FROM node:22-alpine AS base
+FROM node:22-alpine@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32 AS base
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
 RUN corepack enable && corepack prepare pnpm@10.0.0 --activate
@@ -22,7 +22,7 @@ COPY apps/${APP_NAME} apps/${APP_NAME}
 COPY packages/portal packages/portal
 RUN pnpm --filter @breero/${APP_NAME} build
 
-FROM node:22-alpine AS runtime
+FROM node:22-alpine@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32 AS runtime
 ARG APP_NAME
 ENV NODE_ENV=production
 ENV PORT=3000

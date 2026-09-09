@@ -1,0 +1,10 @@
+# Revisions to skip when running `git blame`.
+#
+# Enable locally with:
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+#
+# GitHub applies this file automatically. Only add commits that are purely
+# mechanical — a formatter run, a rename — never one that changes behaviour.
+
+# style(web): reformat the workspace with Prettier
+9028298b6c85c9ea7f89f586dfde20a142ac4a79

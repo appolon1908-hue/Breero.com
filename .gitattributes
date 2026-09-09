@@ -1,0 +1,32 @@
+# Normalize line endings in the repository AND in the working tree on every
+# platform. Without `eol=lf`, a Windows checkout with core.autocrlf=true gets a
+# CRLF working tree, which fails Prettier's endOfLine rule and produces diffs
+# that are invisible on one platform and total on the other.
+* text=auto eol=lf
+
+# Windows shims have to keep CRLF to remain executable.
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+*.ps1  text eol=crlf
+
+# Never touched.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.webp binary
+*.avif binary
+*.pdf  binary
+*.woff binary
+*.woff2 binary
+*.mp4  binary
+*.zip  binary
+
+# Generated: collapsed by default in review and excluded from language stats.
+# Deliberately NOT `-diff`. That marks a file binary and hides its diff outright,
+# which is exactly backwards for these two: the lockfile diff is how an unexpected
+# transitive dependency gets spotted, and openapi.json is the API contract the
+# frontend is checked against. Both must stay readable when expanded.
+pnpm-lock.yaml        linguist-generated=true
+apps/api/openapi.json linguist-generated=true

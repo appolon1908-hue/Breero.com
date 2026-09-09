@@ -7,11 +7,31 @@ from typing import Awaitable, Callable
 from sqlalchemy import and_, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from .domain_event import DomainEvent
 from .outbox import AuditLog, EventStatus, IntegrationEvent
 
 MAX_ATTEMPTS = 5
 DEFAULT_LEASE_SECONDS = 300
 INTEGRATION_DISABLED_ERROR_CODE = "INTEGRATION_DISABLED"
+
+
+def to_integration_event(event: DomainEvent) -> IntegrationEvent:
+    """Map a domain event onto the outbox row that will deliver it.
+
+    The correlation id travels in the payload because ``integration_events`` has no
+    column for it; that keeps a delivered event traceable back to the request that
+    produced it without a schema change.
+    """
+    return IntegrationEvent(
+        aggregate_type=event.aggregate_type,
+        aggregate_id=event.aggregate_id,
+        event_type=event.event_type,
+        aggregate_version=event.aggregate_version,
+        payload={**dict(event.payload), "correlation_id": event.correlation_id},
+        status=EventStatus.PENDING,
+        attempt_count=0,
+        next_attempt_at=event.occurred_at,
+    )
 
 
 class OutboxService:

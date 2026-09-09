@@ -203,3 +203,22 @@ class ProviderApplicationDecision(BaseModel):
 class ProviderApplicationList(BaseModel):
     items: list[ProviderApplicationRead]
     total: int
+
+
+class BookingCoverageRead(BaseModel):
+    """Current coverage for a worker.
+
+    The read counterpart to BookingCoverageWrite. Without it the operations console
+    could only replace coverage blind: the write takes a complete replacement set, so
+    editing without first seeing the current one risks silently dropping ZIPs.
+
+    Shaped to round-trip: what this returns can be edited and sent straight back.
+    """
+
+    worker_id: uuid.UUID
+    service_ids: list[uuid.UUID]
+    postal_codes: list[str]
+    weekdays: list[int]
+    start_time: time | None
+    end_time: time | None
+    capacity: int | None

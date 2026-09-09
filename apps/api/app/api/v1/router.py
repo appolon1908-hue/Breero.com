@@ -17,6 +17,8 @@ from app.api.v1 import (
     integrations,
     jobs,
     operations,
+    partner_api,
+    partner_api_admin,
     payments,
     provider_catalog,
     provider_leads,
@@ -99,6 +101,13 @@ if settings.payout_enabled:
     api_router.include_router(finance.router, prefix="/finance", tags=["finance"])
 api_router.include_router(integrations.router, prefix="/integrations", tags=["integrations"])
 api_router.include_router(public_forms.router, tags=["public-forms"])
+# Registered only when the capability is on, so a disabled environment exposes
+# no partner surface at all -- not even a 403 to probe.
+if settings.third_party_api_enabled:
+    api_router.include_router(partner_api.router, prefix="/partner", tags=["partner-api"])
+    api_router.include_router(
+        partner_api_admin.router, prefix="/admin/partner-api", tags=["partner-api-admin"]
+    )
 if settings.paid_leads_enabled and settings.payments_enabled and settings.stripe_enabled:
     api_router.include_router(
         provider_leads.router,

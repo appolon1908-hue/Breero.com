@@ -33,3 +33,22 @@ class WorkforceRepository:
                 )
             ).all()
         )
+
+    async def booking_coverage(self, worker_id: uuid.UUID):
+        """Return the coverage rows and working hours for one worker."""
+        from app.domains.booking.models import ProviderServiceCoverage, ProviderWorkingHours
+
+        coverage = list(
+            await self.session.scalars(
+                select(ProviderServiceCoverage).where(
+                    ProviderServiceCoverage.worker_id == worker_id
+                )
+            )
+        )
+        hours = list(
+            await self.session.scalars(
+                select(ProviderWorkingHours).where(ProviderWorkingHours.worker_id == worker_id)
+            )
+        )
+        return coverage, hours
+
