@@ -2,8 +2,6 @@ name: Frontend production gates
 
 on:
   workflow_call:
-  push:
-    branches: ["main"]
 
 jobs:
   frontend-quality:
