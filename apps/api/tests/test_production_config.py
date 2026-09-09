@@ -4,7 +4,7 @@ from pydantic import ValidationError
 from app.config import Settings
 
 
-def test_production_rejects_environment_credentials():
+def test_production_rejects_environment_credentials(isolated_settings_env):
     with pytest.raises(ValidationError, match="secret-file bindings"):
         Settings(
             app_env="production",
@@ -16,13 +16,13 @@ def test_production_rejects_environment_credentials():
         )
 
 
-def test_liveness_has_no_dependency_calls():
+def test_liveness_has_no_dependency_calls(isolated_settings_env):
     from app.main import live
 
     assert live.__name__ == "live"
 
 
-def test_staging_allows_explicitly_disabled_optional_providers():
+def test_staging_allows_explicitly_disabled_optional_providers(isolated_settings_env):
     settings = Settings(
         app_env="staging",
         database_url="postgresql+psycopg://staging:strong-password@postgres:5432/staging",
@@ -37,7 +37,7 @@ def test_staging_allows_explicitly_disabled_optional_providers():
     assert settings.email_enabled is False
 
 
-def test_staging_requires_credentials_for_enabled_provider():
+def test_staging_requires_credentials_for_enabled_provider(isolated_settings_env):
     with pytest.raises(ValidationError, match="STRIPE_SECRET_KEY"):
         Settings(
             app_env="staging",
@@ -50,7 +50,7 @@ def test_staging_requires_credentials_for_enabled_provider():
         )
 
 
-def test_secret_file_bindings_are_resolved_without_environment_values(tmp_path, monkeypatch):
+def test_secret_file_bindings_are_resolved_without_environment_values(tmp_path, monkeypatch, isolated_settings_env):
     for variable in ("DATABASE_URL", "REDIS_URL", "JWT_SECRET", "JWT_REFRESH_SECRET"):
         monkeypatch.delenv(variable, raising=False)
     database_url = tmp_path / "database-url"
@@ -91,27 +91,27 @@ def test_secret_file_bindings_are_resolved_without_environment_values(tmp_path, 
     assert settings.geocoding_api_key == "geoapify-key-material"
 
 
-def test_secret_file_binding_rejects_missing_file(tmp_path):
+def test_secret_file_binding_rejects_missing_file(tmp_path, isolated_settings_env):
     missing = tmp_path / "missing-secret"
     with pytest.raises(ValidationError, match="cannot read configured secret file"):
         Settings(database_url="", database_url_file=str(missing))
 
 
-def test_secret_file_binding_rejects_empty_file(tmp_path):
+def test_secret_file_binding_rejects_empty_file(tmp_path, isolated_settings_env):
     empty = tmp_path / "empty-secret"
     empty.write_text("", encoding="ascii")
     with pytest.raises(ValidationError, match="configured secret file.*is empty"):
         Settings(redis_url="", redis_url_file=str(empty))
 
 
-def test_secret_file_binding_rejects_inline_secret_too(tmp_path):
+def test_secret_file_binding_rejects_inline_secret_too(tmp_path, isolated_settings_env):
     secret = tmp_path / "secret"
     secret.write_text("file-value", encoding="ascii")
     with pytest.raises(ValidationError, match="configure only one"):
         Settings(stripe_secret_key="inline-value", stripe_secret_key_file=str(secret))
 
 
-def test_stripe_keys_cannot_mix_test_and_live_modes():
+def test_stripe_keys_cannot_mix_test_and_live_modes(isolated_settings_env):
     with pytest.raises(ValidationError, match="same mode"):
         Settings(
             stripe_secret_key="sk_test_abcdefghijklmnopqrstuvwxyz",
@@ -139,7 +139,7 @@ def test_stripe_keys_cannot_mix_test_and_live_modes():
         "marketing_sms_enabled",
     ],
 )
-def test_request_only_production_rejects_prohibited_capability_flags(flag):
+def test_request_only_production_rejects_prohibited_capability_flags(flag, isolated_settings_env):
     values = {
         "app_env": "production",
         "database_url": "postgresql+psycopg://prod:strong-password@postgres:5432/prod",
@@ -153,7 +153,7 @@ def test_request_only_production_rejects_prohibited_capability_flags(flag):
         Settings(**values)
 
 
-def test_staging_allows_canonical_breero_middleware_tenant():
+def test_staging_allows_canonical_breero_middleware_tenant(isolated_settings_env):
     settings = Settings(
         app_env="staging",
         database_url="postgresql+psycopg://staging:strong-password@postgres:5432/staging",
@@ -193,7 +193,7 @@ def _production_secret_files(tmp_path):
     }
 
 
-def test_production_requires_a_metrics_token_while_metrics_are_enabled(tmp_path):
+def test_production_requires_a_metrics_token_while_metrics_are_enabled(tmp_path, isolated_settings_env):
     with pytest.raises(ValidationError, match="METRICS_TOKEN"):
         Settings(
             app_env="production",
@@ -203,7 +203,7 @@ def test_production_requires_a_metrics_token_while_metrics_are_enabled(tmp_path)
         )
 
 
-def test_metrics_token_is_not_required_when_metrics_are_off(tmp_path):
+def test_metrics_token_is_not_required_when_metrics_are_off(tmp_path, isolated_settings_env):
     def secret(name: str, value: str) -> str:
         path = tmp_path / name
         path.write_text(value, encoding="ascii")

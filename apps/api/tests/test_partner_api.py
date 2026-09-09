@@ -64,7 +64,7 @@ def test_disabled_capability_refuses_with_503(monkeypatch) -> None:
     assert error.value.status_code == 503
 
 
-def test_production_refuses_to_boot_with_the_api_enabled(tmp_path) -> None:
+def test_production_refuses_to_boot_with_the_api_enabled(tmp_path, isolated_settings_env) -> None:
     """Held to the same release discipline as payments and the marketplace."""
     from pydantic import ValidationError
 

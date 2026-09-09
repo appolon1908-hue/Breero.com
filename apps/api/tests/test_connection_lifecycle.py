@@ -235,3 +235,38 @@ def test_guards_resolve_through_the_shared_helper() -> None:
     # Exactly one direct construction, inside the resolver itself.
     assert source.count("AccessService(session).context") == 1
     assert source.count("await effective_access_context(request, user, session)") == 3
+
+
+@pytest.mark.asyncio
+async def test_the_pooled_client_is_rebuilt_when_the_loop_changes() -> None:
+    """An asyncio pool binds to the loop that opened it.
+
+    The app object outlives any single loop -- every TestClient mounts it under a
+    fresh one -- so a client cached without regard to its loop fails later with
+    "Future attached to a different loop". Same class of bug as the worker engine.
+    """
+    application = FastAPI()
+    first = MagicMock()
+    with patch.object(redis_client, "create_redis_client", return_value=first):
+        redis_client.set_redis_client(application, first)
+        assert redis_client.get_redis_client(application) is first
+
+    # Simulate a later call from a different live loop.
+    import asyncio
+
+    setattr(application.state, redis_client.STATE_LOOP_ATTRIBUTE, asyncio.new_event_loop())
+    second = MagicMock()
+    with patch.object(redis_client, "create_redis_client", return_value=second):
+        assert redis_client.get_redis_client(application) is second
+
+
+@pytest.mark.asyncio
+async def test_the_client_is_reused_within_one_loop() -> None:
+    """The rebuild must not become a per-call client, which is what BE-05 fixed."""
+    application = FastAPI()
+    client = MagicMock()
+    redis_client.set_redis_client(application, client)
+    with patch.object(redis_client, "create_redis_client") as factory:
+        for _ in range(5):
+            assert redis_client.get_redis_client(application) is client
+        factory.assert_not_called()

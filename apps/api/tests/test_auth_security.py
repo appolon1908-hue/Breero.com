@@ -39,11 +39,37 @@ async def test_access_token_round_trip() -> None:
 
 
 @pytest.mark.asyncio
-async def test_tampered_access_token_is_rejected() -> None:
+@pytest.mark.parametrize("segment", [0, 1, 2], ids=["header", "payload", "signature"])
+async def test_a_tampered_access_token_is_rejected(segment: int) -> None:
+    """Tamper each segment deterministically.
+
+    The previous version flipped the token's final character. In base64url the last
+    character can carry fewer than six significant bits, so that edit sometimes
+    decodes to the *same* signature bytes and the token still verifies -- the test
+    passed or failed depending on which character a given secret happened to produce.
+    Mutating a character in the middle of a segment always changes the decoded value.
+    """
     token = create_access_token(uuid.uuid4(), "customer")
+    parts = token.split(".")
+    assert len(parts) == 3
+
+    target = parts[segment]
+    middle = len(target) // 2
+    swapped = "A" if target[middle] != "A" else "B"
+    parts[segment] = target[:middle] + swapped + target[middle + 1 :]
+
     with pytest.raises(HTTPException) as error:
-        await decode_access_token(token[:-1] + ("a" if token[-1] != "a" else "b"))
+        await decode_access_token(".".join(parts))
     assert error.value.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_a_token_signed_with_another_key_is_rejected() -> None:
+    import jwt as pyjwt
+
+    forged = pyjwt.encode({"sub": str(uuid.uuid4()), "exp": 9999999999}, "not-the-secret")
+    with pytest.raises(HTTPException):
+        await decode_access_token(forged)
 
 
 def test_opaque_tokens_are_random_and_only_hashes_need_persisting() -> None:

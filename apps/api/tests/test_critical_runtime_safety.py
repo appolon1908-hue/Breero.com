@@ -18,7 +18,22 @@ from app.config import settings
 from app.domains.auth import security
 
 API_ROOT = Path(__file__).resolve().parents[1]
-REPO_ROOT = API_ROOT.parents[1]
+
+
+def _repo_root() -> Path | None:
+    """Walk up for the repository root rather than assuming a fixed depth.
+
+    `API_ROOT.parents[1]` raised IndexError at collection time when apps/api was
+    mounted on its own, which turns one unlocatable file into a whole suite that
+    cannot even be collected.
+    """
+    for candidate in [API_ROOT, *API_ROOT.parents]:
+        if (candidate / ".git").exists() or (candidate / "deploy").is_dir():
+            return candidate
+    return None
+
+
+REPO_ROOT = _repo_root()
 
 
 # ---------------------------------------------------------------------------
@@ -227,7 +242,12 @@ def test_a_topology_with_a_worker_also_runs_beat(relative: str) -> None:
     The production file CI validates shipped without a scheduler while the root
     compose file had one, and nothing failed loudly.
     """
-    document = yaml.safe_load((REPO_ROOT / relative).read_text(encoding="utf-8"))
+    if REPO_ROOT is None:
+        pytest.skip("repository root not locatable from this checkout")
+    compose = REPO_ROOT / relative
+    if not compose.exists():
+        pytest.skip(f"{relative} is not present in this checkout")
+    document = yaml.safe_load(compose.read_text(encoding="utf-8"))
     services = document.get("services", {})
     commands = {name: str(service.get("command", "")) for name, service in services.items()}
 

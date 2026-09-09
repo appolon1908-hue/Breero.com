@@ -9,12 +9,15 @@ The accessors take the app rather than reading a global so that tests, the metri
 collector and the rate limiter all resolve the same instance.
 """
 
+import asyncio
+
 import redis.asyncio as redis
 from fastapi import FastAPI
 
 from app.config import settings
 
 STATE_ATTRIBUTE = "redis_client"
+STATE_LOOP_ATTRIBUTE = "redis_client_loop"
 
 
 def create_redis_client() -> redis.Redis:
@@ -28,8 +31,19 @@ def create_redis_client() -> redis.Redis:
     )
 
 
+def _running_loop() -> asyncio.AbstractEventLoop | None:
+    try:
+        return asyncio.get_running_loop()
+    except RuntimeError:
+        return None
+
+
 def set_redis_client(app: FastAPI, client: redis.Redis) -> None:
     setattr(app.state, STATE_ATTRIBUTE, client)
+    # Remember which loop owns it. An asyncio connection pool binds to the loop that
+    # opened it, so a client reused under a different loop fails with "Future attached
+    # to a different loop" -- the same class of bug as the Celery worker engine.
+    setattr(app.state, STATE_LOOP_ATTRIBUTE, _running_loop())
 
 
 def get_redis_client(app: FastAPI) -> redis.Redis:
@@ -40,7 +54,22 @@ def get_redis_client(app: FastAPI) -> redis.Redis:
     path cannot become a per-request client by accident.
     """
     client = getattr(app.state, STATE_ATTRIBUTE, None)
+    owner = getattr(app.state, STATE_LOOP_ATTRIBUTE, None)
+    current = _running_loop()
+
+    # Rebuild only when the client is bound to a *different* live loop. A client
+    # created outside any loop has not opened a connection yet, so it is adopted into
+    # the current one rather than discarded. In production the lifespan creates it
+    # once inside the serving loop and this never triggers; it matters wherever the
+    # app outlives a loop, which is every test that mounts it under a fresh client.
     if client is None:
+        client = create_redis_client()
+        set_redis_client(app, client)
+        return client
+    if owner is None and current is not None:
+        setattr(app.state, STATE_LOOP_ATTRIBUTE, current)
+        return client
+    if owner is not None and current is not None and owner is not current:
         client = create_redis_client()
         set_redis_client(app, client)
     return client
@@ -51,3 +80,4 @@ async def close_redis_client(app: FastAPI) -> None:
     if client is not None:
         await client.aclose()
         setattr(app.state, STATE_ATTRIBUTE, None)
+        setattr(app.state, STATE_LOOP_ATTRIBUTE, None)
