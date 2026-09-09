@@ -110,12 +110,12 @@ jobs:
           [[ "$IMAGE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
           jq -n --arg repository "$GITHUB_REPOSITORY" --arg source_sha "$GITHUB_SHA" --arg component "$COMPONENT" --arg image "${IMAGE_REPOSITORY}@${IMAGE_DIGEST}" \
             '{schema_version:"codestra.candidate-image.v1",repository:$repository,source_sha:$source_sha,component:$component,image:$image,production_authorized:false}' \
-            > "candidate-${COMPONENT}.json"
+            > candidate.json
 
       - name: Upload component evidence
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4.6.2
         with:
           name: breero-${{ matrix.component }}-candidate-${{ github.sha }}
-          path: candidate-${{ matrix.component }}.json
+          path: candidate.json
           if-no-files-found: error
           retention-days: 30
