@@ -101,6 +101,9 @@ class Address(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     timezone_name: Mapped[str] = mapped_column(String(64), nullable=False, default="UTC")
     timezone_source: Mapped[str] = mapped_column(String(40), nullable=False, default="geocoding")
     address_validation_status: Mapped[str] = mapped_column(String(32), nullable=False, default="VALIDATED")
+    validation_status: Mapped[str] = mapped_column(String(32), nullable=False, default="VALID")
+    provider_reference: Mapped[str | None] = mapped_column(String(255))
+    validation_confidence: Mapped[Decimal | None] = mapped_column(Numeric(5, 4))
     service_zone_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("service_zones.id"), index=True)
     customer_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("customers.id", ondelete="CASCADE"), index=True
