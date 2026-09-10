@@ -14,7 +14,7 @@ from app.core.errors import install_error_handlers
 from app.db.session import engine
 from app.domains.auth.browser_session import ACCESS_COOKIE, validate_csrf
 
-EXPECTED_SCHEMA_REVISION = "031_provider_catalog_services_skills"
+EXPECTED_SCHEMA_REVISION = "031_provider_catalog"
 logger = structlog.get_logger()
 app = FastAPI(title=settings.app_name, version="1.0.0")
 app.add_middleware(

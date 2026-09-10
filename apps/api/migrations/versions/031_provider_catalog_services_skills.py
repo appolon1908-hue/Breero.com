@@ -1,6 +1,6 @@
 """normalize provider service and professional skill selections
 
-Revision ID: 031_provider_catalog_services_skills
+Revision ID: 031_provider_catalog
 Revises: 030_geography_service_zones
 """
 
@@ -8,7 +8,7 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
-revision = "031_provider_catalog_services_skills"
+revision = "031_provider_catalog"
 down_revision = "030_geography_service_zones"
 branch_labels = None
 depends_on = None
