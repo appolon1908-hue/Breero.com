@@ -1,29 +1,12 @@
 name: Frontend production gates
 
 on:
-  pull_request:
-    paths:
-      - "apps/web/**"
-      - "apps/partner/**"
-      - "apps/ops/**"
-      - "apps/admin/**"
-      - "apps/api/**"
-      - "packages/portal/**"
-      - "deploy/portals/**"
-      - "packages/api-client/**"
-      - "packages/types/**"
-      - "packages/ui/**"
-      - "scripts/check-frontend-openapi.mjs"
-      - "package.json"
-      - "pnpm-lock.yaml"
-      - "pnpm-workspace.yaml"
-      - "turbo.json"
-      - ".github/workflows/frontend-production.yml"
+  workflow_call:
   push:
-    branches: ["codex/frontend-master-final"]
+    branches: ["main"]
 
 jobs:
-  quality:
+  frontend-quality:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

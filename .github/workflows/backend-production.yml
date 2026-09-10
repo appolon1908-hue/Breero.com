@@ -1,18 +1,12 @@
 name: Backend production gates
 
 on:
-  pull_request:
-    paths:
-      - "apps/api/**"
-      - "deploy/production/**"
-      - "deploy/staging/**"
-      - "docker-compose.production.yml"
-      - ".github/workflows/backend-production.yml"
+  workflow_call:
   push:
-    branches: ["codex/backend-master-final"]
+    branches: ["main"]
 
 jobs:
-  quality:
+  backend-quality:
     runs-on: ubuntu-latest
     defaults:
       run:

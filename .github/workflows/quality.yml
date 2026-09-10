@@ -1,0 +1,126 @@
+name: Required quality gate
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  classify:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.scope.outputs.backend }}
+      frontend: ${{ steps.scope.outputs.frontend }}
+      bootstrap: ${{ steps.scope.outputs.bootstrap }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: scope
+        name: Classify changed paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Disable rename detection so both the deleted source and added
+          # destination are classified across trust-boundary moves.
+          git diff --no-renames --name-only "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}" \
+            | scripts/ci/classify-quality-scope.sh \
+            | tee -a "$GITHUB_OUTPUT"
+
+  backend-quality:
+    needs: classify
+    if: needs.classify.outputs.backend == 'true'
+    uses: ./.github/workflows/backend-production.yml
+
+  frontend-quality:
+    needs: classify
+    if: needs.classify.outputs.frontend == 'true'
+    uses: ./.github/workflows/frontend-production.yml
+
+  bootstrap-tool-quality:
+    needs: classify
+    if: needs.classify.outputs.bootstrap == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compile bootstrap tool
+        run: python -m compileall -q scripts/bootstrap_breero_backend.py scripts/tests/test_bootstrap_breero_backend.py
+      - name: Run bootstrap safety tests
+        run: python -m unittest -v scripts.tests.test_bootstrap_breero_backend
+      - name: Exercise real dry-run
+        run: python scripts/bootstrap_breero_backend.py --allow-other-branch
+
+  scope-docs-quality:
+    needs: classify
+    if: always() && needs.classify.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Validate BREERO scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          needle="$(printf '%s%s' 'money' 'bee')"
+          if grep -RIni --exclude-dir=.git -- "$needle" .; then
+            echo "::error::Cross-project product reference detected."
+            exit 1
+          fi
+      - name: Validate Git whitespace
+        run: git diff --check "${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}"
+      - name: Validate shell and Python sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -d '' shell_files < <(find scripts -type f -name '*.sh' -print0 2>/dev/null || true)
+          if ((${#shell_files[@]})); then bash -n "${shell_files[@]}"; fi
+          python -m compileall -q scripts apps/api/app
+      - name: Validate workflow syntax
+        run: >-
+          docker run --rm -v "$PWD:/repo" -w /repo
+          rhysd/actionlint@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667
+      - name: Prove path-classification scenarios
+        run: scripts/ci/test-classify-quality-scope.sh
+
+  quality:
+    name: quality
+    needs:
+      - classify
+      - backend-quality
+      - frontend-quality
+      - bootstrap-tool-quality
+      - scope-docs-quality
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enforce every applicable quality gate
+        env:
+          CLASSIFY_RESULT: ${{ needs.classify.result }}
+          BACKEND_APPLICABLE: ${{ needs.classify.outputs.backend }}
+          BACKEND_RESULT: ${{ needs.backend-quality.result }}
+          FRONTEND_APPLICABLE: ${{ needs.classify.outputs.frontend }}
+          FRONTEND_RESULT: ${{ needs.frontend-quality.result }}
+          BOOTSTRAP_APPLICABLE: ${{ needs.classify.outputs.bootstrap }}
+          BOOTSTRAP_RESULT: ${{ needs.bootstrap-tool-quality.result }}
+          SCOPE_DOCS_RESULT: ${{ needs.scope-docs-quality.result }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$CLASSIFY_RESULT" == success ]]
+          [[ "$SCOPE_DOCS_RESULT" == success ]]
+          check_applicable() {
+            local applicable="$1" result="$2" name="$3"
+            if [[ "$applicable" == true ]]; then
+              [[ "$result" == success ]] || { echo "::error::$name was applicable but result was $result"; return 1; }
+            else
+              [[ "$result" == skipped ]] || { echo "::error::$name was not applicable but result was $result"; return 1; }
+            fi
+          }
+          check_applicable "$BACKEND_APPLICABLE" "$BACKEND_RESULT" backend-quality
+          check_applicable "$FRONTEND_APPLICABLE" "$FRONTEND_RESULT" frontend-quality
+          check_applicable "$BOOTSTRAP_APPLICABLE" "$BOOTSTRAP_RESULT" bootstrap-tool-quality
