@@ -1,3 +1,4 @@
+import asyncio
 import re
 import time
 import uuid
@@ -20,6 +21,7 @@ from app.core.errors import (
 from app.db.session import engine
 
 EXPECTED_SCHEMA_REVISION = "022_provider_services_skills"
+READINESS_TIMEOUT_SECONDS = 3.0
 TRACE_ID_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}")
 logger = structlog.get_logger()
 app = FastAPI(title=settings.app_name, version="2.0.0")
@@ -98,16 +100,17 @@ async def live() -> dict[str, str]:
 async def ready() -> dict[str, str]:
     checks: dict[str, str] = {}
     try:
-        async with engine.connect() as connection:
-            revision = await connection.scalar(text("SELECT version_num FROM alembic_version"))
-            checks["postgres"] = "ok"
-            checks["schema"] = "ok" if revision == EXPECTED_SCHEMA_REVISION else "outdated"
-        client = redis.from_url(settings.redis_url, socket_connect_timeout=1, socket_timeout=1)
-        try:
-            await client.ping()
-            checks["redis"] = "ok"
-        finally:
-            await client.aclose()
+        async with asyncio.timeout(READINESS_TIMEOUT_SECONDS):
+            async with engine.connect() as connection:
+                revision = await connection.scalar(text("SELECT version_num FROM alembic_version"))
+                checks["postgres"] = "ok"
+                checks["schema"] = "ok" if revision == EXPECTED_SCHEMA_REVISION else "outdated"
+            client = redis.from_url(settings.redis_url, socket_connect_timeout=1, socket_timeout=1)
+            try:
+                await client.ping()
+                checks["redis"] = "ok"
+            finally:
+                await client.aclose()
     except Exception as exc:
         logger.warning("readiness_failed", error=type(exc).__name__)
         raise HTTPException(503, "dependency unavailable") from exc
