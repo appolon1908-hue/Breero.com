@@ -3,7 +3,13 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domains.auth.models import EmailVerificationToken, PasswordResetToken, Session, User
+from app.domains.auth.models import (
+    EmailVerificationToken,
+    PasswordResetToken,
+    PhoneVerificationToken,
+    Session,
+    User,
+)
 
 
 class UserRepository:
@@ -15,6 +21,11 @@ class UserRepository:
 
     async def by_id(self, user_id: uuid.UUID) -> User | None:
         return await self.session.get(User, user_id)
+
+    async def by_keycloak_subject(self, issuer: str, subject: str) -> User | None:
+        return await self.session.scalar(
+            select(User).where(User.keycloak_issuer == issuer, User.keycloak_subject == subject)
+        )
 
     async def add(self, user: User) -> User:
         self.session.add(user)
@@ -38,5 +49,12 @@ class UserRepository:
         return await self.session.scalar(
             select(EmailVerificationToken)
             .where(EmailVerificationToken.token_hash == token_hash)
+            .with_for_update()
+        )
+
+    async def phone_verification_by_hash(self, token_hash: str) -> PhoneVerificationToken | None:
+        return await self.session.scalar(
+            select(PhoneVerificationToken)
+            .where(PhoneVerificationToken.token_hash == token_hash)
             .with_for_update()
         )

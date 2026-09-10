@@ -9,6 +9,7 @@ from typing import Any
 
 import jwt
 from fastapi import HTTPException, status
+from pwdlib import PasswordHash
 
 from app.config import settings
 
@@ -16,15 +17,19 @@ PBKDF2_ITERATIONS = 600_000
 TOKEN_TTL_SECONDS = 3600
 REFRESH_TOKEN_TTL_SECONDS = 30 * 24 * 3600
 CANONICAL_KEYCLOAK_ISSUER = "https://auth.codestra.co/realms/codestra"
+PASSWORD_HASH = PasswordHash.recommended()
 
 
 def hash_password(password: str) -> str:
-    salt = secrets.token_bytes(16)
-    digest = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, PBKDF2_ITERATIONS)
-    return f"pbkdf2_sha256${PBKDF2_ITERATIONS}${salt.hex()}${digest.hex()}"
+    return PASSWORD_HASH.hash(password)
 
 
 def verify_password(password: str, encoded: str) -> bool:
+    if encoded.startswith("$argon2"):
+        try:
+            return PASSWORD_HASH.verify(password, encoded)
+        except Exception:  # malformed password hashes must fail closed
+            return False
     try:
         algorithm, iterations, salt, expected = encoded.split("$", 3)
         if algorithm != "pbkdf2_sha256":
@@ -83,8 +88,6 @@ def create_access_token(
 
 
 def decode_access_token(token: str) -> dict[str, Any]:
-    if settings.keycloak_enabled:
-        return decode_keycloak_access_token(token)
     error = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
     try:
         header, payload, signature = token.split(".")

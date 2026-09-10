@@ -12,8 +12,9 @@ from app.api.v1.router import api_router
 from app.config import settings
 from app.core.errors import install_error_handlers
 from app.db.session import engine
+from app.domains.auth.browser_session import ACCESS_COOKIE, validate_csrf
 
-EXPECTED_SCHEMA_REVISION = "017_provider_credentials"
+EXPECTED_SCHEMA_REVISION = "026_keycloak_identity_link"
 logger = structlog.get_logger()
 app = FastAPI(title=settings.app_name, version="1.0.0")
 app.add_middleware(
@@ -31,7 +32,20 @@ app.include_router(internal_odoo_router)
 @app.middleware("http")
 async def request_context(request: Request, call_next):
     request_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
+    correlation_id = request.headers.get("X-Correlation-ID", request_id)
+    request.state.request_id = request_id
+    request.state.correlation_id = correlation_id
     started = time.perf_counter()
+    if (
+        request.method not in {"GET", "HEAD", "OPTIONS"}
+        and request.cookies.get(ACCESS_COOKIE)
+        and request.url.path not in {
+            "/api/v1/auth/browser/login",
+            "/api/v1/auth/browser/register/client",
+            "/api/v1/auth/browser/register/provider",
+        }
+    ):
+        validate_csrf(request)
     try:
         response = await call_next(request)
     except Exception:
@@ -39,6 +53,7 @@ async def request_context(request: Request, call_next):
         raise
     duration_ms = round((time.perf_counter() - started) * 1000, 2)
     response.headers["X-Request-ID"] = request_id
+    response.headers["X-Correlation-ID"] = correlation_id
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "no-referrer"
@@ -46,6 +61,7 @@ async def request_context(request: Request, call_next):
     logger.info(
         "request_completed",
         request_id=request_id,
+        correlation_id=correlation_id,
         method=request.method,
         path=request.url.path,
         status=response.status_code,

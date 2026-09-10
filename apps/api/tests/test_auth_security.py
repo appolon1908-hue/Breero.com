@@ -16,8 +16,23 @@ from app.domains.auth.security import (
 def test_password_hash_round_trip() -> None:
     encoded = hash_password("a long secure password")
     assert encoded != "a long secure password"
+    assert encoded.startswith("$argon2")
     assert verify_password("a long secure password", encoded)
     assert not verify_password("wrong password", encoded)
+
+
+def test_legacy_pbkdf2_passwords_remain_verifiable_during_upgrade() -> None:
+    from app.domains.auth import security
+
+    password = "legacy-password"
+    salt = bytes.fromhex("00112233445566778899aabbccddeeff")
+    digest = security.hashlib.pbkdf2_hmac(
+        "sha256", password.encode(), salt, security.PBKDF2_ITERATIONS
+    )
+    encoded = (
+        f"pbkdf2_sha256${security.PBKDF2_ITERATIONS}${salt.hex()}${digest.hex()}"
+    )
+    assert verify_password(password, encoded)
 
 
 def test_access_token_round_trip(monkeypatch: pytest.MonkeyPatch) -> None:

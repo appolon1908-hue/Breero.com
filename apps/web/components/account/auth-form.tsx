@@ -11,6 +11,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
   const query = useSearchParams();
   const [state, setState] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
+  const [destination, setDestination] = useState("/account");
   async function submit(data: FormData) {
     setState("loading"); setMessage("");
     try {
@@ -21,6 +22,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
         }
         const session = await customerApi.auth.login({ email: String(data.get("email")), password: String(data.get("password")) });
         customerSession.save(session);
+        setDestination(["vendor_admin", "technician"].includes(session.user.role) ? "/provider" : ["operations", "finance", "admin"].includes(session.user.role) ? "/admin" : "/account");
       } else if (mode === "register") {
         if (keycloak.enabled) throw new Error("Account creation is not open for this release");
         const session = await customerApi.auth.register({ full_name: `${data.get("first_name")} ${data.get("last_name")}`.trim(), email: String(data.get("email")), password: String(data.get("password")) });
@@ -40,7 +42,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
       setState("error");
     }
   }
-  if (state === "success") return <div className="approval-success" role="status"><span>✓</span><h2>{mode === "forgot" ? "Check your inbox" : mode === "verify" ? "Email verified" : mode === "reset" ? "Password updated" : mode === "register" ? "Your account is ready" : "Welcome back"}</h2><p>{mode === "forgot" ? "If an account exists for that address, we’ve sent reset instructions." : mode === "verify" ? "Your email is confirmed. You can now use your BREERO account." : mode === "reset" ? "Sign in using your new password." : "Continue to your account."}</p><a href={mode === "login" || mode === "register" ? "/account" : "/login"}>{mode === "login" || mode === "register" ? "Continue to account" : "Go to sign in"} →</a></div>;
+  if (state === "success") return <div className="approval-success" role="status"><span>✓</span><h2>{mode === "forgot" ? "Check your inbox" : mode === "verify" ? "Email verified" : mode === "reset" ? "Password updated" : mode === "register" ? "Your account is ready" : "Welcome back"}</h2><p>{mode === "forgot" ? "If an account exists for that address, we’ve sent reset instructions." : mode === "verify" ? "Your email is confirmed. You can now use your BREERO account." : mode === "reset" ? "Sign in using your new password." : "Continue to your account."}</p><a href={mode === "login" ? destination : mode === "register" ? "/account" : "/login"}>{mode === "login" || mode === "register" ? "Continue to account" : "Go to sign in"} →</a></div>;
   return <form action={submit} aria-busy={state === "loading"}>
     {mode === "register" && <div className="form-grid"><FormField label="First name" htmlFor="first_name" required><Input id="first_name" name="first_name" autoComplete="given-name" required /></FormField><FormField label="Last name" htmlFor="last_name" required><Input id="last_name" name="last_name" autoComplete="family-name" required /></FormField></div>}
     {mode !== "reset" && mode !== "verify" && <FormField label="Email address" htmlFor="email" required><Input id="email" name="email" type="email" autoComplete="email" required /></FormField>}

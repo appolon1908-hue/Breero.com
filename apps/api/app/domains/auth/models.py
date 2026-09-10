@@ -16,6 +16,12 @@ class UserRole(enum.StrEnum):
     operations = "operations"
     finance = "finance"
     admin = "admin"
+    CLIENT = "customer"
+    PROVIDER = "technician"
+    PROVIDER_ADMIN = "vendor_admin"
+    BREERO_ADMIN = "admin"
+    BREERO_DISPATCH = "operations"
+    BREERO_SUPPORT = "finance"
 
 
 class User(Base):
@@ -23,14 +29,24 @@ class User(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email: Mapped[str] = mapped_column(String(320), unique=True, index=True)
+    phone: Mapped[str | None] = mapped_column(String(32), index=True)
     password_hash: Mapped[str] = mapped_column(String(512))
     full_name: Mapped[str] = mapped_column(String(160))
     role: Mapped[UserRole] = mapped_column(
         Enum(UserRole, name="user_role", native_enum=True), default=UserRole.customer
     )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    status: Mapped[str] = mapped_column(String(24), nullable=False, default="ACTIVE")
     email_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    phone_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     credential_version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    password_set_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    keycloak_subject: Mapped[str | None] = mapped_column(String(255), unique=True, index=True)
+    keycloak_issuer: Mapped[str | None] = mapped_column(String(512))
+    keycloak_username: Mapped[str | None] = mapped_column(String(320))
+    keycloak_linked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -68,6 +84,18 @@ class PasswordResetToken(Base):
 
 class EmailVerificationToken(Base):
     __tablename__ = "email_verification_tokens"
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class PhoneVerificationToken(Base):
+    __tablename__ = "phone_verification_tokens"
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), index=True

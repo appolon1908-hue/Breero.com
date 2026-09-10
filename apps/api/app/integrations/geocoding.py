@@ -21,6 +21,7 @@ class GeocodedAddress:
     quality: str | None = None
     state_code: str | None = None
     timezone_name: str | None = None
+    postal_code_plus4: str | None = None
 
 
 class FakeGeocodingAdapter:
@@ -30,6 +31,22 @@ class FakeGeocodingAdapter:
 
 class GeocodingAdapter:
     async def geocode(self, address: str) -> GeocodedAddress:
+        if settings.app_env.lower() == "test" and settings.geocoding_provider == "deterministic_test":
+            return GeocodedAddress(
+                formatted_address="100 Main St, Houston, TX 77001, US",
+                line1="100 Main St",
+                city="Houston",
+                state_code="TX",
+                postal_code="77001",
+                country_code="US",
+                latitude=29.7604,
+                longitude=-95.3698,
+                provider="deterministic_test",
+                provider_reference="certification-fixture",
+                confidence=1.0,
+                quality="exact",
+                timezone_name="America/Chicago",
+            )
         if not settings.geocoding_enabled or not settings.geocoding_api_key:
             raise DomainError(
                 "GEOCODING_UNAVAILABLE",
@@ -90,9 +107,13 @@ class GeocodingAdapter:
                 "Only U.S. service addresses are supported",
                 422,
             )
-        postal_code = str(props.get("postcode") or "").split("-", 1)[0]
+        postal_parts = str(props.get("postcode") or "").split("-", 1)
+        postal_code = postal_parts[0]
+        postal_code_plus4 = postal_parts[1] if len(postal_parts) == 2 else None
         if len(postal_code) != 5 or not postal_code.isdigit():
             raise DomainError("ADDRESS_ZIP_INVALID", "A five-digit U.S. ZIP code is required", 422)
+        if postal_code_plus4 and (len(postal_code_plus4) != 4 or not postal_code_plus4.isdigit()):
+            postal_code_plus4 = None
         confidence = props.get("rank", {}).get("confidence")
         if confidence is None or float(confidence) < 0.7:
             raise DomainError(
@@ -114,4 +135,5 @@ class GeocodingAdapter:
             confidence=float(confidence),
             quality=props.get("rank", {}).get("match_type"),
             timezone_name=(props.get("timezone") or {}).get("name"),
+            postal_code_plus4=postal_code_plus4,
         )

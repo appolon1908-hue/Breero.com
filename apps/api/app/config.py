@@ -21,8 +21,20 @@ class Settings(BaseSettings):
     jwt_refresh_secret_file: str = ""
     jwt_algorithm: str = "HS256"
     keycloak_enabled: bool = False
+    breero_local_password_auth: bool = True
     keycloak_issuer: str = ""
-    keycloak_audience: str = "breero-api-production"
+    keycloak_audience: str = "breero-api"
+    keycloak_client_id: str = "breero-client-web"
+    keycloak_client_secret: str = ""
+    keycloak_client_secret_file: str = ""
+    keycloak_redirect_uri: str = ""
+    breero_web_url: str = "https://breero.com"
+    breero_provider_web_url: str = "https://provider.breero.com"
+    breero_admin_web_url: str = "https://admin.breero.com"
+    keycloak_provisioner_client_id: str = "breero-provisioner"
+    keycloak_provisioner_client_secret: str = ""
+    keycloak_provisioner_client_secret_file: str = ""
+    keycloak_provisioning_enabled: bool = False
     access_token_minutes: int = 30
     refresh_token_days: int = 30
     stripe_secret_key: str = ""
@@ -38,12 +50,22 @@ class Settings(BaseSettings):
     automatic_refunds_enabled: bool = False
     automatic_booking_enabled: bool = False
     scheduling_enabled: bool = True
+    public_booking_api_enabled: bool = False
     automatic_provider_assignment_enabled: bool = False
     automatic_confirmed_bookings: bool = False
     provider_self_service_enabled: bool = False
     marketplace_matching_enabled: bool = False
     marketplace_messaging_enabled: bool = False
     marketplace_reviews_enabled: bool = False
+    provider_assignment_mode: str = "MANUAL"
+    auto_assign_provider: bool = False
+    auto_confirm_booking: bool = False
+    live_provider_dispatch: bool = False
+    live_email_delivery: bool = False
+    live_sms_delivery: bool = False
+    live_callbacks: bool = False
+    odoo_delivery_enabled: bool = False
+    odoo_write_enabled: bool = False
     transactional_email_mode: str = "controlled_canary"
     transactional_sms_mode: str = "controlled_canary"
     marketing_email_enabled: bool = False
@@ -96,6 +118,8 @@ class Settings(BaseSettings):
             ("redis_url", "redis_url_file"),
             ("jwt_secret", "jwt_secret_file"),
             ("jwt_refresh_secret", "jwt_refresh_secret_file"),
+            ("keycloak_client_secret", "keycloak_client_secret_file"),
+            ("keycloak_provisioner_client_secret", "keycloak_provisioner_client_secret_file"),
             ("stripe_secret_key", "stripe_secret_key_file"),
             ("stripe_webhook_secret", "stripe_webhook_secret_file"),
             ("stripe_publishable_key", "stripe_publishable_key_file"),
@@ -152,6 +176,15 @@ class Settings(BaseSettings):
             "MARKETPLACE_REVIEWS_ENABLED": self.marketplace_reviews_enabled,
             "MARKETING_EMAIL_ENABLED": self.marketing_email_enabled,
             "MARKETING_SMS_ENABLED": self.marketing_sms_enabled,
+            "AUTO_ASSIGN_PROVIDER": self.auto_assign_provider,
+            "AUTO_CONFIRM_BOOKING": self.auto_confirm_booking,
+            "LIVE_PROVIDER_DISPATCH": self.live_provider_dispatch,
+            "LIVE_EMAIL_DELIVERY": self.live_email_delivery,
+            "LIVE_SMS_DELIVERY": self.live_sms_delivery,
+            "LIVE_CALLBACKS": self.live_callbacks,
+            "ODOO_DELIVERY_ENABLED": self.odoo_delivery_enabled,
+            "ODOO_WRITE_ENABLED": self.odoo_write_enabled,
+            "PUBLIC_BOOKING_API_ENABLED": self.public_booking_api_enabled,
         }
         enabled_release_flags = [name for name, enabled in release_payment_flags.items() if enabled]
         if self.app_env.lower() == "production" and enabled_release_flags:
@@ -161,6 +194,14 @@ class Settings(BaseSettings):
             )
         if self.app_env.lower() == "production" and not self.scheduling_enabled:
             raise ValueError("SCHEDULING_ENABLED must remain enabled for this release")
+        if self.provider_assignment_mode not in {"MANUAL", "SUGGESTED", "AUTOMATIC"}:
+            raise ValueError("PROVIDER_ASSIGNMENT_MODE must be MANUAL, SUGGESTED, or AUTOMATIC")
+        if self.provider_assignment_mode == "AUTOMATIC" and not self.auto_assign_provider:
+            raise ValueError("AUTOMATIC provider assignment mode requires AUTO_ASSIGN_PROVIDER")
+        if self.public_booking_api_enabled and not self.geocoding_enabled:
+            raise ValueError("PUBLIC_BOOKING_API_ENABLED requires GEOCODING_ENABLED")
+        if self.public_booking_api_enabled and not self.scheduling_enabled:
+            raise ValueError("PUBLIC_BOOKING_API_ENABLED requires SCHEDULING_ENABLED")
         if self.transactional_email_mode not in {"disabled", "controlled_canary"}:
             raise ValueError("TRANSACTIONAL_EMAIL_MODE must be disabled or controlled_canary")
         if self.transactional_sms_mode not in {"disabled", "controlled_canary"}:
@@ -198,7 +239,17 @@ class Settings(BaseSettings):
             required |= {
                 "KEYCLOAK_ISSUER": self.keycloak_issuer,
                 "KEYCLOAK_AUDIENCE": self.keycloak_audience,
+                "KEYCLOAK_CLIENT_ID": self.keycloak_client_id,
+                "KEYCLOAK_CLIENT_SECRET": self.keycloak_client_secret,
+                "KEYCLOAK_REDIRECT_URI": self.keycloak_redirect_uri,
             }
+            if self.keycloak_provisioning_enabled:
+                required |= {
+                    "KEYCLOAK_PROVISIONER_CLIENT_ID": self.keycloak_provisioner_client_id,
+                    "KEYCLOAK_PROVISIONER_CLIENT_SECRET": self.keycloak_provisioner_client_secret,
+                }
+            if self.breero_local_password_auth:
+                raise ValueError("BREERO_LOCAL_PASSWORD_AUTH must be false when Keycloak is enabled")
         if self.odoo_enabled:
             required["DIRECT_ODOO_PROHIBITED_USE_MIDDLEWARE"] = ""
         if self.middleware_enabled:
