@@ -30,6 +30,7 @@ class Service(Base):
     base_price: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
     pricing_model: Mapped[str] = mapped_column(String(32), nullable=False, default="quote_required")
     duration_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    provider_approval_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     before_buffer_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     after_buffer_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     emergency_eligible: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

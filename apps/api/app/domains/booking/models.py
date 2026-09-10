@@ -78,6 +78,9 @@ class ServiceArea(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     radius_meters: Mapped[int | None] = mapped_column(Integer)
     boundary: Mapped[object | None] = mapped_column(Geometry("MULTIPOLYGON", srid=4326))
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    priority: Mapped[int] = mapped_column(Integer, nullable=False, default=100)
+    emergency_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 
 
 class Address(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -87,6 +90,7 @@ class Address(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     line1: Mapped[str] = mapped_column(String(200), nullable=False)
     line2: Mapped[str | None] = mapped_column(String(200))
     city: Mapped[str] = mapped_column(String(120), nullable=False)
+    county: Mapped[str | None] = mapped_column(String(120))
     state_code: Mapped[str | None] = mapped_column(String(3))
     postal_code: Mapped[str] = mapped_column(String(32), nullable=False)
     postal_code_plus4: Mapped[str | None] = mapped_column(String(4))
