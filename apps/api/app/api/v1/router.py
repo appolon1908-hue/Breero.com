@@ -34,9 +34,6 @@ from app.config import settings
 api_router = APIRouter()
 api_router.include_router(capabilities.router, prefix="/public", tags=["public-capabilities"])
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
-api_router.include_router(
-    provider_onboarding.registration_router, prefix="/auth", tags=["provider-registration"]
-)
 api_router.include_router(access.router, prefix="/auth/access", tags=["auth-access"])
 api_router.include_router(admin_users.router, prefix="/admin/users", tags=["admin-users"])
 api_router.include_router(

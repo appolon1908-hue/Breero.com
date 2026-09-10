@@ -4824,6 +4824,163 @@
         "title": "ProviderProfileUpdate",
         "type": "object"
       },
+      "ProviderRegisterRequest": {
+        "properties": {
+          "business_address": {
+            "maxLength": 240,
+            "minLength": 5,
+            "title": "Business Address",
+            "type": "string"
+          },
+          "city": {
+            "maxLength": 120,
+            "minLength": 2,
+            "title": "City",
+            "type": "string"
+          },
+          "contact_name": {
+            "maxLength": 160,
+            "minLength": 2,
+            "title": "Contact Name",
+            "type": "string"
+          },
+          "display_name": {
+            "maxLength": 120,
+            "minLength": 2,
+            "title": "Display Name",
+            "type": "string"
+          },
+          "email": {
+            "format": "email",
+            "title": "Email",
+            "type": "string"
+          },
+          "legal_name": {
+            "maxLength": 180,
+            "minLength": 2,
+            "title": "Legal Name",
+            "type": "string"
+          },
+          "password": {
+            "maxLength": 128,
+            "minLength": 10,
+            "title": "Password",
+            "type": "string"
+          },
+          "phone": {
+            "maxLength": 32,
+            "minLength": 5,
+            "title": "Phone",
+            "type": "string"
+          },
+          "postal_code": {
+            "pattern": "^\\d{5}(?:-\\d{4})?$",
+            "title": "Postal Code",
+            "type": "string"
+          },
+          "provider_type": {
+            "default": "COMPANY",
+            "pattern": "^(COMPANY|INDEPENDENT)$",
+            "title": "Provider Type",
+            "type": "string"
+          },
+          "service_postal_codes": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 500,
+            "minItems": 1,
+            "title": "Service Postal Codes",
+            "type": "array"
+          },
+          "service_slugs": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "minItems": 1,
+            "title": "Service Slugs",
+            "type": "array"
+          },
+          "state": {
+            "maxLength": 3,
+            "minLength": 2,
+            "title": "State",
+            "type": "string"
+          },
+          "timezone_id": {
+            "maxLength": 64,
+            "minLength": 3,
+            "title": "Timezone Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "password",
+          "contact_name",
+          "phone",
+          "legal_name",
+          "display_name",
+          "business_address",
+          "city",
+          "state",
+          "postal_code",
+          "timezone_id",
+          "service_slugs",
+          "service_postal_codes"
+        ],
+        "title": "ProviderRegisterRequest",
+        "type": "object"
+      },
+      "ProviderRegistrationResponse": {
+        "properties": {
+          "access_token": {
+            "title": "Access Token",
+            "type": "string"
+          },
+          "expires_in": {
+            "title": "Expires In",
+            "type": "integer"
+          },
+          "onboarding_status": {
+            "title": "Onboarding Status",
+            "type": "string"
+          },
+          "provider_organization_id": {
+            "format": "uuid",
+            "title": "Provider Organization Id",
+            "type": "string"
+          },
+          "refresh_expires_in": {
+            "title": "Refresh Expires In",
+            "type": "integer"
+          },
+          "refresh_token": {
+            "title": "Refresh Token",
+            "type": "string"
+          },
+          "token_type": {
+            "default": "bearer",
+            "title": "Token Type",
+            "type": "string"
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserRead"
+          }
+        },
+        "required": [
+          "access_token",
+          "expires_in",
+          "refresh_token",
+          "refresh_expires_in",
+          "user",
+          "provider_organization_id",
+          "onboarding_status"
+        ],
+        "title": "ProviderRegistrationResponse",
+        "type": "object"
+      },
       "ProviderServiceAreaRead": {
         "properties": {
           "active": {
@@ -7641,163 +7798,6 @@
         "title": "ProviderApplicationDecision",
         "type": "object"
       },
-      "app__domains__auth__schemas__ProviderRegisterRequest": {
-        "properties": {
-          "business_address": {
-            "maxLength": 240,
-            "minLength": 5,
-            "title": "Business Address",
-            "type": "string"
-          },
-          "city": {
-            "maxLength": 120,
-            "minLength": 2,
-            "title": "City",
-            "type": "string"
-          },
-          "contact_name": {
-            "maxLength": 160,
-            "minLength": 2,
-            "title": "Contact Name",
-            "type": "string"
-          },
-          "display_name": {
-            "maxLength": 120,
-            "minLength": 2,
-            "title": "Display Name",
-            "type": "string"
-          },
-          "email": {
-            "format": "email",
-            "title": "Email",
-            "type": "string"
-          },
-          "legal_name": {
-            "maxLength": 180,
-            "minLength": 2,
-            "title": "Legal Name",
-            "type": "string"
-          },
-          "password": {
-            "maxLength": 128,
-            "minLength": 10,
-            "title": "Password",
-            "type": "string"
-          },
-          "phone": {
-            "maxLength": 32,
-            "minLength": 5,
-            "title": "Phone",
-            "type": "string"
-          },
-          "postal_code": {
-            "pattern": "^\\d{5}(?:-\\d{4})?$",
-            "title": "Postal Code",
-            "type": "string"
-          },
-          "provider_type": {
-            "default": "COMPANY",
-            "pattern": "^(COMPANY|INDEPENDENT)$",
-            "title": "Provider Type",
-            "type": "string"
-          },
-          "service_postal_codes": {
-            "items": {
-              "type": "string"
-            },
-            "maxItems": 500,
-            "minItems": 1,
-            "title": "Service Postal Codes",
-            "type": "array"
-          },
-          "service_slugs": {
-            "items": {
-              "type": "string"
-            },
-            "maxItems": 50,
-            "minItems": 1,
-            "title": "Service Slugs",
-            "type": "array"
-          },
-          "state": {
-            "maxLength": 3,
-            "minLength": 2,
-            "title": "State",
-            "type": "string"
-          },
-          "timezone_id": {
-            "maxLength": 64,
-            "minLength": 3,
-            "title": "Timezone Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "email",
-          "password",
-          "contact_name",
-          "phone",
-          "legal_name",
-          "display_name",
-          "business_address",
-          "city",
-          "state",
-          "postal_code",
-          "timezone_id",
-          "service_slugs",
-          "service_postal_codes"
-        ],
-        "title": "ProviderRegisterRequest",
-        "type": "object"
-      },
-      "app__domains__auth__schemas__ProviderRegistrationResponse": {
-        "properties": {
-          "access_token": {
-            "title": "Access Token",
-            "type": "string"
-          },
-          "expires_in": {
-            "title": "Expires In",
-            "type": "integer"
-          },
-          "onboarding_status": {
-            "title": "Onboarding Status",
-            "type": "string"
-          },
-          "provider_organization_id": {
-            "format": "uuid",
-            "title": "Provider Organization Id",
-            "type": "string"
-          },
-          "refresh_expires_in": {
-            "title": "Refresh Expires In",
-            "type": "integer"
-          },
-          "refresh_token": {
-            "title": "Refresh Token",
-            "type": "string"
-          },
-          "token_type": {
-            "default": "bearer",
-            "title": "Token Type",
-            "type": "string"
-          },
-          "user": {
-            "$ref": "#/components/schemas/UserRead"
-          }
-        },
-        "required": [
-          "access_token",
-          "expires_in",
-          "refresh_token",
-          "refresh_expires_in",
-          "user",
-          "provider_organization_id",
-          "onboarding_status"
-        ],
-        "title": "ProviderRegistrationResponse",
-        "type": "object"
-      },
       "app__domains__provider_catalog__schemas__ProviderServiceRead": {
         "properties": {
           "active": {
@@ -7927,98 +7927,6 @@
           "reason"
         ],
         "title": "ProviderApplicationDecision",
-        "type": "object"
-      },
-      "app__domains__workforce__schemas__ProviderRegisterRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "display_name": {
-            "maxLength": 120,
-            "minLength": 1,
-            "title": "Display Name",
-            "type": "string"
-          },
-          "email": {
-            "format": "email",
-            "title": "Email",
-            "type": "string"
-          },
-          "full_name": {
-            "maxLength": 160,
-            "minLength": 1,
-            "title": "Full Name",
-            "type": "string"
-          },
-          "legal_name": {
-            "maxLength": 180,
-            "minLength": 1,
-            "title": "Legal Name",
-            "type": "string"
-          },
-          "password": {
-            "maxLength": 128,
-            "minLength": 10,
-            "title": "Password",
-            "type": "string"
-          },
-          "phone": {
-            "maxLength": 32,
-            "minLength": 5,
-            "title": "Phone",
-            "type": "string"
-          }
-        },
-        "required": [
-          "email",
-          "password",
-          "full_name",
-          "legal_name",
-          "display_name",
-          "phone"
-        ],
-        "title": "ProviderRegisterRequest",
-        "type": "object"
-      },
-      "app__domains__workforce__schemas__ProviderRegistrationResponse": {
-        "properties": {
-          "access_token": {
-            "title": "Access Token",
-            "type": "string"
-          },
-          "application": {
-            "$ref": "#/components/schemas/ProviderApplicationRead"
-          },
-          "expires_in": {
-            "title": "Expires In",
-            "type": "integer"
-          },
-          "refresh_expires_in": {
-            "title": "Refresh Expires In",
-            "type": "integer"
-          },
-          "refresh_token": {
-            "title": "Refresh Token",
-            "type": "string"
-          },
-          "user_id": {
-            "format": "uuid",
-            "title": "User Id",
-            "type": "string"
-          },
-          "vendor": {
-            "$ref": "#/components/schemas/VendorRead"
-          }
-        },
-        "required": [
-          "user_id",
-          "vendor",
-          "application",
-          "access_token",
-          "refresh_token",
-          "expires_in",
-          "refresh_expires_in"
-        ],
-        "title": "ProviderRegistrationResponse",
         "type": "object"
       }
     },
@@ -10359,7 +10267,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/app__domains__auth__schemas__ProviderRegisterRequest"
+                "$ref": "#/components/schemas/ProviderRegisterRequest"
               }
             }
           },
@@ -11093,7 +11001,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/app__domains__workforce__schemas__ProviderRegisterRequest"
+                "$ref": "#/components/schemas/ProviderRegisterRequest"
               }
             }
           },
@@ -11104,7 +11012,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/app__domains__workforce__schemas__ProviderRegistrationResponse"
+                  "$ref": "#/components/schemas/ProviderRegistrationResponse"
                 }
               }
             },
@@ -11123,7 +11031,7 @@
         },
         "summary": "Register Provider",
         "tags": [
-          "provider-registration"
+          "auth"
         ]
       }
     },
