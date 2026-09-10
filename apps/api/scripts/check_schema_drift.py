@@ -10,10 +10,10 @@ from sqlalchemy import inspect, text
 
 from app.db.base import Base
 from app.db.session import engine
-from app.domains.auth import models as _auth  # noqa: F401
 from app.domains.administration import models as _administration  # noqa: F401
-from app.domains.booking import models as _booking  # noqa: F401
+from app.domains.auth import models as _auth  # noqa: F401
 from app.domains.booking import capacity_models as _booking_capacity  # noqa: F401
+from app.domains.booking import models as _booking  # noqa: F401
 from app.domains.booking_intents import models as _booking_intents  # noqa: F401
 from app.domains.catalog import models as _catalog  # noqa: F401
 from app.domains.common import outbox as _outbox  # noqa: F401
