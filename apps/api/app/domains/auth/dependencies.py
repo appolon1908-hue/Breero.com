@@ -9,8 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.db.session import get_db
-from app.domains.auth.browser_session import ACCESS_COOKIE
 from app.domains.auth.access_service import AccessService
+from app.domains.auth.browser_session import ACCESS_COOKIE
 from app.domains.auth.models import AccessRole, IdentityLink, User, UserRole
 from app.domains.auth.repository import UserRepository
 from app.domains.auth.security import decode_access_token

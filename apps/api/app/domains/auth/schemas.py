@@ -44,10 +44,6 @@ class TokenRequest(BaseModel):
     token: str = Field(min_length=32, max_length=512)
 
 
-class SetPasswordRequest(TokenRequest):
-    password: str = Field(min_length=10, max_length=128)
-
-
 class ForgotPasswordRequest(BaseModel):
     email: EmailStr
 
