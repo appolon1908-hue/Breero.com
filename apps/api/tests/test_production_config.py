@@ -70,6 +70,9 @@ def test_secret_file_bindings_are_resolved_without_environment_values(tmp_path, 
     stripe_publishable.write_text("pk_test_abcdefghijklmnopqrstuvwxyz", encoding="ascii")
     geoapify.write_text("geoapify-key-material", encoding="ascii")
 
+    for secret_path in tmp_path.iterdir():
+        secret_path.chmod(0o400)
+
     settings = Settings(
         database_url_file=str(database_url),
         redis_url_file=str(redis_url),
@@ -100,6 +103,7 @@ def test_secret_file_binding_rejects_missing_file(tmp_path):
 def test_secret_file_binding_rejects_empty_file(tmp_path):
     empty = tmp_path / "empty-secret"
     empty.write_text("", encoding="ascii")
+    empty.chmod(0o400)
     with pytest.raises(ValidationError, match="configured secret file.*is empty"):
         Settings(redis_url="", redis_url_file=str(empty))
 
