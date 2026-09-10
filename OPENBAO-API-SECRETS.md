@@ -49,4 +49,3 @@ Logical prefix: `codestra/<environment>/breero/api/runtime/`.
 | `SMS_API_KEY` | `SMS_API_KEY_FILE` | When integration requires it |
 | `MIDDLEWARE_HMAC_SECRET` | `MIDDLEWARE_HMAC_SECRET_FILE` | When integration requires it |
 | `MIDDLEWARE_CLIENT_KEY` | `MIDDLEWARE_CLIENT_KEY_FILE` | When integration requires it |
-
