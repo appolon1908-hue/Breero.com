@@ -4,7 +4,7 @@ import logging
 import os
 import re
 import time
-from collections.abc import Mapping
+from collections.abc import MutableMapping
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
@@ -117,8 +117,8 @@ WORKER_HEARTBEAT_AGE = Gauge(
 def _trace_fields(
     _logger: Any,
     _method_name: str,
-    event_dict: dict[str, Any],
-) -> dict[str, Any]:
+    event_dict: MutableMapping[str, Any],
+) -> MutableMapping[str, Any]:
     context = trace.get_current_span().get_span_context()
     if context.is_valid:
         event_dict["trace_id"] = format(context.trace_id, "032x")
@@ -150,7 +150,7 @@ def configure_logging() -> None:
     )
 
 
-def _read_headers(path: str) -> Mapping[str, str] | None:
+def _read_headers(path: str) -> dict[str, str] | None:
     if not path:
         return None
     raw = Path(path).read_text(encoding="utf-8").strip()
