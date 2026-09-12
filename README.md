@@ -46,3 +46,10 @@ API docs: `http://localhost:8000/docs`
 Backend host: `49.12.145.107`
 
 Production secrets are never committed to this repository.
+
+## Observability and analytics
+
+The [observability stack contract](docs/observability-stack.md) defines the shared Codestra
+collectors, telemetry stores, Alertmanager, Grafana, Superset and OpenBao responsibilities.
+Middleware is the controlled bridge for all Odoo business writes. Architecture checks run
+in CI; production telemetry coverage requires separate runtime evidence.
