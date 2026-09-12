@@ -7,7 +7,7 @@ The executable contract is `apps/api/openapi.json` at SHA-256 `93748567a1121ee3d
 | Version | Path family | Domain/owner | Audience | Mount policy |
 |---|---|---|---|---|
 | platform | `/health`, `/health/live`, `/health/ready` | runtime | probes/operators | always |
-| internal | `/internal/odoo/*` | integration | trusted service only | always in source; production reachability must be proven |
+| internal | `/internal/v1/integrations/odoo/*` | integration | trusted service only | always in source; production reachability must be proven |
 | V1 | `/api/v1/public/*` | capabilities | public | always |
 | V1 | `/api/v1/auth/*` | auth/provider registration/access | public/user/admin | always |
 | V1 | `/api/v1/admin/users/*` | identity/RBAC | admin | always |
@@ -16,7 +16,7 @@ The executable contract is `apps/api/openapi.json` at SHA-256 `93748567a1121ee3d
 | V1 | `/api/v1/provider/*` | provider onboarding/catalog | provider | always except paid-lead routes |
 | V1 | `/api/v1/services/*` | catalog | public/admin | always |
 | V1 | `/api/v1/customer/*` | customer resources | customer | always except payments |
-| V1 | `/api/v1/compliance/*` | compliance | privileged/provider | always |
+| V1 | `/api/v1/privacy-requests*`, `/communications/*` | compliance/privacy/consent | mixed public and authenticated audiences | always; authorization is operation-specific |
 | V1 | `/api/v1/addresses/*`, `/booking/address/*`, `/booking/service-area/*`, `/booking/timezone/*` | geography | public/customer | only when geocoding enabled |
 | V1 | `/api/v1/availability/*`, `/bookings/*`, `/booking/intents/*` | scheduling/booking | public/customer | only when scheduling enabled |
 | V1 | `/api/v1/payments/*`, `/customer/payments/*` | payments | customer/provider callback | payments and Stripe enabled |
@@ -37,4 +37,4 @@ The checked-in OpenAPI is broader than the older `docs/backend-api-inventory.md`
 
 ## Frontend contract state
 
-`packages/types` and `packages/api-client` are the shared frontend contract surface. `scripts/check-frontend-openapi.mjs` and the root `contract:check` command provide a drift check, but the client is handwritten rather than fully generated from OpenAPI. All five application surfaces depend on this shared layer or BFF routes. Unknown-route and complete operation-coverage enforcement remain PARTIAL.
+`packages/types` and `packages/api-client` are the intended shared frontend contract surface. `scripts/check-frontend-openapi.mjs` and the root `contract:check` command provide a partial drift check, but the client is handwritten rather than fully generated from OpenAPI. The public/customer app uses shared contracts and BFF routes. The partner, operations, and admin applications instead use `packages/portal`, whose request helper performs direct handwritten API fetches without depending on `packages/types` or `packages/api-client`; their routes are not covered by the current OpenAPI checker. Unknown-route and complete operation-coverage enforcement therefore remain PARTIAL.

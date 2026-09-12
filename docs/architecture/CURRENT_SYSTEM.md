@@ -66,9 +66,9 @@ Each of `partner`, `ops`, and `admin` currently exposes a root portal route plus
 | `publish_outbox` | 10 seconds | PARTIAL; retries exist, durable inbox/DLQ/reconciliation are incomplete |
 | `expire_bookings` | 60 seconds | COMPLETE for existing booking expiry semantics |
 | `release_earnings` | hourly | PARTIAL; finance remains disabled/uncertified |
-| `generate_weekly_payout_candidates` | weekly | DARK; payout capability is disabled |
+| `generate_weekly_payout_candidates` | weekly | PARTIAL/UNSAFE; it is scheduled unconditionally and mutates earning batch state without checking `PAYOUT_ENABLED` |
 
-Celery uses Redis as broker and result backend. No explicit worker or scheduler heartbeat endpoint is present.
+Celery uses Redis as broker and result backend. No explicit worker or scheduler heartbeat endpoint is present. The payout candidate task must be guarded or removed from the schedule before operators can rely on the payout kill switch.
 
 ## Data stores
 
