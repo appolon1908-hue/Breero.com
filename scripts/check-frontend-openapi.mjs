@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 
 const document = JSON.parse(readFileSync(new URL("../apps/api/openapi.json", import.meta.url), "utf8"));
 const required = {
+  "/api/v2/capabilities": ["get"],
   "/api/v1/public/capabilities": ["get"],
   "/api/v1/auth/login": ["post"],
   "/api/v1/auth/register": ["post"],
@@ -15,6 +16,9 @@ const required = {
   "/api/v1/services/{service_id}": ["get"],
   "/api/v1/services/{service_id}/questions": ["get"],
   "/api/v1/service-requests": ["post"],
+  "/api/v1/availability/search": ["post"],
+  "/api/v1/bookings": ["post"],
+  "/api/v1/bookings/{booking_id}/confirmation": ["get"],
   "/api/v1/contact": ["post"],
   "/api/v1/provider-interest": ["post"],
   "/api/v1/privacy-requests": ["post"],
@@ -30,11 +34,10 @@ const required = {
   "/api/v1/customer/quotes/{quote_id}/decision": ["post"],
 };
 
+// PR #34 accepted these routes for quote-only, operator-confirmed scheduling.
+// Runtime capabilities remain fail-closed; route presence does not enable instant booking.
 const forbidden = {
-  "/api/v1/availability/search": ["post"],
-  "/api/v1/bookings": ["post"],
   "/api/v1/bookings/{booking_id}/payment": ["post"],
-  "/api/v1/bookings/{booking_id}/confirmation": ["get"],
   "/api/v1/payments/intents": ["post"],
   "/api/v1/payments/webhooks/stripe": ["post"],
 };
@@ -53,7 +56,7 @@ for (const [path, methods] of Object.entries(forbidden)) {
   for (const method of methods) if (document.paths?.[path]?.[method]) exposed.push(`${method.toUpperCase()} ${path}`);
 }
 if (exposed.length) {
-  console.error(`Request-only API contract exposes forbidden booking/payment routes:\n${exposed.join("\n")}`);
+  console.error(`Payment-disabled API contract exposes forbidden payment routes:\n${exposed.join("\n")}`);
   process.exit(1);
 }
 
@@ -72,4 +75,4 @@ if (missing.length) {
   process.exit(1);
 }
 
-console.log(`Request-only frontend API contract verified: ${Object.keys(required).length} required paths; zero booking/payment mutation routes.`);
+console.log(`Payment-disabled manual-scheduling frontend API contract verified: ${Object.keys(required).length} required paths; zero payment mutation routes.`);
