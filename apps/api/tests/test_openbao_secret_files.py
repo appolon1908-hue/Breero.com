@@ -95,5 +95,33 @@ class SecretFileTests(unittest.TestCase):
             self.assertEqual(settings.database_url, "invalid-local-fixture")
 
 
+class OdooCredentialBoundaryTests(unittest.TestCase):
+    def test_direct_odoo_configuration_is_rejected_before_reading_files(self):
+        from app.config import Settings
+
+        for values in (
+            {"odoo_enabled": True},
+            {"odoo_api_key": "invalid-odoo-fixture"},
+            {"odoo_api_key_file": "/missing/odoo-key"},
+        ):
+            with self.subTest(values=values), patch.dict(os.environ, {}, clear=True):
+                with self.assertRaisesRegex(ValueError, "Direct Odoo credentials"):
+                    Settings(_env_file=None, **values)
+
+    def test_odoo_environment_credentials_are_rejected(self):
+        from app.config import Settings
+
+        for key in ("ODOO_API_KEY", "ODOO_API_KEY_FILE"):
+            with self.subTest(key=key), patch.dict(os.environ, {key: "invalid-fixture"}, clear=True):
+                with self.assertRaisesRegex(ValueError, "Direct Odoo credentials"):
+                    Settings(_env_file=None)
+
+    def test_secret_contract_does_not_provision_odoo_credentials(self):
+        import json
+
+        contract = json.loads((ROOT / "openbao-secret-consumer.v1.json").read_text())
+        self.assertFalse(any(b["setting"].startswith("ODOO_") for b in contract["bindings"]))
+
+
 if __name__ == "__main__":
     unittest.main()

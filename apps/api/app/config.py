@@ -59,6 +59,7 @@ class Settings(BaseSettings):
     odoo_database: str = ""
     odoo_username: str = ""
     odoo_api_key: str = Field(default="", repr=False)
+    # Retained only to reject legacy direct-Odoo configuration without reading it.
     odoo_api_key_file: str = ""
     odoo_enabled: bool = False
     middleware_enabled: bool = False
@@ -98,6 +99,9 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_production(self) -> "Settings":
+        if self.odoo_enabled or self.odoo_api_key or self.odoo_api_key_file:
+            raise ValueError("Direct Odoo credentials and delivery are prohibited; use Middleware")
+
         apply_secret_files(
             self,
             (
@@ -109,7 +113,6 @@ class Settings(BaseSettings):
                 "stripe_webhook_secret",
                 "stripe_publishable_key",
                 "geocoding_api_key",
-                "odoo_api_key",
                 "payout_api_key",
                 "smtp_password",
                 "sms_api_key",

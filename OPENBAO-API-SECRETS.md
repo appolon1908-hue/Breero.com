@@ -43,9 +43,12 @@ Logical prefix: `codestra/<environment>/breero/api/runtime/`.
 | `STRIPE_WEBHOOK_SECRET` | `STRIPE_WEBHOOK_SECRET_FILE` | When integration requires it |
 | `STRIPE_PUBLISHABLE_KEY` | `STRIPE_PUBLISHABLE_KEY_FILE` | When integration requires it |
 | `GEOCODING_API_KEY` | `GEOCODING_API_KEY_FILE` | When integration requires it |
-| `ODOO_API_KEY` | `ODOO_API_KEY_FILE` | When integration requires it |
 | `PAYOUT_API_KEY` | `PAYOUT_API_KEY_FILE` | When integration requires it |
 | `SMTP_PASSWORD` | `SMTP_PASSWORD_FILE` | When integration requires it |
 | `SMS_API_KEY` | `SMS_API_KEY_FILE` | When integration requires it |
 | `MIDDLEWARE_HMAC_SECRET` | `MIDDLEWARE_HMAC_SECRET_FILE` | When integration requires it |
 | `MIDDLEWARE_CLIENT_KEY` | `MIDDLEWARE_CLIENT_KEY_FILE` | When integration requires it |
+
+Breero must never receive an Odoo API key. `ODOO_ENABLED`, inline `ODOO_API_KEY`,
+and `ODOO_API_KEY_FILE` are rejected before secret files are read. Only Middleware
+may consume the Odoo integration credential; Breero receives its scoped Middleware identity.
