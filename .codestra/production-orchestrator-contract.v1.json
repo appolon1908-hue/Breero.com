@@ -1,0 +1,57 @@
+{
+  "schema_version": "codestra.production-orchestrator-contract.v1",
+  "repository": "appolon1908-hue/Breero.com",
+  "repository_id": 1331354808,
+  "default_branch": "main",
+  "role": "application",
+  "release_intent_workflow": ".github/workflows/manual-release-intent.yml",
+  "deployment_authority": true,
+  "runtime_mutation_authority": false,
+  "require_verified_commit": true,
+  "required_check_app_id": 15368,
+  "required_checks": ["orchestrator-contract", "quality"],
+  "supported_phases": ["plan", "staging", "canary", "production"],
+  "artifact_policy": {
+    "minimum_images": 5,
+    "maximum_images": 5,
+    "image_repositories": [
+      "ghcr.io/appolon1908-hue/breero-api",
+      "ghcr.io/appolon1908-hue/breero-frontend",
+      "ghcr.io/appolon1908-hue/breero-partner",
+      "ghcr.io/appolon1908-hue/breero-ops",
+      "ghcr.io/appolon1908-hue/breero-admin"
+    ],
+    "require_digest": true,
+    "allow_rebuild_after_staging": false,
+    "allow_retag_after_staging": false,
+    "require_sbom": true,
+    "require_provenance": true,
+    "require_signature": false,
+    "attestation_verifier": "github",
+    "attestation_storage": "github",
+    "signer_workflow": ".github/workflows/release-images.yml"
+  },
+  "environments": {
+    "staging": "staging-readonly",
+    "canary": "production-readonly-canary",
+    "production": "production"
+  },
+  "native_workflows": {
+    "backend_quality": ".github/workflows/backend-production.yml",
+    "frontend_quality": ".github/workflows/frontend-production.yml",
+    "release_images": ".github/workflows/release-images.yml"
+  },
+  "safety": {
+    "external_effects_default": false,
+    "live_email_delivery": false,
+    "live_sms_delivery": false,
+    "live_pstn_dialing": false,
+    "odoo_write": false,
+    "n8n_external_delivery": false,
+    "live_trading": false,
+    "payment_execution": false
+  },
+  "blockers": [
+    "Three immutable release images and their complete supply-chain evidence must be produced before candidate admission."
+  ]
+}

@@ -1,8 +1,10 @@
+import enum
 import uuid
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
 
-from app.domains.auth.models import UserRole
+from app.domains.auth.models import AccessRole, Department, TenantScope, UserRole
 
 
 class RegisterRequest(BaseModel):
@@ -22,6 +24,10 @@ class RefreshRequest(BaseModel):
 
 class TokenRequest(BaseModel):
     token: str = Field(min_length=32, max_length=512)
+
+
+class SetPasswordRequest(TokenRequest):
+    password: str = Field(min_length=10, max_length=128)
 
 
 class ForgotPasswordRequest(BaseModel):
@@ -58,3 +64,86 @@ class TokenResponse(BaseModel):
 
 class MessageResponse(BaseModel):
     message: str
+
+
+class AccessAssignmentInput(BaseModel):
+    role: AccessRole
+    department: Department
+    tenant_scope: TenantScope = TenantScope.brand
+    vendor_id: uuid.UUID | None = None
+    is_primary: bool = False
+
+    @model_validator(mode="after")
+    def validate_vendor_scope(self):
+        if self.tenant_scope == TenantScope.vendor and self.vendor_id is None:
+            raise ValueError("vendor_id is required for vendor-scoped access")
+        if self.tenant_scope != TenantScope.vendor and self.vendor_id is not None:
+            raise ValueError("vendor_id is only valid for vendor-scoped access")
+        return self
+
+
+class AccessProfileUpdate(BaseModel):
+    brand_key: str = Field(
+        default="breero",
+        min_length=1,
+        max_length=64,
+        pattern=r"^[a-z0-9_-]+$",
+    )
+    assignments: list[AccessAssignmentInput] = Field(max_length=32)
+
+    @model_validator(mode="after")
+    def one_primary_assignment(self):
+        if sum(assignment.is_primary for assignment in self.assignments) > 1:
+            raise ValueError("only one primary access assignment is allowed")
+        unique = {(item.role, item.department) for item in self.assignments}
+        if len(unique) != len(self.assignments):
+            raise ValueError("duplicate role and department assignment")
+        return self
+
+
+class AccessAssignmentRead(BaseModel):
+    role: AccessRole
+    department: Department
+    tenant_scope: TenantScope
+    vendor_id: uuid.UUID | None = None
+    is_primary: bool = False
+
+
+class PortalContext(BaseModel):
+    user: UserRead
+    brand_key: str
+    dashboard_path: str
+    roles: list[AccessRole]
+    departments: list[Department]
+    permissions: list[str]
+    assignments: list[AccessAssignmentRead]
+    identity_mode: str
+
+
+class InternalAccountRole(enum.StrEnum):
+    BREERO_SUPPORT = "BREERO_SUPPORT"
+    BREERO_DISPATCH = "BREERO_DISPATCH"
+    BREERO_ADMIN = "BREERO_ADMIN"
+
+
+class InternalUserProvisionRequest(BaseModel):
+    email: EmailStr
+    full_name: str = Field(min_length=1, max_length=160)
+    role: InternalAccountRole
+    brand_key: str = Field(
+        default="breero",
+        min_length=1,
+        max_length=64,
+        pattern=r"^[a-z0-9_-]+$",
+    )
+
+
+class InternalUserProvisionResponse(BaseModel):
+    user: UserRead
+    access: PortalContext
+    credential_mode: Literal["keycloak", "invitation"]
+    invitation_state: Literal[
+        "not_required",
+        "pending_configuration",
+        "pending_delivery",
+    ]
