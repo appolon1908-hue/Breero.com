@@ -2,7 +2,7 @@ import uuid
 from collections.abc import Callable
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,10 +12,13 @@ from app.db.session import get_db
 from app.domains.auth.access_service import AccessService
 from app.domains.auth.models import AccessRole, IdentityLink, User, UserRole
 from app.domains.auth.repository import UserRepository
+from app.domains.auth.schemas import PortalContext
 from app.domains.auth.security import decode_access_token
 
 bearer = HTTPBearer(auto_error=False)
 BRAND_KEY = "breero"
+ACCESS_CONTEXT_CACHE_ATTR = "_breero_access_context_cache"
+AccessContextCacheKey = tuple[uuid.UUID, int, str]
 
 EFFECTIVE_ROLES_BY_LEGACY_ROLE: dict[UserRole, frozenset[AccessRole]] = {
     UserRole.customer: frozenset({AccessRole.customer}),
@@ -109,6 +112,38 @@ async def current_user(
     return user
 
 
+async def resolve_access_context(
+    request: Request,
+    user: User,
+    session: AsyncSession,
+    brand_key: str = BRAND_KEY,
+) -> PortalContext:
+    """Resolve an effective access context at most once per user/version/brand request key."""
+
+    cache: dict[AccessContextCacheKey, PortalContext] | None = getattr(
+        request.state,
+        ACCESS_CONTEXT_CACHE_ATTR,
+        None,
+    )
+    if cache is None:
+        cache = {}
+        setattr(request.state, ACCESS_CONTEXT_CACHE_ATTR, cache)
+    key = (user.id, user.credential_version, brand_key)
+    context = cache.get(key)
+    if context is None:
+        context = await AccessService(session).context(user, brand_key)
+        cache[key] = context
+    return context
+
+
+async def current_access_context(
+    request: Request,
+    user: Annotated[User, Depends(current_user)],
+    session: Annotated[AsyncSession, Depends(get_db)],
+) -> PortalContext:
+    return await resolve_access_context(request, user, session)
+
+
 def require_roles(*roles: UserRole) -> Callable:
     allowed_roles = frozenset(
         access_role
@@ -118,9 +153,8 @@ def require_roles(*roles: UserRole) -> Callable:
 
     async def dependency(
         user: Annotated[User, Depends(current_user)],
-        session: Annotated[AsyncSession, Depends(get_db)],
+        context: Annotated[PortalContext, Depends(current_access_context)],
     ) -> User:
-        context = await AccessService(session).context(user, BRAND_KEY)
         if not allowed_roles.intersection(context.roles):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions"
@@ -130,18 +164,39 @@ def require_roles(*roles: UserRole) -> Callable:
     return dependency
 
 
-def require_permissions(*permissions: str) -> Callable:
-    required = frozenset(permission.strip() for permission in permissions if permission.strip())
-    if not required:
+def _normalized_permissions(permissions: tuple[str, ...]) -> frozenset[str]:
+    normalized = frozenset(permission.strip() for permission in permissions if permission.strip())
+    if not normalized:
         raise ValueError("At least one permission is required")
+    return normalized
+
+
+def require_permissions(*permissions: str) -> Callable:
+    required = _normalized_permissions(permissions)
 
     async def dependency(
         user: Annotated[User, Depends(current_user)],
-        session: Annotated[AsyncSession, Depends(get_db)],
+        context: Annotated[PortalContext, Depends(current_access_context)],
     ) -> User:
-        context = await AccessService(session).context(user, BRAND_KEY)
         effective = set(context.permissions)
         if "*" not in effective and not required.issubset(effective):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions"
+            )
+        return user
+
+    return dependency
+
+
+def require_any_permission(*permissions: str) -> Callable:
+    required = _normalized_permissions(permissions)
+
+    async def dependency(
+        user: Annotated[User, Depends(current_user)],
+        context: Annotated[PortalContext, Depends(current_access_context)],
+    ) -> User:
+        effective = set(context.permissions)
+        if "*" not in effective and effective.isdisjoint(required):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions"
             )
