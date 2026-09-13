@@ -161,6 +161,7 @@ def validate_backend(document: dict[str, Any]) -> list[str]:
     services = document.get("services") or {}
     require(isinstance(services, dict), "Backend Compose must define services")
     required = {"migrate", "api", "worker", "scheduler", "postgres", "redis"}
+    require(set(services) <= required, "Backend Compose contains unapproved services")
     missing = sorted(required - set(services))
     require(not missing, f"Backend Compose is missing services: {', '.join(missing)}")
 

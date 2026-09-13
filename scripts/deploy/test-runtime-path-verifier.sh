@@ -169,6 +169,10 @@ services["api"] = {
     "image": api_image,
     "networks": {"breero_private": None, "caddy_shared": None},
 }
+for name in ("api", "worker", "scheduler", "migrate"):
+    bindings = {"DATABASE_URL_FILE": "breero_database_url", "REDIS_URL_FILE": "breero_redis_url", "JWT_SECRET_FILE": "breero_jwt_access_secret", "JWT_REFRESH_SECRET_FILE": "breero_jwt_refresh_secret"}
+    services[name]["environment"] = {key: "/run/secrets/" + value for key, value in bindings.items()}
+    services[name]["secrets"] = [{"source": value, "target": value} for value in bindings.values()]
 backend = {
     "services": services,
     "networks": {

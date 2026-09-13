@@ -72,11 +72,13 @@ def validate_compose_bindings(
 
     for name in ("migrate", "api", "worker", "scheduler", "postgres", "redis"):
         require(name in backend_services, f"backend service is missing: {name}")
-    require("web" in frontend_services, "frontend web service is missing")
+    require(set(backend_services) == {"migrate", "api", "worker", "scheduler", "postgres", "redis"}, "unapproved backend services")
+    require(set(frontend_services) == {"web"}, "frontend must contain only web")
 
     api = mapping(backend_services["api"], "backend api service")
     web = mapping(frontend_services["web"], "frontend web service")
-    require(api.get("image") == args.expected_api_image, "rendered API image does not match the approved digest")
+    for name in ("api", "worker", "scheduler", "migrate"):
+        require(backend_services[name].get("image") == args.expected_api_image, f"rendered {name} image does not match the approved digest")
     require(web.get("image") == args.expected_frontend_image, "rendered frontend image does not match the approved digest")
 
     require(
@@ -119,6 +121,20 @@ def validate_compose_bindings(
         require(mode & 0o007 == 0, f"secret {logical_name} is world-accessible")
         verified_paths.append(resolved)
 
+    for name in ("api", "worker", "scheduler", "migrate"):
+        service = backend_services[name]
+        mounts = service.get("secrets") or []
+        require(isinstance(mounts, list), f"{name} requires rendered secret mounts")
+        targets = {}
+        for mount in mounts:
+            source = mount if isinstance(mount, str) else mount.get("source")
+            target = source if isinstance(mount, str) else mount.get("target", source)
+            require(source in secret_definitions, f"{name} uses an unverified secret")
+            targets[target if str(target).startswith("/") else "/run/secrets/" + str(target)] = source
+        env = service.get("environment") or {}
+        require(isinstance(env, dict), f"{name} environment must be rendered")
+        for variable in ("DATABASE_URL_FILE", "REDIS_URL_FILE", "JWT_SECRET_FILE", "JWT_REFRESH_SECRET_FILE"):
+            require(env.get(variable) in targets, f"{name} {variable} does not consume a verified secret")
     return sorted(set(verified_paths))
 
 
@@ -131,6 +147,7 @@ def route_allows_host(route: Mapping[str, Any], host: str) -> bool:
     require(isinstance(matchers, list), "Caddy route match must be a list")
     for matcher in matchers:
         require(isinstance(matcher, dict), "Caddy route matcher must be an object")
+        require("not" not in matcher, "Negated Caddy matchers require explicit routing review")
         configured_hosts = matcher.get("host")
         if configured_hosts is None:
             return True

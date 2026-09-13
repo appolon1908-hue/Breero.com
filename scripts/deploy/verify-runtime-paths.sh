@@ -195,13 +195,13 @@ assert_not_world_accessible "${cfg[BACKEND_ENV_PATH]}" BACKEND_ENV_PATH
 assert_not_world_accessible "${cfg[FRONTEND_ENV_PATH]}" FRONTEND_ENV_PATH
 
 if ! backend_json="$(
-  docker compose --profile migration --env-file "${cfg[BACKEND_ENV_PATH]}" \
+  BREERO_ENV_FILE="${cfg[BACKEND_ENV_PATH]}" docker compose --profile migration --env-file "${cfg[BACKEND_ENV_PATH]}" \
     -f "${cfg[BACKEND_COMPOSE_PATH]}" config --format json
 )"; then
   fail "backend migration-profile Compose rendering failed"
 fi
 if ! frontend_json="$(
-  docker compose --env-file "${cfg[FRONTEND_ENV_PATH]}" \
+  BREERO_FRONTEND_ENV_FILE="${cfg[FRONTEND_ENV_PATH]}" docker compose --env-file "${cfg[FRONTEND_ENV_PATH]}" \
     -f "${cfg[FRONTEND_COMPOSE_PATH]}" config --format json
 )"; then
   fail "frontend Compose rendering failed"
@@ -213,7 +213,7 @@ fi
 
 if ! runtime_evidence="$(
   printf '%s\0%s\0%s' "$backend_json" "$frontend_json" "$adapted_caddy" \
-    | python3 "$validator_path" \
+    | python3 -I -S "$validator_path" \
         --expected-api-image="${cfg[EXPECTED_API_IMAGE]}" \
         --expected-frontend-image="${cfg[EXPECTED_FRONTEND_IMAGE]}" \
         --expected-private-network="${cfg[EXPECTED_PRIVATE_NETWORK]}" \
