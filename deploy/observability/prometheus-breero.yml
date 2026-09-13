@@ -1,0 +1,15 @@
+scrape_configs:
+  - job_name: breero-api
+    scheme: http
+    metrics_path: /metrics
+    scrape_interval: 15s
+    scrape_timeout: 5s
+    static_configs:
+      - targets: ["api:8000"]
+        labels:
+          product: breero
+          environment: production
+    metric_relabel_configs:
+      - source_labels: [route]
+        regex: ".*@.*|.*[0-9a-fA-F]{8}-[0-9a-fA-F-]{27,}.*"
+        action: drop
