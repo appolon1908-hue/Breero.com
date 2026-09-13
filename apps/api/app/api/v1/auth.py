@@ -49,8 +49,8 @@ def client(request: Request) -> tuple[str | None, str | None]:
     return request.headers.get("user-agent"), request.client.host if request.client else None
 
 
-def require_local_password_auth() -> None:
-    if not settings.breero_local_password_auth:
+def local_auth_only() -> None:
+    if settings.keycloak_enabled or not settings.breero_local_password_auth:
         raise HTTPException(403, "Password authentication is managed by the identity provider")
 
 
@@ -105,7 +105,7 @@ async def login(
     session: Annotated[AsyncSession, Depends(get_db)],
     _: Annotated[None, Depends(rate_limit("login", 10, 60))],
 ) -> TokenResponse:
-    require_local_password_auth()
+    local_auth_only()
     return await AuthService(session).login(data, *client(request))
 
 
@@ -134,7 +134,7 @@ async def forgot(
     session: Annotated[AsyncSession, Depends(get_db)],
     _: Annotated[None, Depends(rate_limit("password-forgot", 5, 300))],
 ) -> MessageResponse:
-    require_local_password_auth()
+    local_auth_only()
     await AuthService(session).forgot_password(str(data.email))
     return MessageResponse(message="If the account exists, reset instructions have been sent")
 
@@ -145,7 +145,7 @@ async def reset(
     session: Annotated[AsyncSession, Depends(get_db)],
     _: Annotated[None, Depends(rate_limit("password-reset", 10, 300))],
 ) -> MessageResponse:
-    require_local_password_auth()
+    local_auth_only()
     await AuthService(session).reset_password(data.token, data.new_password)
     return MessageResponse(message="Password reset")
 
@@ -156,7 +156,7 @@ async def change(
     user: Annotated[User, Depends(current_user)],
     session: Annotated[AsyncSession, Depends(get_db)],
 ) -> MessageResponse:
-    require_local_password_auth()
+    local_auth_only()
     await AuthService(session).change_password(user, data.current_password, data.new_password)
     return MessageResponse(message="Password changed; active sessions revoked")
 
@@ -167,7 +167,7 @@ async def set_password(
     user: Annotated[User, Depends(current_user)],
     session: Annotated[AsyncSession, Depends(get_db)],
 ) -> MessageResponse:
-    require_local_password_auth()
+    local_auth_only()
     await AuthService(session).set_initial_password(user, data.new_password)
     return MessageResponse(message="Password set; active sessions revoked")
 
@@ -180,7 +180,7 @@ async def browser_set_password(
     user: Annotated[User, Depends(current_user)],
     session: Annotated[AsyncSession, Depends(get_db)],
 ) -> BrowserSessionResponse:
-    require_local_password_auth()
+    local_auth_only()
     """Complete an auto-created account without leaving a revoked browser session."""
     service = AuthService(session)
     await service.set_initial_password(user, data.new_password)
@@ -235,7 +235,7 @@ async def browser_login(
     session: Annotated[AsyncSession, Depends(get_db)],
     _: Annotated[None, Depends(rate_limit("browser-login", 10, 60))],
 ) -> BrowserSessionResponse:
-    require_local_password_auth()
+    local_auth_only()
     tokens = await AuthService(session).login(data, *client(request))
     set_browser_session(response, tokens)
     return BrowserSessionResponse(user=tokens.user)

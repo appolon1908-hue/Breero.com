@@ -62,7 +62,8 @@ if settings.scheduling_enabled:
     api_router.include_router(availability.router, prefix="/availability", tags=["availability"])
     api_router.include_router(bookings.router, prefix="/bookings", tags=["bookings"])
     api_router.include_router(booking_intents.router, prefix="/booking", tags=["booking-intents"])
-api_router.include_router(public_booking.router, prefix="/booking", tags=["public-booking"])
+if settings.public_booking_api_enabled:
+    api_router.include_router(public_booking.router, prefix="/booking", tags=["public-booking"])
 if settings.payments_enabled and settings.stripe_enabled:
     api_router.include_router(payments.router, prefix="/payments", tags=["payments"])
     api_router.include_router(

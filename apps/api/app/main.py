@@ -1,3 +1,4 @@
+import re
 import time
 import uuid
 
@@ -6,52 +7,97 @@ import structlog
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
+from starlette.responses import JSONResponse
 
 from app.api.internal_odoo import router as internal_odoo_router
-from app.api.v1.router import api_router
+from app.api.v1.router import api_router as api_v1_router
+from app.api.v2.router import api_router as api_v2_router
 from app.config import settings
-from app.core.errors import install_error_handlers
+from app.core.errors import (
+    install_error_handlers,
+    is_v2_request,
+    v2_unexpected_error_response,
+)
 from app.db.session import engine
 from app.domains.auth.browser_session import ACCESS_COOKIE, validate_csrf
+from app.observability import (
+    configure_logging,
+    configure_tracing,
+    metrics_response,
+    observability_settings,
+    record_dependency,
+    record_http_request,
+    route_template,
+)
 
 EXPECTED_SCHEMA_REVISION = "031_provider_catalog"
+TRACE_ID_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}")
+app = FastAPI(title=settings.app_name, version="2.0.0")
+configure_logging()
 logger = structlog.get_logger()
-app = FastAPI(title=settings.app_name, version="1.0.0")
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.allowed_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 install_error_handlers(app)
-app.include_router(api_router, prefix=settings.api_v1_prefix)
+app.include_router(api_v1_router, prefix=settings.api_v1_prefix)
+app.include_router(api_v2_router, prefix="/api/v2")
 app.include_router(internal_odoo_router)
+if settings.metrics_enabled:
+    app.add_api_route(
+        observability_settings.metrics_path,
+        metrics_response,
+        methods=["GET"],
+        include_in_schema=False,
+        tags=["observability"],
+    )
+
+
+def _trace_id(value: str | None) -> str | None:
+    if value is not None and TRACE_ID_PATTERN.fullmatch(value):
+        return value
+    return None
 
 
 @app.middleware("http")
 async def request_context(request: Request, call_next):
-    request_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
-    correlation_id = request.headers.get("X-Correlation-ID", request_id)
+    request_id = _trace_id(request.headers.get("X-Request-ID")) or str(uuid.uuid4())
+    correlation_id = _trace_id(request.headers.get("X-Correlation-ID")) or request_id
     request.state.request_id = request_id
     request.state.correlation_id = correlation_id
     started = time.perf_counter()
-    if (
-        request.method not in {"GET", "HEAD", "OPTIONS"}
-        and request.cookies.get(ACCESS_COOKIE)
-        and request.url.path not in {
-            "/api/v1/auth/browser/login",
-            "/api/v1/auth/browser/register/client",
-            "/api/v1/auth/browser/register/provider",
-        }
-    ):
-        validate_csrf(request)
+    status_code = 500
     try:
-        response = await call_next(request)
+        if (
+            request.method not in {"GET", "HEAD", "OPTIONS"}
+            and request.cookies.get(ACCESS_COOKIE)
+            and request.url.path not in {
+                "/api/v1/auth/browser/login",
+                "/api/v1/auth/browser/register/client",
+                "/api/v1/auth/browser/register/provider",
+            }
+        ):
+            try:
+                validate_csrf(request)
+            except HTTPException as exc:
+                response = JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+            else:
+                response = await call_next(request)
+        else:
+            response = await call_next(request)
+        status_code = response.status_code
     except Exception:
-        logger.exception("request_failed", request_id=request_id, method=request.method, path=request.url.path)
-        raise
-    duration_ms = round((time.perf_counter() - started) * 1000, 2)
+        logger.exception(
+            "request_failed",
+            request_id=request_id,
+            correlation_id=correlation_id,
+            method=request.method,
+            route=route_template(request),
+        )
+        if not is_v2_request(request):
+            raise
+        response = v2_unexpected_error_response(request)
+        status_code = response.status_code
+    finally:
+        duration_seconds = time.perf_counter() - started
+        record_http_request(request, status_code, duration_seconds)
+    duration_ms = round(duration_seconds * 1000, 2)
     response.headers["X-Request-ID"] = request_id
     response.headers["X-Correlation-ID"] = correlation_id
     response.headers["X-Content-Type-Options"] = "nosniff"
@@ -63,11 +109,21 @@ async def request_context(request: Request, call_next):
         request_id=request_id,
         correlation_id=correlation_id,
         method=request.method,
-        path=request.url.path,
-        status=response.status_code,
+        route=route_template(request),
+        status=status_code,
         duration=duration_ms,
     )
     return response
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.allowed_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["X-Request-ID", "X-Correlation-ID", "ETag"],
+)
 
 
 @app.get("/health", tags=["health"])
@@ -88,15 +144,30 @@ async def ready() -> dict[str, str]:
             revision = await connection.scalar(text("SELECT version_num FROM alembic_version"))
             checks["postgres"] = "ok"
             checks["schema"] = "ok" if revision == EXPECTED_SCHEMA_REVISION else "outdated"
-        client = redis.from_url(settings.redis_url, socket_connect_timeout=1, socket_timeout=1)
-        try:
-            await client.ping()
-            checks["redis"] = "ok"
-        finally:
-            await client.aclose()
+        record_dependency("postgres", True)
+        record_dependency("schema", checks["schema"] == "ok")
     except Exception as exc:
-        logger.warning("readiness_failed", error=type(exc).__name__)
+        record_dependency("postgres", False)
+        record_dependency("schema", False)
+        logger.warning("readiness_failed", dependency="postgres", error=type(exc).__name__)
         raise HTTPException(503, "dependency unavailable") from exc
+
+    client = redis.from_url(settings.redis_url, socket_connect_timeout=1, socket_timeout=1)
+    try:
+        await client.ping()
+        checks["redis"] = "ok"
+        record_dependency("redis", True)
+    except Exception as exc:
+        record_dependency("redis", False)
+        logger.warning("readiness_failed", dependency="redis", error=type(exc).__name__)
+        raise HTTPException(503, "dependency unavailable") from exc
+    finally:
+        await client.aclose()
+
     if checks.get("schema") != "ok":
         raise HTTPException(503, detail={"status": "not_ready", "checks": checks})
     return {"status": "ready", **checks}
+
+
+# Add tracing last so its middleware surrounds request logging and supplies trace IDs.
+configure_tracing(app)

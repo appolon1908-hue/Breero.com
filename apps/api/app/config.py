@@ -1,23 +1,28 @@
 from functools import lru_cache
-from pathlib import Path
+from typing import Literal
 
-from pydantic import model_validator
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from .secret_files import apply_secret_files
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore", hide_input_in_errors=True)
 
-    app_env: str = "development"
+    # Require an explicit environment so typos or omission cannot skip release checks.
+    app_env: Literal["development", "test", "staging", "production"]
     app_name: str = "BREERO API"
     api_v1_prefix: str = "/api/v1"
-    database_url: str = "postgresql+psycopg://breero:breero@postgres:5432/breero"
+    database_url: str = Field(
+        default="postgresql+psycopg://breero:breero@postgres:5432/breero", repr=False
+    )
     database_url_file: str = ""
-    redis_url: str = "redis://redis:6379/0"
+    redis_url: str = Field(default="redis://redis:6379/0", repr=False)
     redis_url_file: str = ""
-    jwt_secret: str = "development-only-change-me"
+    jwt_secret: str = Field(default="development-only-change-me", repr=False)
     jwt_secret_file: str = ""
-    jwt_refresh_secret: str = "development-only-change-me-too"
+    jwt_refresh_secret: str = Field(default="development-only-change-me-too", repr=False)
     jwt_refresh_secret_file: str = ""
     jwt_algorithm: str = "HS256"
     keycloak_enabled: bool = False
@@ -25,23 +30,23 @@ class Settings(BaseSettings):
     keycloak_issuer: str = ""
     keycloak_audience: str = "breero-api"
     keycloak_client_id: str = "breero-client-web"
-    keycloak_client_secret: str = ""
+    keycloak_client_secret: str = Field(default="", repr=False)
     keycloak_client_secret_file: str = ""
     keycloak_redirect_uri: str = ""
     breero_web_url: str = "https://breero.com"
     breero_provider_web_url: str = "https://provider.breero.com"
     breero_admin_web_url: str = "https://admin.breero.com"
     keycloak_provisioner_client_id: str = "breero-provisioner"
-    keycloak_provisioner_client_secret: str = ""
+    keycloak_provisioner_client_secret: str = Field(default="", repr=False)
     keycloak_provisioner_client_secret_file: str = ""
     keycloak_provisioning_enabled: bool = False
     access_token_minutes: int = 30
     refresh_token_days: int = 30
-    stripe_secret_key: str = ""
+    stripe_secret_key: str = Field(default="", repr=False)
     stripe_secret_key_file: str = ""
-    stripe_webhook_secret: str = ""
+    stripe_webhook_secret: str = Field(default="", repr=False)
     stripe_webhook_secret_file: str = ""
-    stripe_publishable_key: str = ""
+    stripe_publishable_key: str = Field(default="", repr=False)
     stripe_publishable_key_file: str = ""
     stripe_enabled: bool = False
     payments_enabled: bool = False
@@ -70,14 +75,16 @@ class Settings(BaseSettings):
     transactional_sms_mode: str = "controlled_canary"
     marketing_email_enabled: bool = False
     marketing_sms_enabled: bool = False
-    geocoding_api_key: str = ""
+    geocoding_api_key: str = Field(default="", repr=False)
     geocoding_api_key_file: str = ""
     geocoding_provider: str = "geoapify"
     geocoding_enabled: bool = False
     odoo_url: str = ""
     odoo_database: str = ""
     odoo_username: str = ""
-    odoo_api_key: str = ""
+    odoo_api_key: str = Field(default="", repr=False)
+    # Retained only to reject legacy direct-Odoo configuration without reading it.
+    odoo_api_key_file: str = ""
     odoo_enabled: bool = False
     middleware_enabled: bool = False
     middleware_url: str = ""
@@ -90,18 +97,21 @@ class Settings(BaseSettings):
     middleware_audience: str = ""
     middleware_tenant: str = ""
     middleware_scope: str = "breero.crm.events.submit"
-    payout_api_key: str = ""
+    payout_api_key: str = Field(default="", repr=False)
+    payout_api_key_file: str = ""
     metrics_enabled: bool = True
     payout_provider: str = ""
     payout_enabled: bool = False
     smtp_host: str = ""
     smtp_port: int = 587
     smtp_username: str = ""
-    smtp_password: str = ""
+    smtp_password: str = Field(default="", repr=False)
+    smtp_password_file: str = ""
     smtp_from_email: str = ""
     email_enabled: bool = False
     sms_provider: str = ""
-    sms_api_key: str = ""
+    sms_api_key: str = Field(default="", repr=False)
+    sms_api_key_file: str = ""
     sms_enabled: bool = False
     cors_origins: str = (
         "http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:3003"
@@ -113,31 +123,27 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_production(self) -> "Settings":
-        secret_bindings = (
-            ("database_url", "database_url_file"),
-            ("redis_url", "redis_url_file"),
-            ("jwt_secret", "jwt_secret_file"),
-            ("jwt_refresh_secret", "jwt_refresh_secret_file"),
-            ("keycloak_client_secret", "keycloak_client_secret_file"),
-            ("keycloak_provisioner_client_secret", "keycloak_provisioner_client_secret_file"),
-            ("stripe_secret_key", "stripe_secret_key_file"),
-            ("stripe_webhook_secret", "stripe_webhook_secret_file"),
-            ("stripe_publishable_key", "stripe_publishable_key_file"),
-            ("geocoding_api_key", "geocoding_api_key_file"),
+        if self.odoo_enabled or self.odoo_api_key or self.odoo_api_key_file:
+            raise ValueError("Direct Odoo credentials and delivery are prohibited; use Middleware")
+
+        apply_secret_files(
+            self,
+            (
+                "database_url",
+                "redis_url",
+                "jwt_secret",
+                "jwt_refresh_secret",
+                "keycloak_client_secret",
+                "keycloak_provisioner_client_secret",
+                "stripe_secret_key",
+                "stripe_webhook_secret",
+                "stripe_publishable_key",
+                "geocoding_api_key",
+                "payout_api_key",
+                "smtp_password",
+                "sms_api_key",
+            ),
         )
-        for value_name, file_name in secret_bindings:
-            value = getattr(self, value_name)
-            path = getattr(self, file_name)
-            if value and path and value_name in self.model_fields_set:
-                raise ValueError(f"configure only one of {value_name.upper()} or {file_name.upper()}")
-            if path:
-                try:
-                    resolved = Path(path).read_text(encoding="ascii").strip()
-                except (OSError, UnicodeError) as exc:
-                    raise ValueError(f"cannot read configured secret file for {value_name.upper()}") from exc
-                if not resolved:
-                    raise ValueError(f"configured secret file for {value_name.upper()} is empty")
-                object.__setattr__(self, value_name, resolved)
 
         stripe_secret_mode = next(
             (mode for mode in ("test", "live") if self.stripe_secret_key.startswith(f"sk_{mode}_")),
@@ -155,7 +161,11 @@ class Settings(BaseSettings):
             raise ValueError("STRIPE_SECRET_KEY has an unsupported format")
         if self.stripe_publishable_key and stripe_publishable_mode is None:
             raise ValueError("STRIPE_PUBLISHABLE_KEY has an unsupported format")
-        if stripe_secret_mode and stripe_publishable_mode and stripe_secret_mode != stripe_publishable_mode:
+        if (
+            stripe_secret_mode
+            and stripe_publishable_mode
+            and stripe_secret_mode != stripe_publishable_mode
+        ):
             raise ValueError("Stripe secret and publishable keys must use the same mode")
         if self.stripe_webhook_secret and not self.stripe_webhook_secret.startswith("whsec_"):
             raise ValueError("STRIPE_WEBHOOK_SECRET has an unsupported format")
@@ -303,7 +313,9 @@ class Settings(BaseSettings):
             missing.append("non-default DATABASE_URL credentials")
         if "*" in self.allowed_origins:
             missing.append("explicit CORS_ORIGINS")
-        if not self.allowed_origins or all("localhost" in origin for origin in self.allowed_origins):
+        if not self.allowed_origins or all(
+            "localhost" in origin for origin in self.allowed_origins
+        ):
             missing.append("production CORS_ORIGINS")
         if missing:
             raise ValueError("unsafe production configuration: " + ", ".join(sorted(set(missing))))
@@ -312,7 +324,10 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()
+    # app_env has no Python-level default by design (see the field comment above) --
+    # pydantic-settings still supplies it from the environment/.env file at runtime,
+    # but mypy's call-arg check doesn't know that, hence the ignore.
+    return Settings()  # type: ignore[call-arg]
 
 
 settings = get_settings()
