@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, useEffect, useRef, useState } from "react";
+import { type FormEvent, useEffect, useId, useRef, useState } from "react";
 import type { PublicCapabilities } from "@breero/types";
 import { intakeServices } from "@/content/services";
 import {
@@ -97,6 +97,8 @@ function submitLabel(kind: PublicSubmissionKind): string {
 }
 
 export function PublicIntakeForm({ kind }: { kind: PublicSubmissionKind }) {
+  const formRef = useRef<HTMLFormElement>(null);
+  const errorPrefix = useId();
   const needsCatalog = kind !== "contact";
   const [services, setServices] = useState<Service[]>(needsCatalog ? fallbackServices : []);
   const [catalogError, setCatalogError] = useState(false);
@@ -312,12 +314,29 @@ export function PublicIntakeForm({ kind }: { kind: PublicSubmissionKind }) {
   const capabilityReady = kind !== "service"
     || (!capabilitiesError && capabilities?.request_intake === true);
   const submitDisabled = state === "sending" || !catalogReady || !capabilityReady;
-  const fieldMessages = submissionError?.fields
-    ? Object.values(submissionError.fields).flat().slice(0, 4)
-    : [];
+  const fieldMessages = Object.entries(submissionError?.fields ?? {});
+  useEffect(() => {
+    const form = formRef.current;
+    if (!form || !submissionError?.fields) return;
+    const controls: HTMLElement[] = [];
+    Object.keys(submissionError.fields).forEach((field, index) => {
+      const control = form.elements.namedItem(field);
+      if (control instanceof HTMLElement) {
+        control.setAttribute("aria-invalid", "true");
+        control.setAttribute("aria-describedby", `${errorPrefix}-${index}`);
+        controls.push(control);
+      }
+    });
+    controls[0]?.focus();
+    return () => controls.forEach((control) => {
+      control.removeAttribute("aria-invalid");
+      control.removeAttribute("aria-describedby");
+    });
+  }, [submissionError, errorPrefix]);
 
   return (
     <form
+      ref={formRef}
       className="mk-intake"
       onSubmit={submit}
       onInput={clearTransientFeedback}
@@ -461,7 +480,7 @@ export function PublicIntakeForm({ kind }: { kind: PublicSubmissionKind }) {
               <p>Retry after approximately {submissionError.retryAfterSeconds} seconds.</p>
             )}
             {fieldMessages.length > 0 && (
-              <ul>{fieldMessages.map((message, index) => <li key={`${index}-${message}`}>{message}</li>)}</ul>
+              <ul>{fieldMessages.map(([field, messages], index) => <li id={`${errorPrefix}-${index}`} key={field}>{field.replaceAll("_", " ")}: {messages.join(". ")}</li>)}</ul>
             )}
             {reference && <p>Support reference: <strong>{reference}</strong>.</p>}
           </div>

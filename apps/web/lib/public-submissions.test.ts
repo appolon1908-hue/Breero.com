@@ -128,3 +128,14 @@ describe("public submission client", () => {
     expect(endpointForSubmission("provider")).toBe("provider-interest");
   });
 });
+
+
+it("handles inherited-name validation fields without losing the error response", async () => {
+  const result = await submissionErrorFromResponse(new Response(JSON.stringify({detail: [{loc: ["body", "constructor"], msg: "Invalid field"}]}), {status: 422}));
+  expect(result.fields?.constructor).toEqual(["Invalid field"]);
+});
+
+it("discards unsafe upstream trace identifiers", async () => {
+  const result = await submissionErrorFromResponse(new Response("{}", {status: 503, headers: {"x-correlation-id": "not a safe trace id"}}));
+  expect(result.correlationId).toBeUndefined();
+});

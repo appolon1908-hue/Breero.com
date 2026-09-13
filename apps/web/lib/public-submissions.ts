@@ -1,3 +1,5 @@
+import { safeTraceId } from "./trace-id";
+
 export type PublicSubmissionKind = "service" | "contact" | "provider";
 
 export type SubmissionAttempt = {
@@ -35,7 +37,7 @@ function canonicalize(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(canonicalize);
   if (value && typeof value === "object") {
     const record = value as Record<string, unknown>;
-    const result: Record<string, unknown> = {};
+    const result: Record<string, unknown> = Object.create(null);
     for (const key of Object.keys(record).sort()) {
       if (record[key] !== undefined) result[key] = canonicalize(record[key]);
     }
@@ -68,7 +70,7 @@ function stringValue(value: unknown): string | undefined {
 
 function fieldMap(value: unknown): Record<string, string[]> | undefined {
   if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
-  const fields: Record<string, string[]> = {};
+  const fields: Record<string, string[]> = Object.create(null);
   for (const [key, rawMessages] of Object.entries(value as Record<string, unknown>)) {
     const messages = Array.isArray(rawMessages)
       ? rawMessages.map(stringValue).filter((item): item is string => item !== undefined)
@@ -80,7 +82,7 @@ function fieldMap(value: unknown): Record<string, string[]> | undefined {
 
 function fastApiValidationFields(value: unknown): Record<string, string[]> | undefined {
   if (!Array.isArray(value)) return undefined;
-  const fields: Record<string, string[]> = {};
+  const fields: Record<string, string[]> = Object.create(null);
   for (const item of value.slice(0, 20)) {
     if (!item || typeof item !== "object" || Array.isArray(item)) continue;
     const record = item as Record<string, unknown>;
@@ -168,8 +170,8 @@ export async function submissionErrorFromResponse(response: Response): Promise<P
     fields: envelope.fields,
     retryAfterSeconds: retryAfterSeconds(response),
     correlationId:
-      response.headers.get("x-correlation-id")
-      ?? response.headers.get("x-request-id")
+      safeTraceId(response.headers.get("x-correlation-id"))
+      ?? safeTraceId(response.headers.get("x-request-id"))
       ?? undefined,
   });
 }

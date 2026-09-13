@@ -24,7 +24,7 @@ function responseHeaders(response: Response): Headers {
   const headers = new Headers();
   for (const name of FORWARDED_RESPONSE_HEADERS) {
     const value = response.headers.get(name);
-    if (value) headers.set(name, value);
+    if (value && (!name.startsWith("x-") || safeTraceId(value))) headers.set(name, value);
   }
   return headers;
 }
