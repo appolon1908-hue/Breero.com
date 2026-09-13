@@ -107,7 +107,7 @@ async def operations_overview(
 @router.get("/admin/overview", response_model=AdminOverview)
 async def admin_overview(
     session: AsyncSession = Depends(get_db),
-    _: User = Depends(require_permissions("admin.capabilities.read")),
+    _: User = Depends(require_permissions("admin.capabilities.read", "admin.audit.read")),
 ) -> AdminOverview:
     return await PortalReadService(session).admin_overview()
 

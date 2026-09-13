@@ -17,6 +17,7 @@ from app.domains.integrations.schemas import IntegrationConfigRead, IntegrationO
 router = APIRouter()
 
 FAILURE_STATUSES = (
+    EventStatus.PENDING_CONFIGURATION,
     EventStatus.FAILED_TERMINAL,
     EventStatus.FAILED,
     EventStatus.DEAD_LETTER,
