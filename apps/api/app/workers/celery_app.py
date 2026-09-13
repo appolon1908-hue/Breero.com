@@ -2,8 +2,19 @@ from collections.abc import Mapping
 from typing import Any
 
 from celery import Celery
+from celery.signals import heartbeat_sent, worker_ready
 
 from app.config import settings
+from app.observability import configure_worker_observability, record_worker_heartbeat
+
+configure_worker_observability()
+
+
+@heartbeat_sent.connect
+@worker_ready.connect
+def _worker_heartbeat(**_kwargs) -> None:
+    record_worker_heartbeat()
+
 
 EXPECTED_BEAT_TASKS = frozenset(
     {
@@ -20,7 +31,10 @@ celery_app.conf.update(
     result_serializer="json",
     accept_content=["json"],
     task_acks_late=True,
+    task_track_started=True,
     worker_prefetch_multiplier=1,
+    worker_send_task_events=True,
+    task_send_sent_event=True,
     timezone="UTC",
     imports=("app.workers.tasks",),
     beat_schedule={
