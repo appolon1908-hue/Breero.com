@@ -150,6 +150,7 @@ class ProviderRegistrationService:
             )
             deliverable = (
                 settings.email_enabled
+                and settings.live_email_delivery
                 and settings.transactional_email_mode != "disabled"
             )
             self.session.add(
