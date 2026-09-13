@@ -52,8 +52,8 @@ def test_geography_migration_downgrade_and_reupgrade() -> None:
             )
         )
     try:
-        _alembic(target_url, "upgrade", "020_booking_intents")
-        _alembic(target_url, "upgrade", "021_geography_service_zones")
+        _alembic(target_url, "upgrade", "029_booking_intents")
+        _alembic(target_url, "upgrade", "030_geography_service_zones")
         with psycopg.connect(
             **{**admin_kwargs, "dbname": database_name}
         ) as connection:
@@ -92,7 +92,7 @@ def test_geography_migration_downgrade_and_reupgrade() -> None:
                 "validation_confidence",
             } <= columns
 
-        _alembic(target_url, "downgrade", "020_booking_intents")
+        _alembic(target_url, "downgrade", "029_booking_intents")
         with psycopg.connect(
             **{**admin_kwargs, "dbname": database_name}
         ) as connection:
@@ -122,14 +122,14 @@ def test_geography_migration_downgrade_and_reupgrade() -> None:
             }
             assert "postal_code_plus4" not in address_columns
 
-        _alembic(target_url, "upgrade", "021_geography_service_zones")
+        _alembic(target_url, "upgrade", "030_geography_service_zones")
         with psycopg.connect(
             **{**admin_kwargs, "dbname": database_name}
         ) as connection:
             revision = connection.execute(
                 "SELECT version_num FROM alembic_version"
             ).fetchone()
-            assert revision and revision[0] == "021_geography_service_zones"
+            assert revision and revision[0] == "030_geography_service_zones"
     finally:
         with psycopg.connect(**admin_kwargs, autocommit=True) as admin:
             admin.execute(
