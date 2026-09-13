@@ -12,10 +12,7 @@ from app.domains.public_submissions.consent import (
 )
 from app.domains.public_submissions.models import PublicSubmission, SubmissionType
 from app.domains.public_submissions.schemas import ContactCreate
-from app.domains.public_submissions.service import (
-    CONTACT_PERMISSION_DISCLOSURE,
-    PublicSubmissionService,
-)
+from app.domains.public_submissions.service import PublicSubmissionService
 
 
 @pytest.mark.asyncio
@@ -56,7 +53,7 @@ async def test_public_submission_persists_server_owned_consent_text(monkeypatch)
     ]
     assert submission.payload["policy_version"] == DEFAULT_CONSENT_POLICY_VERSION
     assert submission.payload["consent_disclosures"] == {
-        "transactional_contact": CONTACT_PERMISSION_DISCLOSURE,
+        "transactional_contact": CONSENT_DISCLOSURES_BY_POLICY[DEFAULT_CONSENT_POLICY_VERSION]["transactional_contact"],
         "transactional_sms": expected_sms,
     }
     assert submission.payload["client_consent_disclosures"] == {

@@ -40,6 +40,7 @@ def test_text_preference_requires_transactional_sms_consent() -> None:
         contact_preference="text",
         source_url="https://breero.com/request-service",
         transactional_contact_allowed=True,
+        policy_version=DEFAULT_CONSENT_POLICY_VERSION,
     )
 
     with pytest.raises(DomainError) as exc_info:

@@ -7,7 +7,6 @@ from app.domains.public_submissions.consent import (
 )
 from app.domains.public_submissions.schemas import ContactCreate
 
-
 BASE_CONTACT = {
     "name": "Consent Customer",
     "email": "consent@example.com",
@@ -89,3 +88,9 @@ def test_no_optional_channel_consent_does_not_require_client_disclosures() -> No
 def test_canonical_disclosure_registry_rejects_unknown_versions() -> None:
     with pytest.raises(ValueError, match="Unsupported consent policy"):
         canonical_disclosures({}, "unknown-policy")
+
+
+def test_padded_policy_version_is_rejected_before_persistence() -> None:
+    payload = {**BASE_CONTACT, "policy_version": " " + DEFAULT_CONSENT_POLICY_VERSION}
+    with pytest.raises(ValidationError, match="not supported"):
+        ContactCreate(**payload)
