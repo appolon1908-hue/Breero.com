@@ -1,7 +1,11 @@
+import pytest
+from fastapi import FastAPI
+
 from app.api.policy_registry import (
     DOCUMENTATION_PATHS,
     OPENAPI_METHODS,
     POLICY_RULES,
+    build_endpoint_policies,
     get_endpoint_registry,
     iter_api_route_contexts,
 )
@@ -79,6 +83,9 @@ def test_openapi_operations_embed_the_registry_policy() -> None:
     assert schema["x-breero-endpoint-registry-digest"] == document["digest"]
 
     for entry in document["endpoints"]:
+        if entry["path"] == "/metrics":
+            assert entry["path"] not in schema["paths"]
+            continue
         operation = schema["paths"][entry["path"]][entry["method"].lower()]
         method_policies = operation["x-breero-policy"]
         embedded = method_policies[entry["method"]]
@@ -98,3 +105,14 @@ def test_high_risk_route_families_are_never_registered_as_always_enabled() -> No
     for entry in endpoints:
         if entry["path"].startswith(high_risk_prefixes):
             assert entry["capability_gate"] != "always"
+
+
+def test_unowned_route_still_fails_closed() -> None:
+    isolated = FastAPI()
+
+    @isolated.get("/api/v1/unregistered-resource")
+    def unregistered():
+        return {}
+
+    with pytest.raises(RuntimeError, match="unmatched=GET /api/v1/unregistered-resource"):
+        build_endpoint_policies(isolated)

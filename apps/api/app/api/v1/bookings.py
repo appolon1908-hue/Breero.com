@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.rate_limit import rate_limit
 from app.db.session import get_db
 from app.domains.booking.models import Booking
+from app.domains.booking.presenters import booking_to_create_response
 from app.domains.booking.schemas import (
     BookingConfirmation,
     BookingCreateRequest,
@@ -18,19 +19,8 @@ from app.domains.booking.service import BookingService
 
 router = APIRouter()
 
-
-def to_response(booking: Booking) -> BookingCreateResponse:
-    return BookingCreateResponse(
-        id=booking.id,
-        reference=booking.reference,
-        status=booking.status,
-        total_amount=booking.total_amount,
-        currency=booking.currency,
-        window_start=booking.window_start,
-        window_end=booking.window_end,
-        payment_required=False,
-        guest_confirmation_token=getattr(booking, "guest_confirmation_token", None),
-    )
+# Internal compatibility alias. New code should import the domain presenter.
+to_response = booking_to_create_response
 
 
 @router.post("", response_model=BookingCreateResponse, status_code=201)
@@ -40,11 +30,15 @@ async def create_booking(
     session: AsyncSession = Depends(get_db),
     _rate_limit: None = Depends(rate_limit("booking-create", 10, 60)),
 ) -> BookingCreateResponse:
-    return to_response(await BookingService(session).create(payload, idempotency_key))
+    return booking_to_create_response(
+        await BookingService(session).create(payload, idempotency_key)
+    )
 
 
 async def guest_booking(
-    session: AsyncSession, booking_id: uuid.UUID, authorization: str
+    session: AsyncSession,
+    booking_id: uuid.UUID,
+    authorization: str,
 ) -> Booking:
     if not authorization.startswith("Bearer "):
         raise HTTPException(401, "Guest confirmation token is required")
