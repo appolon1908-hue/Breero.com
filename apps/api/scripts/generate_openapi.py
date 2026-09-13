@@ -1,11 +1,12 @@
 """Generate deterministic OpenAPI and endpoint-policy artifacts for CI review."""
 
+import argparse
 import json
 import os
 from pathlib import Path
 from typing import Any
 
-from app.api.policy_registry import get_endpoint_registry
+from app.api.policy_registry import get_endpoint_registry, iter_api_route_contexts
 from app.main import app
 
 OPENAPI_METHODS = {"get", "put", "post", "delete", "options", "head", "patch", "trace"}
@@ -35,12 +36,15 @@ def _apply_registry_to_schema(
     if not isinstance(endpoints, list):
         raise SystemExit("Endpoint registry is missing its endpoints list")
 
+    schema_operations = {(route.path, method) for route in iter_api_route_contexts(app) if route.include_in_schema for method in (route.methods or set())}
     for raw_entry in endpoints:
         if not isinstance(raw_entry, dict):
             raise SystemExit("Endpoint registry contains a non-object entry")
         entry = {str(key): value for key, value in raw_entry.items()}
         path = str(entry["path"])
         method = str(entry["method"]).upper()
+        if (path, method) not in schema_operations:
+            continue
         path_item = paths.get(path)
         if not isinstance(path_item, dict):
             raise SystemExit(f"OpenAPI is missing registered path {path}")
@@ -83,8 +87,16 @@ for path, operations in schema.get("paths", {}).items():
             raise SystemExit(f"Missing endpoint policy for {method.upper()} {path}")
         operation_ids[str(operation_id)] = f"{method.upper()} {path}"
 
-openapi_target.write_text(json.dumps(schema, indent=2, sort_keys=True) + "\n")
-registry_target.write_text(json.dumps(registry, indent=2, sort_keys=True) + "\n")
+parser = argparse.ArgumentParser()
+parser.add_argument("--check", action="store_true")
+args = parser.parse_args()
+for target, document in ((openapi_target, schema), (registry_target, registry)):
+    content = json.dumps(document, indent=2, sort_keys=True) + "\n"
+    if args.check:
+        if not target.exists() or target.read_text() != content:
+            raise SystemExit(f"Stale generated artifact: {target}")
+    else:
+        target.write_text(content)
 print(
     f"validated {len(schema.get('paths', {}))} paths / {len(operation_ids)} operations / "
     f"{len(registry['endpoints'])} endpoint policies"
