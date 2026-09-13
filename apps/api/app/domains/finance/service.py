@@ -35,9 +35,11 @@ class FinanceService:
         self.payout_gateway = payout_gateway or get_payout_gateway()
 
     @staticmethod
-    def require_payout_execution() -> None:
+    def require_payouts_enabled() -> None:
+        # Check on every command, including retries on an existing service instance.
+        # Recognition and corrective adjustments remain available to retain liabilities.
         if not settings.payout_enabled:
-            raise HTTPException(409, "Payout execution is disabled")
+            raise HTTPException(503, "payouts_disabled")
 
     def audit(self, actor_id, action: str, resource_type: str, resource_id, metadata=None):
         self.session.add(
@@ -127,6 +129,7 @@ class FinanceService:
         return earning
 
     async def release_eligible(self) -> int:
+        self.require_payouts_enabled()
         rows = list(
             (
                 await self.session.scalars(
@@ -153,7 +156,7 @@ class FinanceService:
         idempotency_key: str,
         actor_id=None,
     ) -> EarningAdjustment:
-        self.require_payout_execution()
+        self.require_payouts_enabled()
         earning = await self.session.scalar(
             select(VendorEarning).where(VendorEarning.id == earning_id).with_for_update()
         )
@@ -196,13 +199,8 @@ class FinanceService:
         await self.session.refresh(adjustment)
         return adjustment
 
-    async def create_batch(
-        self,
-        currency: str,
-        vendor_id=None,
-        actor_id=None,
-    ) -> PayoutBatch:
-        self.require_payout_execution()
+    async def create_batch(self, currency: str, vendor_id=None, actor_id=None) -> PayoutBatch:
+        self.require_payouts_enabled()
         earnings = await self.repo.available_earnings(currency, vendor_id, lock=True)
         if not earnings:
             raise HTTPException(409, "No available earnings")
@@ -225,12 +223,8 @@ class FinanceService:
         await self.session.refresh(batch)
         return batch
 
-    async def approve_batch(
-        self,
-        batch_id: uuid.UUID,
-        approver_id: uuid.UUID,
-    ) -> PayoutBatch:
-        self.require_payout_execution()
+    async def approve_batch(self, batch_id: uuid.UUID, approver_id: uuid.UUID) -> PayoutBatch:
+        self.require_payouts_enabled()
         batch = await self.repo.get_batch(batch_id, lock=True)
         if not batch:
             raise HTTPException(404, "Payout batch not found")
@@ -247,7 +241,7 @@ class FinanceService:
         return batch
 
     async def submit_batch(self, batch_id: uuid.UUID, actor_id: uuid.UUID) -> PayoutBatch:
-        self.require_payout_execution()
+        self.require_payouts_enabled()
         batch = await self.repo.get_batch(batch_id, lock=True)
         if not batch:
             raise HTTPException(404, "Payout batch not found")

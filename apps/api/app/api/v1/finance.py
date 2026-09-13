@@ -35,7 +35,7 @@ async def payout_command_actor(user: User = Depends(current_user)) -> User:
     """
     if user.role not in {UserRole.finance, UserRole.admin}:
         raise HTTPException(404, "Not found")
-    FinanceService.require_payout_execution()
+    FinanceService.require_payouts_enabled()
     return user
 
 
