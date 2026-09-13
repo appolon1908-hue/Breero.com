@@ -9,7 +9,7 @@
     "repository_memory_added": true,
     "api_implementation_located": true,
     "test_entry_points_located": true,
-    "git_state_recorded": true,
+    "git_state_recorded": false,
     "runtime_code_changed": false,
     "database_changed": false,
     "live_server_changed": false,
@@ -121,9 +121,10 @@
       "title": "API inventory and README do not encode the exact runtime contract profile"
     },
     {
-      "severity": "P1",
+      "severity": "P2",
       "id": "API-010",
-      "title": "Mandatory integration-test skip count is not explicitly gated"
+      "title": "Mandatory integration-test skip count is not explicitly gated",
+      "classification": "prospective_hardening"
     },
     {
       "severity": "P1",
