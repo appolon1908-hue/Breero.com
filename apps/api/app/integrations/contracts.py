@@ -33,9 +33,14 @@ class GeocodedAddress:
     quality: str | None = None
     state_code: str | None = None
     timezone_name: str | None = None
+    line2: str | None = None
+    county: str | None = None
+    postal_code_plus4: str | None = None
 
 
 class GeocodingGateway(Protocol):
+    async def resolve_timezone(self, latitude: float, longitude: float) -> str: ...
+
     async def geocode(self, address: str) -> GeocodedAddress: ...
 
 

@@ -18,6 +18,8 @@ from fastapi import FastAPI
 from fastapi import routing as fastapi_routing
 from fastapi.routing import APIRoute
 
+from app.observability import observability_settings
+
 OPENAPI_METHODS: Final[frozenset[str]] = frozenset(
     {"GET", "PUT", "POST", "DELETE", "OPTIONS", "HEAD", "PATCH", "TRACE"}
 )
@@ -121,6 +123,192 @@ def _rule(
 
 POLICY_RULES: Final[tuple[EndpointPolicyRule, ...]] = (
     _rule(
+        'metrics',
+        re.escape(observability_settings.metrics_path),
+        methods=_methods('GET'),
+        resource_owner='platform-runtime',
+        audience='operations',
+        authentication='network-policy',
+        permission='metrics.read',
+        tenant_scope='global',
+        record_policy='aggregated-runtime-metrics',
+        capability_gate='settings.metrics_enabled',
+    ),
+    _rule(
+        'login-mode',
+        r'/api/v1/auth/login-mode',
+        methods=_methods('GET'),
+        resource_owner='identity',
+        audience='public',
+        authentication='none',
+        permission='identity.login-mode.read',
+        tenant_scope='global',
+        record_policy='public-login-configuration',
+        capability_gate='always',
+    ),
+    _rule(
+        'provider-registration',
+        r'/api/v1/auth/register/provider',
+        methods=_methods('POST'),
+        resource_owner='provider-onboarding',
+        audience='public',
+        authentication='registration-credentials',
+        permission='provider.register',
+        tenant_scope='identity',
+        record_policy='new-provider-application',
+        capability_gate='settings.provider_self_service_enabled && !settings.keycloak_enabled',
+    ),
+    _rule(
+        'access-administration',
+        r'/api/v1/auth/access/(?:catalog|users/\{user_id\})',
+        methods=_methods('GET','PUT'),
+        resource_owner='identity',
+        audience='admin',
+        authentication='bearer',
+        permission='admin.access.manage',
+        tenant_scope='route-defined-current-scope',
+        record_policy='authorized-access-administrator',
+        capability_gate='always',
+    ),
+    _rule(
+        'internal-user-provisioning',
+        r'/api/v1/admin/users',
+        methods=_methods('POST'),
+        resource_owner='identity',
+        audience='admin',
+        authentication='bearer',
+        permission='admin.access.manage',
+        tenant_scope='route-defined-current-scope',
+        record_policy='authorized-access-administrator',
+        capability_gate='always',
+    ),
+    _rule(
+        'provider-profile-read-GET',
+        r'/api/v1/provider/(?:profile|onboarding(?:/submit)?)',
+        methods=_methods('GET'),
+        resource_owner='provider-onboarding',
+        audience='provider',
+        authentication='bearer',
+        permission='provider.profile.read',
+        tenant_scope='provider-membership',
+        record_policy='current-provider-profile',
+        capability_gate='always',
+    ),
+    _rule(
+        'provider-profile-write-PATCH',
+        r'/api/v1/provider/(?:profile|onboarding(?:/submit)?)',
+        methods=_methods('PATCH'),
+        resource_owner='provider-onboarding',
+        audience='provider',
+        authentication='bearer',
+        permission='provider.profile.write',
+        tenant_scope='provider-membership',
+        record_policy='current-provider-profile',
+        capability_gate='always',
+    ),
+    _rule(
+        'provider-profile-write-POST',
+        r'/api/v1/provider/(?:profile|onboarding(?:/submit)?)',
+        methods=_methods('POST'),
+        resource_owner='provider-onboarding',
+        audience='provider',
+        authentication='bearer',
+        permission='provider.profile.write',
+        tenant_scope='provider-membership',
+        record_policy='current-provider-profile',
+        capability_gate='always',
+    ),
+    _rule(
+        'provider-services-read',
+        r'/api/v1/provider/services(?:/\{provider_service_id\})?',
+        methods=_methods('GET'),
+        resource_owner='provider-catalog',
+        audience='provider',
+        authentication='bearer',
+        permission='provider.services.read',
+        tenant_scope='provider-membership',
+        record_policy='current-provider-record',
+        capability_gate='always',
+        write_if_match_version_policy='required-on-update-and-delete',
+    ),
+    _rule(
+        'provider-services-manage',
+        r'/api/v1/provider/services(?:/\{provider_service_id\})?',
+        methods=_methods('POST','PATCH','DELETE'),
+        resource_owner='provider-catalog',
+        audience='provider',
+        authentication='bearer',
+        permission='provider.services.manage',
+        tenant_scope='provider-membership',
+        record_policy='current-provider-record',
+        capability_gate='always',
+        write_if_match_version_policy='required-on-update-and-delete',
+    ),
+    _rule(
+        'provider-skills-read',
+        r'/api/v1/provider/skills(?:/\{provider_skill_id\})?',
+        methods=_methods('GET'),
+        resource_owner='provider-catalog',
+        audience='provider',
+        authentication='bearer',
+        permission='provider.skills.read',
+        tenant_scope='provider-membership',
+        record_policy='current-provider-record',
+        capability_gate='always',
+        write_if_match_version_policy='required-on-update-and-delete',
+    ),
+    _rule(
+        'provider-skills-manage',
+        r'/api/v1/provider/skills(?:/\{provider_skill_id\})?',
+        methods=_methods('POST','PATCH','DELETE'),
+        resource_owner='provider-catalog',
+        audience='provider',
+        authentication='bearer',
+        permission='provider.skills.manage',
+        tenant_scope='provider-membership',
+        record_policy='current-provider-record',
+        capability_gate='always',
+        write_if_match_version_policy='required-on-update-and-delete',
+    ),
+    _rule(
+        'provider-application-review',
+        r'/api/v1/admin/provider-applications(?:/\{application_id\}(?:/(?:approve|reject|request-information))?)?',
+        methods=_methods('GET','POST'),
+        resource_owner='provider-onboarding',
+        audience='admin',
+        authentication='bearer',
+        permission='admin.access.manage',
+        tenant_scope='route-defined-current-scope',
+        record_policy='authorized-application-reviewer',
+        capability_gate='always',
+    ),
+    _rule(
+        'geography-administration',
+        r'/api/v1/admin/(?:service-zones(?:/\{service_area_id\}(?:/coverage)?)?|postal-codes(?:/\{postal_code_id\}|/import|/imports/\{import_id\})?)',
+        methods=_methods('GET','POST','PATCH','DELETE'),
+        resource_owner='service-coverage',
+        audience='admin',
+        authentication='bearer',
+        permission='admin.access.manage',
+        tenant_scope='route-defined-current-scope',
+        record_policy='authorized-geography-administrator',
+        capability_gate='always',
+    ),
+    _rule(
+        'booking-intent-session',
+        r'/api/v1/booking/intents(?:/\{intent_id\}(?:/submit)?)?',
+        methods=_methods('GET','POST','PATCH','DELETE'),
+        resource_owner='booking-intents',
+        audience='public-session',
+        authentication='booking-session-cookie',
+        permission='booking.intent.session-owner',
+        tenant_scope='session',
+        record_policy='matching-session-and-unexpired-intent',
+        capability_gate='submission delegates to booking service capability gates',
+        write_if_match_version_policy='required-on-update-delete-submit',
+    ),
+
+    _rule(
         "operational-health",
         r"/health(?:/live|/ready)?",
         methods=_methods("GET"),
@@ -200,7 +388,7 @@ POLICY_RULES: Final[tuple[EndpointPolicyRule, ...]] = (
     ),
     _rule(
         "public-auth-commands",
-        r"/api/v1/auth/(?:register|login|refresh|logout|password/forgot|password/reset|email/verify)",
+        r"/api/v1/auth/(?:register(?:/client)?|login|refresh|logout|password/set|password/forgot|password/reset|email/verify)",
         methods=_methods("POST"),
         resource_owner="identity",
         audience="public-or-token-holder",
@@ -218,7 +406,7 @@ POLICY_RULES: Final[tuple[EndpointPolicyRule, ...]] = (
     ),
     _rule(
         "authenticated-auth-commands",
-        r"/api/v1/auth/(?:logout-all|password/change|email/resend-verification)",
+        r"/api/v1/auth/(?:logout-all|password/change|email/resend-verification|email/resend)",
         methods=_methods("POST"),
         resource_owner="identity",
         audience="authenticated-user",
@@ -236,7 +424,7 @@ POLICY_RULES: Final[tuple[EndpointPolicyRule, ...]] = (
     ),
     _rule(
         "authenticated-user-read",
-        r"/api/v1/auth/me",
+        r"/api/v1/auth/(?:me|context)",
         methods=_methods("GET"),
         resource_owner="identity",
         audience="authenticated-user",
@@ -668,6 +856,13 @@ def install_endpoint_registry(app: FastAPI) -> dict[str, Any]:
             if key not in {"path", "method", "operation_id"}
         }
 
+    schema_operations = {
+        (route.path, method)
+        for route in iter_api_route_contexts(app)
+        if route.include_in_schema
+        for method in (route.methods or set())
+    }
+
     original_openapi = app.openapi
 
     def openapi_with_policy() -> dict[str, Any]:
@@ -676,7 +871,11 @@ def install_endpoint_registry(app: FastAPI) -> dict[str, Any]:
         if not isinstance(paths, dict):
             raise RuntimeError("OpenAPI schema is missing its paths object")
 
-        for path, method_policies in policies_by_path.items():
+        for path, runtime_policies in policies_by_path.items():
+            method_policies = {method: policy for method, policy in runtime_policies.items()
+                               if (path, method) in schema_operations}
+            if not method_policies:
+                continue
             path_item = paths.get(path)
             if not isinstance(path_item, dict):
                 raise RuntimeError(f"OpenAPI is missing registered path {path}")

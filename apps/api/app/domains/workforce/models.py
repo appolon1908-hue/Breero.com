@@ -5,6 +5,7 @@ from datetime import date, datetime
 from geoalchemy2 import Geography
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     Date,
     DateTime,
     Enum,
@@ -38,10 +39,20 @@ class ProviderCredentialType(str, enum.Enum):
     INSURANCE = "INSURANCE"
 
 
+class ProviderApplicationStatus(str, enum.Enum):
+    DRAFT = "DRAFT"
+    PENDING = "PENDING"
+    INFORMATION_REQUESTED = "INFORMATION_REQUESTED"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+
+
 class Vendor(Base):
     __tablename__ = "vendors"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
     legal_name: Mapped[str] = mapped_column(String(180))
     display_name: Mapped[str] = mapped_column(String(120))
     email: Mapped[str] = mapped_column(String(320), unique=True)
@@ -65,7 +76,9 @@ class Worker(Base):
     __tablename__ = "workers"
     __table_args__ = (UniqueConstraint("vendor_id", "email"),)
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
     vendor_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("vendors.id", ondelete="CASCADE"), index=True
     )
@@ -87,7 +100,9 @@ class Worker(Base):
 class WorkerLocationEvent(Base):
     __tablename__ = "worker_location_events"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
     worker_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("workers.id", ondelete="CASCADE"), index=True
     )
@@ -102,9 +117,13 @@ class ProviderCredential(Base):
     """Operator-verified provider qualification metadata; never stores secret documents."""
 
     __tablename__ = "provider_credentials"
-    __table_args__ = (UniqueConstraint("vendor_id", "credential_type", "jurisdiction"),)
+    __table_args__ = (
+        UniqueConstraint("vendor_id", "credential_type", "jurisdiction"),
+    )
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
     vendor_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("vendors.id", ondelete="CASCADE"), index=True
     )
@@ -120,4 +139,49 @@ class ProviderCredential(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class ProviderApplication(Base):
+    __tablename__ = "provider_applications"
+    __table_args__ = (
+        UniqueConstraint("vendor_id", name="uq_provider_application_vendor"),
+        CheckConstraint("version > 0", name="provider_application_positive_version"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    vendor_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("vendors.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    status: Mapped[ProviderApplicationStatus] = mapped_column(
+        Enum(ProviderApplicationStatus, name="provider_application_status"),
+        nullable=False,
+        default=ProviderApplicationStatus.DRAFT,
+        index=True,
+    )
+    identity: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    business: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    contact_details: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    services: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    skills: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    service_areas: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    postal_codes: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    availability: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    capacity: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    licenses: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    insurance: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    compliance_documents: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reviewed_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), index=True)
+    decision_reason: Mapped[str | None] = mapped_column(String(1000))
+    requested_information: Mapped[str | None] = mapped_column(String(1000))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
