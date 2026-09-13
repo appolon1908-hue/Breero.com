@@ -41,6 +41,7 @@ def test_release_boundary_lists_every_high_risk_capability() -> None:
         "MARKETPLACE_MESSAGING_ENABLED",
         "MARKETPLACE_REVIEWS_ENABLED",
         "MARKETING_EMAIL_ENABLED",
+        "LIVE_EMAIL_DELIVERY",
         "MARKETING_SMS_ENABLED",
     }
     assert expected == set(flags)

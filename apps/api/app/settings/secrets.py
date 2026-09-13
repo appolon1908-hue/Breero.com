@@ -1,5 +1,6 @@
-from pathlib import Path
 from typing import Any
+
+from app.secret_files import apply_secret_files
 
 SECRET_BINDINGS: tuple[tuple[str, str], ...] = (
     ("database_url", "database_url_file"),
@@ -10,32 +11,16 @@ SECRET_BINDINGS: tuple[tuple[str, str], ...] = (
     ("stripe_webhook_secret", "stripe_webhook_secret_file"),
     ("stripe_publishable_key", "stripe_publishable_key_file"),
     ("geocoding_api_key", "geocoding_api_key_file"),
+    ("payout_api_key", "payout_api_key_file"),
+    ("smtp_password", "smtp_password_file"),
+    ("sms_api_key", "sms_api_key_file"),
 )
 
 
 def resolve_secret_files(settings: Any) -> None:
     """Load configured file-backed values without exposing their contents."""
 
-    for value_name, file_name in SECRET_BINDINGS:
-        value = getattr(settings, value_name)
-        path = getattr(settings, file_name)
-        if value and path and value_name in settings.model_fields_set:
-            raise ValueError(
-                f"configure only one of {value_name.upper()} or {file_name.upper()}"
-            )
-        if not path:
-            continue
-        try:
-            resolved = Path(path).read_text(encoding="ascii").strip()
-        except (OSError, UnicodeError) as exc:
-            raise ValueError(
-                f"cannot read configured secret file for {value_name.upper()}"
-            ) from exc
-        if not resolved:
-            raise ValueError(
-                f"configured secret file for {value_name.upper()} is empty"
-            )
-        object.__setattr__(settings, value_name, resolved)
+    apply_secret_files(settings, tuple(name for name, _ in SECRET_BINDINGS))
 
 
 def validate_stripe_credentials(settings: Any) -> None:

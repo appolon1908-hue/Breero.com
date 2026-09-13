@@ -21,6 +21,7 @@ def disabled_release_flags(settings: Any) -> dict[str, bool]:
         "MARKETPLACE_MESSAGING_ENABLED": settings.marketplace_messaging_enabled,
         "MARKETPLACE_REVIEWS_ENABLED": settings.marketplace_reviews_enabled,
         "MARKETING_EMAIL_ENABLED": settings.marketing_email_enabled,
+        "LIVE_EMAIL_DELIVERY": settings.live_email_delivery,
         "MARKETING_SMS_ENABLED": settings.marketing_sms_enabled,
     }
 

@@ -1,6 +1,7 @@
 from functools import lru_cache
+from typing import Literal
 
-from pydantic import model_validator
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.settings.environment import validate_environment
@@ -9,19 +10,21 @@ from app.settings.secrets import resolve_secret_files, validate_stripe_credentia
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore", hide_input_in_errors=True)
 
-    app_env: str = "development"
+    # Require an explicit environment so typos or omission cannot skip release checks.
+    app_env: Literal["development", "test", "staging", "production"]
     app_name: str = "BREERO API"
     api_v1_prefix: str = "/api/v1"
-    database_url: str = "postgresql+psycopg://breero:breero@postgres:5432/breero"
+    database_url: str = Field(
+        default="postgresql+psycopg://breero:breero@postgres:5432/breero", repr=False
+    )
     database_url_file: str = ""
-    redis_url: str = "redis://redis:6379/0"
+    redis_url: str = Field(default="redis://redis:6379/0", repr=False)
     redis_url_file: str = ""
-
-    jwt_secret: str = "development-only-change-me"
+    jwt_secret: str = Field(default="development-only-change-me", repr=False)
     jwt_secret_file: str = ""
-    jwt_refresh_secret: str = "development-only-change-me-too"
+    jwt_refresh_secret: str = Field(default="development-only-change-me-too", repr=False)
     jwt_refresh_secret_file: str = ""
     jwt_algorithm: str = "HS256"
     keycloak_enabled: bool = False
@@ -29,14 +32,12 @@ class Settings(BaseSettings):
     keycloak_audience: str = "breero-api-production"
     access_token_minutes: int = 30
     refresh_token_days: int = 30
-
-    stripe_secret_key: str = ""
+    stripe_secret_key: str = Field(default="", repr=False)
     stripe_secret_key_file: str = ""
-    stripe_webhook_secret: str = ""
+    stripe_webhook_secret: str = Field(default="", repr=False)
     stripe_webhook_secret_file: str = ""
-    stripe_publishable_key: str = ""
+    stripe_publishable_key: str = Field(default="", repr=False)
     stripe_publishable_key_file: str = ""
-
     stripe_enabled: bool = False
     payments_enabled: bool = False
     online_checkout_enabled: bool = False
@@ -50,23 +51,21 @@ class Settings(BaseSettings):
     marketplace_matching_enabled: bool = False
     marketplace_messaging_enabled: bool = False
     marketplace_reviews_enabled: bool = False
-
     transactional_email_mode: str = "controlled_canary"
     transactional_sms_mode: str = "controlled_canary"
     marketing_email_enabled: bool = False
     marketing_sms_enabled: bool = False
-
-    geocoding_api_key: str = ""
+    geocoding_api_key: str = Field(default="", repr=False)
     geocoding_api_key_file: str = ""
     geocoding_provider: str = "geoapify"
     geocoding_enabled: bool = False
-
     odoo_url: str = ""
     odoo_database: str = ""
     odoo_username: str = ""
-    odoo_api_key: str = ""
+    odoo_api_key: str = Field(default="", repr=False)
+    # Retained only to reject legacy direct-Odoo configuration without reading it.
+    odoo_api_key_file: str = ""
     odoo_enabled: bool = False
-
     middleware_enabled: bool = False
     middleware_url: str = ""
     middleware_ca_file: str = ""
@@ -78,22 +77,23 @@ class Settings(BaseSettings):
     middleware_audience: str = ""
     middleware_tenant: str = ""
     middleware_scope: str = "breero.crm.events.submit"
-
-    payout_api_key: str = ""
+    payout_api_key: str = Field(default="", repr=False)
+    payout_api_key_file: str = ""
     metrics_enabled: bool = True
     payout_provider: str = ""
     payout_enabled: bool = False
-
     smtp_host: str = ""
     smtp_port: int = 587
     smtp_username: str = ""
-    smtp_password: str = ""
+    smtp_password: str = Field(default="", repr=False)
+    smtp_password_file: str = ""
     smtp_from_email: str = ""
     email_enabled: bool = False
+    live_email_delivery: bool = False
     sms_provider: str = ""
-    sms_api_key: str = ""
+    sms_api_key: str = Field(default="", repr=False)
+    sms_api_key_file: str = ""
     sms_enabled: bool = False
-
     cors_origins: str = (
         "http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:3003"
     )
@@ -108,6 +108,8 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_runtime(self) -> "Settings":
+        if self.odoo_enabled or self.odoo_api_key or self.odoo_api_key_file:
+            raise ValueError("Direct Odoo credentials and delivery are prohibited; use Middleware")
         resolve_secret_files(self)
         validate_stripe_credentials(self)
         validate_release_boundary(self)
@@ -117,7 +119,7 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()
+    return Settings()  # type: ignore[call-arg]
 
 
 settings = get_settings()

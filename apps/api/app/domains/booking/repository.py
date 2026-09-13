@@ -2,7 +2,7 @@ import uuid
 from datetime import UTC, datetime
 
 from geoalchemy2.functions import ST_Covers
-from sqlalchemy import Select, func, select, text
+from sqlalchemy import Select, and_, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domains.booking.models import (
@@ -17,6 +17,8 @@ from app.domains.booking.models import (
     ProviderWorkingHours,
     ServiceArea,
 )
+from app.domains.geography.models import ServiceZoneOffering
+from app.domains.provider_catalog.models import ApprovalStatus, ProviderService
 from app.domains.workforce.models import Vendor, VendorStatus, Worker, WorkerStatus
 
 
@@ -51,6 +53,16 @@ class BookingRepository:
         )
         row = (await self.session.execute(stmt)).first()
         return (row[0], row[1]) if row else None
+
+    async def zone_offering(
+        self, service_area_id: uuid.UUID, service_id: uuid.UUID
+    ) -> ServiceZoneOffering | None:
+        return await self.session.scalar(
+            select(ServiceZoneOffering).where(
+                ServiceZoneOffering.service_area_id == service_area_id,
+                ServiceZoneOffering.service_id == service_id,
+            )
+        )
 
     async def add_address(self, address: Address) -> Address:
         self.session.add(address)
@@ -92,11 +104,28 @@ class BookingRepository:
     async def eligible_provider_hours(
         self, service_id: uuid.UUID, postal_code: str, weekday: int
     ) -> list[tuple[Worker, ProviderWorkingHours]]:
+        # ProviderServiceCoverage (ops-assigned, per worker/postal code) remains the
+        # authoritative fine-grained gate. The outer join to ProviderService adds an
+        # opt-in check on top of it: a vendor that has gone through the self-service
+        # catalog for this service must be APPROVED and active there too, or their
+        # workers are excluded even if ProviderServiceCoverage still lists them.
+        # Vendors with no ProviderService row for this service at all (the coverage
+        # was assigned directly by ops, without the vendor ever using the catalog)
+        # are unaffected -- this only tightens eligibility once a vendor opts into
+        # self-service catalog management, it never loosens it and never breaks a
+        # vendor that predates the catalog feature.
         stmt = (
             select(Worker, ProviderWorkingHours)
             .join(Vendor, Vendor.id == Worker.vendor_id)
             .join(ProviderServiceCoverage, ProviderServiceCoverage.worker_id == Worker.id)
             .join(ProviderWorkingHours, ProviderWorkingHours.worker_id == Worker.id)
+            .outerjoin(
+                ProviderService,
+                and_(
+                    ProviderService.vendor_id == Vendor.id,
+                    ProviderService.service_id == service_id,
+                ),
+            )
             .where(
                 Vendor.status == VendorStatus.ACTIVE,
                 Worker.status == WorkerStatus.ACTIVE,
@@ -105,6 +134,13 @@ class BookingRepository:
                 ProviderServiceCoverage.service_id == service_id,
                 ProviderServiceCoverage.postal_code == postal_code[:5],
                 ProviderWorkingHours.weekday == weekday,
+                or_(
+                    ProviderService.id.is_(None),
+                    and_(
+                        ProviderService.status == ApprovalStatus.APPROVED,
+                        ProviderService.active.is_(True),
+                    ),
+                ),
             )
         )
         return [(row[0], row[1]) for row in (await self.session.execute(stmt)).all()]
