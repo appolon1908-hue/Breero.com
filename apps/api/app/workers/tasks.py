@@ -50,6 +50,34 @@ def expire_bookings() -> int:
     return asyncio.run(run())
 
 
+class UnhandledOutboxEvent(RuntimeError):
+    code = "UNHANDLED_EVENT_TYPE"
+    terminal = True
+
+
+async def deliver_outbox_event(event, session, adapter, email):
+    notification_events = {
+        "email_verification_requested",
+        "password_reset_requested",
+        "password_changed",
+        "payment_captured",
+        "refund_created",
+    }
+    if event.event_type in notification_events:
+        await email.send(event.event_type, event.payload)
+        return None
+    if event.event_type.startswith("breero."):
+        result = await adapter.deliver(event)
+        if event.aggregate_type == "public_submission":
+            submission = await session.get(PublicSubmission, event.aggregate_id)
+            if submission:
+                submission.downstream_status = DownstreamStatus.DELIVERED
+        return result
+    # A no-op is not delivery. Retain the event for reviewed handler installation
+    # and authorized replay; keep payload and event type out of diagnostics.
+    raise UnhandledOutboxEvent("No approved handler is registered for this event")
+
+
 @celery_app.task(
     name="app.workers.tasks.publish_outbox",
     autoretry_for=(Exception,),
@@ -62,28 +90,11 @@ def publish_outbox() -> int:
             adapter = MiddlewareAdapter()
             email = EmailAdapter()
             tenant_email = TenantEmailDeliveryService(session)
-            notification_events = {
-                "email_verification_requested",
-                "password_reset_requested",
-                "password_changed",
-                "payment_captured",
-                "refund_created",
-            }
 
             async def deliver(event):
                 if event.aggregate_type == "email_message" and event.event_type == "email.message.queued":
                     return await tenant_email.deliver(event)
-                if event.event_type in notification_events:
-                    await email.send(event.event_type, event.payload)
-                    return None
-                if event.event_type.startswith("breero."):
-                    result = await adapter.deliver(event)
-                    if event.aggregate_type == "public_submission":
-                        submission = await session.get(PublicSubmission, event.aggregate_id)
-                        if submission:
-                            submission.downstream_status = DownstreamStatus.DELIVERED
-                    return result
-                return None
+                return await deliver_outbox_event(event, session, adapter, email)
 
             outbox = OutboxService(session)
             if settings.middleware_enabled:
