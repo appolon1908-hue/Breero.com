@@ -6,10 +6,12 @@ from decimal import Decimal
 from geoalchemy2 import Geometry
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     Date,
     DateTime,
     Enum,
     ForeignKey,
+    Index,
     Integer,
     Numeric,
     String,
@@ -51,6 +53,21 @@ class LegalEntity(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
 class ServiceArea(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "service_areas"
+    __table_args__ = (
+        CheckConstraint(
+            "radius_meters IS NULL OR (radius_meters > 0 AND center IS NOT NULL)",
+            name="service_area_radius_requires_center",
+        ),
+        CheckConstraint(
+            "priority >= 0",
+            name="service_area_priority_nonnegative",
+        ),
+        CheckConstraint(
+            "version > 0",
+            name="service_area_positive_version",
+        ),
+        Index("ix_service_areas_priority", "priority"),
+    )
     legal_entity_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("legal_entities.id"))
     name: Mapped[str] = mapped_column(String(160), nullable=False)
     country_code: Mapped[str | None] = mapped_column(String(2), index=True)
@@ -60,20 +77,43 @@ class ServiceArea(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     center: Mapped[object | None] = mapped_column(Geometry("POINT", srid=4326))
     radius_meters: Mapped[int | None] = mapped_column(Integer)
     boundary: Mapped[object | None] = mapped_column(Geometry("MULTIPOLYGON", srid=4326))
+    priority: Mapped[int] = mapped_column(Integer, nullable=False, default=100)
+    emergency_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
 
 class Address(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "addresses"
+    __table_args__ = (
+        CheckConstraint(
+            "postal_code_plus4 IS NULL OR postal_code_plus4 ~ '^[0-9]{4}$'",
+            name="address_postal_plus4_format",
+        ),
+        CheckConstraint(
+            "validation_confidence IS NULL OR "
+            "(validation_confidence >= 0 AND validation_confidence <= 1)",
+            name="address_validation_confidence_range",
+        ),
+        Index("ix_addresses_postal_code", "postal_code"),
+        Index("ix_addresses_state_code", "state_code"),
+        Index("ix_addresses_service_area_id", "service_area_id"),
+    )
     formatted_address: Mapped[str] = mapped_column(String(500), nullable=False)
     line1: Mapped[str] = mapped_column(String(200), nullable=False)
+    line2: Mapped[str | None] = mapped_column(String(200))
     city: Mapped[str] = mapped_column(String(120), nullable=False)
+    county: Mapped[str | None] = mapped_column(String(120))
     state_code: Mapped[str | None] = mapped_column(String(3))
     postal_code: Mapped[str] = mapped_column(String(32), nullable=False)
+    postal_code_plus4: Mapped[str | None] = mapped_column(String(4))
     country_code: Mapped[str] = mapped_column(String(2), nullable=False)
     location: Mapped[object] = mapped_column(Geometry("POINT", srid=4326), nullable=False)
     service_area_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("service_areas.id"))
     geocoding_provider: Mapped[str] = mapped_column(String(40), default="provided")
+    provider_reference: Mapped[str | None] = mapped_column(String(255))
+    validation_status: Mapped[str] = mapped_column(String(32), nullable=False, default="VALID")
+    validation_confidence: Mapped[Decimal | None] = mapped_column(Numeric(5, 4))
     timezone_name: Mapped[str] = mapped_column(String(64), nullable=False, default="UTC")
     customer_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("customers.id", ondelete="CASCADE"), index=True
@@ -98,7 +138,9 @@ class ProviderServiceCoverage(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     __tablename__ = "provider_service_coverage"
     __table_args__ = (UniqueConstraint("worker_id", "service_id", "postal_code"),)
-    worker_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("workers.id", ondelete="CASCADE"), index=True)
+    worker_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workers.id", ondelete="CASCADE"), index=True
+    )
     service_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True)
     postal_code: Mapped[str] = mapped_column(String(10), index=True)
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
@@ -107,7 +149,9 @@ class ProviderServiceCoverage(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 class ProviderWorkingHours(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "provider_working_hours"
     __table_args__ = (UniqueConstraint("worker_id", "weekday"),)
-    worker_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("workers.id", ondelete="CASCADE"), index=True)
+    worker_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workers.id", ondelete="CASCADE"), index=True
+    )
     weekday: Mapped[int] = mapped_column(Integer, nullable=False)
     start_time: Mapped[time] = mapped_column(Time, nullable=False)
     end_time: Mapped[time] = mapped_column(Time, nullable=False)
@@ -134,7 +178,9 @@ class Booking(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     address_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("addresses.id"))
     legal_entity_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("legal_entities.id"))
     service_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True)
-    provider_worker_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("workers.id"), index=True)
+    provider_worker_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("workers.id"), index=True
+    )
     window_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     window_end: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     status: Mapped[BookingStatus] = mapped_column(
@@ -155,6 +201,8 @@ class Booking(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
 class BookingAnswer(UUIDPrimaryKeyMixin, Base):
     __tablename__ = "booking_answers"
-    booking_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("bookings.id", ondelete="CASCADE"))
+    booking_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("bookings.id", ondelete="CASCADE")
+    )
     question_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True))
     value: Mapped[str] = mapped_column(Text, nullable=False)

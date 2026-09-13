@@ -24,6 +24,14 @@ A route, table, page, or passing unit test is not evidence that a workflow is co
 - Do not touch the live server while auditing or refactoring API code.
 - Never report an endpoint as complete without authorization, ownership/tenant scope, persistence, validation, error mapping, OpenAPI, and applicable concurrency/idempotency/audit/outbox tests.
 
+## Review refresh — 2026-09-13
+
+The historical audit below is retained as dated evidence. At this refresh,
+`origin/main` is `ee71263bfa609b872f4b96279221d7f349fa7b4a` and schema readiness expects
+`022_provider_services_skills`. The original #68/#85–#88 stack has reached
+main; use `docs/architecture/CURRENT_SYSTEM.md` and the current open PR list
+for ongoing work. This update performs no deployment or database migration.
+
 ## Current protected baseline
 
 Audit baseline on 2026-08-27:
