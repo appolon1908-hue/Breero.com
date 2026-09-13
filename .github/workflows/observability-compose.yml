@@ -25,6 +25,7 @@ jobs:
       REDIS_URL_REFERENCE: /tmp/breero-observability-ci-secret
       JWT_SECRET_REFERENCE: /tmp/breero-observability-ci-secret
       JWT_REFRESH_SECRET_REFERENCE: /tmp/breero-observability-ci-secret
+      KEYCLOAK_CLIENT_SECRET_REFERENCE: /tmp/breero-observability-ci-secret
       GEOAPIFY_API_KEY_REFERENCE: /tmp/breero-observability-ci-secret
       POSTGRES_PASSWORD_REFERENCE: /tmp/breero-observability-ci-secret
       REDIS_PASSWORD_REFERENCE: /tmp/breero-observability-ci-secret
