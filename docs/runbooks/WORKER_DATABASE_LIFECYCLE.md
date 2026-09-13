@@ -33,3 +33,10 @@ Do not run old and new worker versions against live workloads as a validation
 shortcut. Tracing may remain disabled; no telemetry destination or capability is
 activated by this change. The architecture inventory remains a dated source
 checkpoint; this runbook records the worker lifecycle extension.
+
+## Main refresh validation
+
+After the required APP_ENV validation merged in PR #99, the complete isolated
+backend suite passes with 286 tests and eight subtests. Ruff, mypy, migration
+drift checks and deterministic OpenAPI equality also pass. Final-head CI and
+independent review remain separate merge gates.
