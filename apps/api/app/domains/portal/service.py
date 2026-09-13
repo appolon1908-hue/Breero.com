@@ -373,26 +373,28 @@ class PortalReadService:
         status: PayoutStatus | None,
         limit: int,
         offset: int,
-    ) -> list[PayoutBatch]:
+    ) -> list[PayoutBatchRead]:
         filters = [VendorEarning.vendor_id == vendor_id]
         if status:
             filters.append(PayoutBatch.status == status)
-        return list(
-            (
-                await self.session.scalars(
-                    select(PayoutBatch)
-                    .join(
-                        VendorEarning,
-                        VendorEarning.payout_batch_id == PayoutBatch.id,
-                    )
-                    .where(*filters)
-                    .distinct()
-                    .order_by(PayoutBatch.created_at.desc(), PayoutBatch.id)
-                    .limit(limit)
-                    .offset(offset)
-                )
-            ).all()
-        )
+        rows = (await self.session.execute(
+            select(
+                PayoutBatch,
+                func.coalesce(func.sum(VendorEarning.net_minor + VendorEarning.adjustment_total_minor), 0),
+                func.count(VendorEarning.id),
+            )
+            .join(VendorEarning, VendorEarning.payout_batch_id == PayoutBatch.id)
+            .where(*filters)
+            .group_by(PayoutBatch.id)
+            .order_by(PayoutBatch.created_at.desc(), PayoutBatch.id)
+            .limit(limit).offset(offset)
+        )).all()
+        return [
+            PayoutBatchRead.model_validate(batch).model_copy(
+                update={"total_minor": int(total), "earning_count": int(count)}
+            )
+            for batch, total, count in rows
+        ]
 
     async def provider_payout_batches(
         self,

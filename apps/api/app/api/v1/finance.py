@@ -5,8 +5,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
+from app.domains.auth.access_service import BRAND_KEY, AccessService
 from app.domains.auth.dependencies import current_user, require_roles
-from app.domains.auth.models import User, UserRole
+from app.domains.auth.models import AccessRole, User, UserRole
 from app.domains.finance.models import EarningStatus, PayoutStatus
 from app.domains.finance.repository import FinanceRepository
 from app.domains.finance.schemas import (
@@ -26,14 +27,17 @@ from app.domains.workforce.models import Vendor
 router = APIRouter()
 
 
-async def payout_command_actor(user: User = Depends(current_user)) -> User:
+async def payout_command_actor(
+    user: User = Depends(current_user), session: AsyncSession = Depends(get_db)
+) -> User:
     """Authorize payout commands before evaluating the runtime capability.
 
     Operations and customer users continue to receive a concealed 404, matching the
     previous unmounted-route behavior. Authorized finance/admin users receive the
     explicit disabled-capability response while PAYOUT_ENABLED is false.
     """
-    if user.role not in {UserRole.finance, UserRole.admin}:
+    context = await AccessService(session).context(user, BRAND_KEY)
+    if not {AccessRole.finance, AccessRole.admin, AccessRole.superadmin}.intersection(context.roles):
         raise HTTPException(404, "Not found")
     FinanceService.require_payouts_enabled()
     return user
@@ -63,7 +67,7 @@ async def list_finance_vendors(
 async def create_compensation_plan(
     payload: CompensationPlanCreate,
     session: AsyncSession = Depends(get_db),
-    user: User = Depends(require_roles(UserRole.finance, UserRole.admin)),
+    user: User = Depends(payout_command_actor),
 ):
     return await FinanceService(session).create_compensation_plan(payload, user.id)
 

@@ -114,3 +114,24 @@ async def test_batch_approver_cannot_submit_same_payout(monkeypatch) -> None:
 
     assert exc_info.value.status_code == 409
     assert "approver" in str(exc_info.value.detail).lower()
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("legacy_role,effective_roles,allowed", [
+    ("admin", [], False),
+    ("operations", [AccessRole.finance], True),
+])
+async def test_payout_commands_use_effective_membership(monkeypatch, legacy_role, effective_roles, allowed):
+    from unittest.mock import AsyncMock
+
+    from app.api.v1.finance import payout_command_actor
+    from app.domains.auth.access_service import AccessService
+
+    monkeypatch.setattr(AccessService, "context", AsyncMock(return_value=SimpleNamespace(roles=effective_roles)))
+    monkeypatch.setattr(settings, "payout_enabled", True)
+    actor = SimpleNamespace(role=legacy_role)
+    if allowed:
+        assert await payout_command_actor(actor, AsyncMock()) is actor
+    else:
+        with pytest.raises(HTTPException) as error:
+            await payout_command_actor(actor, AsyncMock())
+        assert error.value.status_code == 404
