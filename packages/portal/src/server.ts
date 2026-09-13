@@ -54,6 +54,8 @@ type Tokens = {
 };
 type Access = { v: number; token: string; expiresAt: number };
 type Refresh = { v: number; token: string; expiresAt: number };
+type ProfileCookie = { v: number; csrfToken: string };
+
 type Profile = {
   v: number;
   user: PortalUser;
@@ -208,7 +210,7 @@ function writeSession(headers: Headers, env: Environment, session: Session): voi
   const cookieNames = names(env);
   setCookie(headers, serialized(cookieNames.access, seal(session.access, env.key), session.access.expiresAt - now(), env.production));
   setCookie(headers, serialized(cookieNames.refresh, seal(session.refresh, env.key), session.refresh.expiresAt - now(), env.production));
-  setCookie(headers, serialized(cookieNames.profile, seal(session.profile, env.key), session.refresh.expiresAt - now(), env.production));
+  setCookie(headers, serialized(cookieNames.profile, seal({ v: VERSION, csrfToken: session.profile.csrfToken }, env.key), session.refresh.expiresAt - now(), env.production));
 }
 
 function equal(left: string, right: string): boolean {
@@ -323,26 +325,27 @@ function buildSession(tokens: Tokens, profile: Profile): Session {
   };
 }
 
-async function currentSession(request: Request, env: Environment, config: PortalRuntimeConfig, refreshProfile: boolean): Promise<Session | null> {
+async function currentSession(request: Request, env: Environment, config: PortalRuntimeConfig): Promise<Session | null> {
   const values = cookies(request);
   const cookieNames = names(env);
   let access = unseal<Access>(values.get(cookieNames.access), env.key);
   let refresh = unseal<Refresh>(values.get(cookieNames.refresh), env.key);
-  let profile = unseal<Profile>(values.get(cookieNames.profile), env.key);
-  if (access?.v !== VERSION || refresh?.v !== VERSION || profile?.v !== VERSION || refresh.expiresAt <= now()) return null;
+  const stored = unseal<ProfileCookie>(values.get(cookieNames.profile), env.key);
+  if (access?.v !== VERSION || refresh?.v !== VERSION || stored?.v !== VERSION || !stored.csrfToken || refresh.expiresAt <= now()) return null;
   let changed = false;
+  let profile: Profile | undefined;
   if (access.expiresAt <= now() + 60) {
     if (!refresh.token) return null;
     const tokens = await tokenRequest(env, new URLSearchParams({ grant_type: "refresh_token", refresh_token: refresh.token }));
+    profile = await loadProfile(env, tokens.access_token);
     const renewed = buildSession(tokens, profile);
     access = renewed.access;
     refresh = tokens.refresh_token ? renewed.refresh : refresh;
     changed = true;
   }
-  if (refreshProfile && profile.issuedAt <= now() - 60) {
-    profile = await loadProfile(env, access.token);
-    changed = true;
-  }
+  // Access assignments remain authoritative API data, not oversized cookie data.
+  profile ??= await loadProfile(env, access.token);
+  profile.csrfToken = stored.csrfToken;
   authorize(profile, config);
   return { access, refresh, profile, changed };
 }
@@ -422,7 +425,7 @@ async function callback(request: Request, config: PortalRuntimeConfig): Promise<
 async function getSession(request: Request, config: PortalRuntimeConfig): Promise<Response> {
   const env = environment();
   const headers = new Headers();
-  const session = await currentSession(request, env, config, true);
+  const session = await currentSession(request, env, config);
   if (!session) {
     clearCookies(headers, env);
     return problem(401, "Authentication required", undefined, "SESSION_REQUIRED", headers);
@@ -434,9 +437,9 @@ async function getSession(request: Request, config: PortalRuntimeConfig): Promis
 async function logout(request: Request, config: PortalRuntimeConfig): Promise<Response> {
   const env = environment();
   const headers = new Headers();
-  const session = await currentSession(request, env, config, false);
+  const profile = unseal<ProfileCookie>(cookies(request).get(names(env).profile), env.key);
   if (!sameOrigin(request, env)) return problem(403, "Invalid request origin", undefined, "INVALID_ORIGIN", headers);
-  if (!session || !equal(request.headers.get("x-csrf-token") ?? "", session.profile.csrfToken)) {
+  if (profile?.v !== VERSION || !equal(request.headers.get("x-csrf-token") ?? "", profile.csrfToken)) {
     clearCookies(headers, env);
     return problem(403, "Invalid CSRF token", undefined, "INVALID_CSRF", headers);
   }
@@ -502,6 +505,40 @@ function correlationId(request: Request): string {
   return value && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(value) ? value : random(18);
 }
 
+class BodyReadError extends Error {
+  constructor(readonly status: number) { super("Request body limit exceeded"); }
+}
+
+export async function readLimitedBody(request: Request, maxBytes = MAX_BODY, timeoutMs = TIMEOUT_MS): Promise<ArrayBuffer> {
+  if (!request.body) return new ArrayBuffer(0);
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new BodyReadError(408)), timeoutMs);
+  });
+  try {
+    while (true) {
+      const { done, value } = await Promise.race([reader.read(), deadline]);
+      if (done) break;
+      size += value.byteLength;
+      if (size > maxBytes) throw new BodyReadError(413);
+      chunks.push(value);
+    }
+    const result = new Uint8Array(size);
+    let offset = 0;
+    for (const chunk of chunks) { result.set(chunk, offset); offset += chunk.byteLength; }
+    return result.buffer;
+  } catch (error) {
+    void reader.cancel().catch(() => undefined);
+    throw error;
+  } finally {
+    clearTimeout(timer);
+    reader.releaseLock();
+  }
+}
+
 export async function proxyPortalApi(request: Request, pathParts: readonly string[], config: PortalRuntimeConfig): Promise<Response> {
   const requestId = correlationId(request);
   let env: Environment;
@@ -512,7 +549,7 @@ export async function proxyPortalApi(request: Request, pathParts: readonly strin
     return problem(503, "Portal service is unavailable", requestId, "RUNTIME_INVALID");
   }
   const headers = new Headers();
-  const session = await currentSession(request, env, config, false);
+  const session = await currentSession(request, env, config);
   if (!session) {
     clearCookies(headers, env);
     return problem(401, "Authentication required", requestId, "SESSION_REQUIRED", headers);
@@ -530,8 +567,12 @@ export async function proxyPortalApi(request: Request, pathParts: readonly strin
   if (Number.isFinite(announcedLength) && announcedLength > MAX_BODY) return problem(413, "Request body is too large", requestId, "BODY_TOO_LARGE");
   let body: ArrayBuffer | undefined;
   if (mutation && method !== "DELETE") {
-    body = await request.arrayBuffer();
-    if (body.byteLength > MAX_BODY) return problem(413, "Request body is too large", requestId, "BODY_TOO_LARGE");
+    try {
+      body = await readLimitedBody(request);
+    } catch (error) {
+      const status = error instanceof BodyReadError ? error.status : 400;
+      return problem(status, status === 413 ? "Request body is too large" : "Request body could not be read", requestId, "INVALID_BODY");
+    }
   }
   const upstreamHeaders = new Headers({
     Accept: "application/json",
