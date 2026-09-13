@@ -152,6 +152,13 @@ async def test_partially_migrated_local_token_is_not_accepted_as_legacy() -> Non
     assert error.value.status_code == 401
 
 
+def test_keycloak_signing_key_cache_is_disabled() -> None:
+    # PyJWT decorates get_signing_key with functools.lru_cache only when
+    # cache_keys=True. The individual-key cache must remain disabled so a
+    # refreshed JWK set immediately revokes a removed or compromised kid.
+    assert not hasattr(security.KEYCLOAK_JWKS_CLIENT.get_signing_key, "cache_info")
+
+
 @pytest.mark.asyncio
 async def test_keycloak_uses_shared_bounded_jwks_client_off_loop(
     monkeypatch: pytest.MonkeyPatch,

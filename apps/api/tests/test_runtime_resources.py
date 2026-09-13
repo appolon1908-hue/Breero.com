@@ -49,3 +49,36 @@ def test_container_default_command_trusts_only_private_proxy_network() -> None:
     command = dockerfile.rsplit("CMD ", 1)[1]
     assert '"--proxy-headers"' in command
     assert '"--forwarded-allow-ips", "172.16.0.0/12"' in command
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failed", [False, True])
+async def test_readiness_reuses_lifespan_redis_and_preserves_dependency_metrics(monkeypatch, failed):
+    from contextlib import asynccontextmanager
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+
+    from fastapi import HTTPException
+
+    from app import main
+
+    @asynccontextmanager
+    async def connect():
+        yield SimpleNamespace(scalar=AsyncMock(return_value=main.EXPECTED_SCHEMA_REVISION))
+
+    client = SimpleNamespace(ping=AsyncMock(), aclose=AsyncMock())
+    if failed:
+        client.ping.side_effect = ConnectionError("test dependency failure")
+    metrics = Mock()
+    monkeypatch.setattr(main, "engine", SimpleNamespace(connect=connect))
+    monkeypatch.setattr(main, "redis_client_from_request", lambda request: client)
+    monkeypatch.setattr(main, "record_dependency", metrics)
+    if failed:
+        with pytest.raises(HTTPException) as error:
+            await main.ready(SimpleNamespace())
+        assert error.value.status_code == 503
+    else:
+        assert (await main.ready(SimpleNamespace()))["status"] == "ready"
+    client.aclose.assert_not_awaited()
+    metrics.assert_any_call("postgres", True)
+    metrics.assert_any_call("redis", not failed)
