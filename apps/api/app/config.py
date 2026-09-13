@@ -87,6 +87,7 @@ class Settings(BaseSettings):
     smtp_password_file: str = ""
     smtp_from_email: str = ""
     email_enabled: bool = False
+    live_email_delivery: bool = False
     sms_provider: str = ""
     sms_api_key: str = Field(default="", repr=False)
     sms_api_key_file: str = ""
@@ -161,6 +162,7 @@ class Settings(BaseSettings):
             "MARKETPLACE_MESSAGING_ENABLED": self.marketplace_messaging_enabled,
             "MARKETPLACE_REVIEWS_ENABLED": self.marketplace_reviews_enabled,
             "MARKETING_EMAIL_ENABLED": self.marketing_email_enabled,
+            "LIVE_EMAIL_DELIVERY": self.live_email_delivery,
             "MARKETING_SMS_ENABLED": self.marketing_sms_enabled,
         }
         enabled_release_flags = [name for name, enabled in release_payment_flags.items() if enabled]

@@ -115,6 +115,7 @@ class InternalUserProvisioningService:
                 )
                 deliverable = (
                     settings.email_enabled
+                    and settings.live_email_delivery
                     and settings.transactional_email_mode != "disabled"
                 )
                 invitation_state = (
