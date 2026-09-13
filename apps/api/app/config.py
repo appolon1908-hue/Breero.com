@@ -1,4 +1,5 @@
 from functools import lru_cache
+from typing import Literal
 
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -9,7 +10,8 @@ from .secret_files import apply_secret_files
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore", hide_input_in_errors=True)
 
-    app_env: str = "development"
+    # Require an explicit environment so typos or omission cannot skip release checks.
+    app_env: Literal["development", "test", "staging", "production"]
     app_name: str = "BREERO API"
     api_v1_prefix: str = "/api/v1"
     database_url: str = Field(
@@ -271,7 +273,10 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()
+    # app_env has no Python-level default by design (see the field comment above) --
+    # pydantic-settings still supplies it from the environment/.env file at runtime,
+    # but mypy's call-arg check doesn't know that, hence the ignore.
+    return Settings()  # type: ignore[call-arg]
 
 
 settings = get_settings()
