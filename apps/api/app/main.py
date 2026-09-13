@@ -2,7 +2,6 @@ import re
 import time
 import uuid
 
-import redis.asyncio as redis
 import structlog
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,6 +16,8 @@ from app.core.errors import (
     is_v2_request,
     v2_unexpected_error_response,
 )
+from app.core.lifespan import lifespan
+from app.core.redis_client import redis_client_from_request
 from app.db.session import engine
 from app.observability import (
     configure_logging,
@@ -30,7 +31,7 @@ from app.observability import (
 
 EXPECTED_SCHEMA_REVISION = "022_provider_services_skills"
 TRACE_ID_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}")
-app = FastAPI(title=settings.app_name, version="2.0.0")
+app = FastAPI(title=settings.app_name, version="2.0.0", lifespan=lifespan)
 configure_logging()
 logger = structlog.get_logger()
 install_error_handlers(app)
@@ -119,7 +120,7 @@ async def live() -> dict[str, str]:
 
 
 @app.get("/health/ready", tags=["health"])
-async def ready() -> dict[str, str]:
+async def ready(request: Request) -> dict[str, str]:
     checks: dict[str, str] = {}
     try:
         async with engine.connect() as connection:
@@ -134,8 +135,10 @@ async def ready() -> dict[str, str]:
         logger.warning("readiness_failed", dependency="postgres", error=type(exc).__name__)
         raise HTTPException(503, "dependency unavailable") from exc
 
-    client = redis.from_url(settings.redis_url, socket_connect_timeout=1, socket_timeout=1)
     try:
+        client = redis_client_from_request(request)
+        if client is None:
+            raise RuntimeError("Redis client is not initialized")
         await client.ping()
         checks["redis"] = "ok"
         record_dependency("redis", True)
@@ -143,8 +146,6 @@ async def ready() -> dict[str, str]:
         record_dependency("redis", False)
         logger.warning("readiness_failed", dependency="redis", error=type(exc).__name__)
         raise HTTPException(503, "dependency unavailable") from exc
-    finally:
-        await client.aclose()
 
     if checks.get("schema") != "ok":
         raise HTTPException(503, detail={"status": "not_ready", "checks": checks})
