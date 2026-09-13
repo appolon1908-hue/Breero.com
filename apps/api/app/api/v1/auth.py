@@ -6,8 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.core.rate_limit import rate_limit
 from app.db.session import get_db
-from app.domains.auth.access_service import AccessService
-from app.domains.auth.dependencies import current_user
+from app.domains.auth.dependencies import current_access_context, current_user
 from app.domains.auth.models import User
 from app.domains.auth.schemas import (
     ChangePasswordRequest,
@@ -264,7 +263,6 @@ async def me(
     response_model=PortalContext,
 )
 async def portal_context(
-    user: Annotated[User, Depends(current_user)],
-    session: Annotated[AsyncSession, Depends(get_db)],
+    context: Annotated[PortalContext, Depends(current_access_context)],
 ) -> PortalContext:
-    return await AccessService(session).context(user)
+    return context

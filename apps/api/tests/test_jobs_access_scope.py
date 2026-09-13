@@ -8,6 +8,10 @@ from app.api.v1 import jobs
 from app.domains.auth.models import AccessRole, User, UserRole
 
 
+def make_request() -> SimpleNamespace:
+    return SimpleNamespace(state=SimpleNamespace())
+
+
 def make_user(role: UserRole = UserRole.customer) -> User:
     return User(
         id=uuid.uuid4(),
@@ -59,7 +63,7 @@ class SequenceScalarSession:
 
 
 def patch_roles(monkeypatch, roles: list[AccessRole]) -> None:
-    async def fake_effective_roles(_session, _user):
+    async def fake_effective_roles(_request, _session, _user):
         return set(roles)
 
     monkeypatch.setattr(jobs, "effective_roles", fake_effective_roles)
@@ -80,7 +84,7 @@ async def test_get_job_denies_vendor_scoped_rbac_grant_for_a_different_vendor(mo
     patch_roles(monkeypatch, [AccessRole.vendor_admin])
 
     with pytest.raises(HTTPException) as exc_info:
-        await jobs.get_job(job.id, ScalarSession(other_vendor), user)
+        await jobs.get_job(job.id, make_request(), ScalarSession(other_vendor), user)
 
     assert exc_info.value.status_code == 403
 
@@ -94,7 +98,7 @@ async def test_get_job_allows_vendor_scoped_rbac_grant_for_the_owning_vendor(mon
     monkeypatch.setattr(jobs, "JobRepository", FakeJobRepository(job))
     patch_roles(monkeypatch, [AccessRole.vendor_admin])
 
-    result = await jobs.get_job(job.id, ScalarSession(owning_vendor), user)
+    result = await jobs.get_job(job.id, make_request(), ScalarSession(owning_vendor), user)
 
     assert result is job
 
@@ -111,7 +115,7 @@ async def test_get_job_denies_when_effective_roles_grant_nothing_recognized(monk
     patch_roles(monkeypatch, [])
 
     with pytest.raises(HTTPException) as exc_info:
-        await jobs.get_job(job.id, ScalarSession(None), user)
+        await jobs.get_job(job.id, make_request(), ScalarSession(None), user)
 
     assert exc_info.value.status_code == 403
 
@@ -128,7 +132,12 @@ async def test_list_work_requests_denies_customer_scoped_rbac_grant_for_a_differ
     patch_roles(monkeypatch, [AccessRole.customer])
 
     with pytest.raises(HTTPException) as exc_info:
-        await jobs.list_work_requests(job.id, ScalarSession(other_customer), user)
+        await jobs.list_work_requests(
+            job.id,
+            make_request(),
+            ScalarSession(other_customer),
+            user,
+        )
 
     assert exc_info.value.status_code == 403
 
@@ -149,6 +158,7 @@ async def test_list_work_requests_allows_when_a_second_role_grants_access(monkey
 
     result = await jobs.list_work_requests(
         job.id,
+        make_request(),
         SequenceScalarSession(non_matching_customer, matching_worker),
         user,
     )
