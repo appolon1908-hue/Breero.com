@@ -1,0 +1,10 @@
+# Compatibility entry point for the protected backend-quality workflow.
+#
+# The production topology is defined only in ../../docker-compose.production.yml.
+# This file intentionally contains no services of its own; Docker Compose 2.20+
+# loads the canonical root model with inert validation inputs from the adjacent
+# env file. Operators must deploy the root manifest directly.
+include:
+  - path: ../../docker-compose.production.yml
+    project_directory: ../..
+    env_file: compose-validation.env

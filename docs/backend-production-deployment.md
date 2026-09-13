@@ -7,6 +7,11 @@ network (Docker network name `breero_breero_private`); only the API additionally
 `breero-worker-1`, `breero-postgres-1`, `breero-redis-1`, `breero-scheduler-1`) since the file sets
 no `container_name` overrides. PostgreSQL, Redis and port 8000 have no host publication.
 
+`deploy/production/docker-compose.backend.yml` is a service-free compatibility entry point for the
+protected CI workflow. It includes the root manifest and supplies only inert interpolation fixtures
+from `deploy/production/compose-validation.env`. It is not a second deployment topology and must
+not be used by operators.
+
 Required sequence:
 
 1. Verify at least 15% host disk headroom, exact-head green CI, and production-only secrets.
