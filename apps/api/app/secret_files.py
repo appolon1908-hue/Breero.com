@@ -17,10 +17,22 @@ def read_secret_file(path: str, name: str) -> str:
             info = os.fstat(stream.fileno())
             if not stat.S_ISREG(info.st_mode):
                 raise ValueError("secret file must be regular")
-            if stat.S_IMODE(info.st_mode) not in {0o400, 0o600}:
-                raise ValueError("secret file permissions must be 0400 or 0600")
-            if info.st_uid != os.geteuid():
-                raise ValueError("secret file must be owned by the runtime user")
+            private_file = (
+                stat.S_IMODE(info.st_mode) in {0o400, 0o600}
+                and info.st_uid == os.geteuid()
+            )
+            # Compose file secrets retain host ownership. Accept its root-owned
+            # 0444 convention only at the canonical secret location and on the
+            # opened descriptor's read-only mount, never an ordinary public file.
+            compose_secret = (
+                info.st_uid == 0
+                and stat.S_IMODE(info.st_mode) == 0o444
+                and Path(path).parent == Path("/run/secrets")
+                and Path(path).resolve() == Path(path)
+                and bool(os.fstatvfs(stream.fileno()).f_flag & os.ST_RDONLY)
+            )
+            if not (private_file or compose_secret):
+                raise ValueError("secret file must be private and runtime-owned or a read-only Compose secret")
             data = stream.read(MAX_SECRET_BYTES + 1)
         if len(data) > MAX_SECRET_BYTES:
             raise ValueError("secret file exceeds size limit")

@@ -52,6 +52,11 @@ class SecretFileTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             MODULE.read_secret_file(str(self.path), "EXAMPLE")
 
+    def test_world_readable_file_outside_compose_is_rejected(self):
+        self.path.chmod(0o444)
+        with self.assertRaises(ValueError):
+            MODULE.read_secret_file(str(self.path), "EXAMPLE")
+
     def test_link_and_fifo_are_rejected(self):
         link = self.path.with_name("link")
         link.symlink_to(self.path)

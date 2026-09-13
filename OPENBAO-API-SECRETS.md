@@ -10,7 +10,9 @@ startup bindings; add `--include SETTING_NAME` only for an enabled integration.
 Run the agent as the same non-root UID/GID as its consumer. Use private directories
 on a memory-backed volume and read-only mounts in the application container.
 The agent writes mode 0400, with no backup copy or token sink. Consumers accept
-0400 or 0600 private regular files owned by the runtime user; links, directories,
+0400 or 0600 private regular files owned by the runtime user. Docker Compose secrets
+may also be root-owned 0444 regular files directly under `/run/secrets`, but only
+when the opened file is on a read-only mount. Links, directories,
 pipes, empty/oversized/invalid files and conflicting inline credentials are rejected.
 Remove the matching inline environment setting when supplying its `_FILE` setting.
 A configured file failing to load stops configuration; it never falls back to an
@@ -52,3 +54,9 @@ Logical prefix: `codestra/<environment>/breero/api/runtime/`.
 Breero must never receive an Odoo API key. `ODOO_ENABLED`, inline `ODOO_API_KEY`,
 and `ODOO_API_KEY_FILE` are rejected before secret files are read. Only Middleware
 may consume the Odoo integration credential; Breero receives its scoped Middleware identity.
+
+For file-backed Compose secrets, do not rely on Compose `uid`/`mode` remapping.
+Provision host files as UID 10001, mode 0400 (preferred), or root-owned mode 0444
+inside a root-only host directory and mount each file read-only at `/run/secrets`.
+Root-owned 0600 files cannot be read by UID 10001 and must be reprovisioned before
+rollout. Do not change permissions on live credential files as part of validation.
