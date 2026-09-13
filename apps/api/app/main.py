@@ -118,6 +118,7 @@ async def live() -> dict[str, str]:
     return {"status": "live"}
 
 
+@app.get("/ready", tags=["health"])
 @app.get("/health/ready", tags=["health"])
 async def ready() -> dict[str, str]:
     checks: dict[str, str] = {}
