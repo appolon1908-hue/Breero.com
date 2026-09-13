@@ -2,8 +2,6 @@ name: Backend production gates
 
 on:
   workflow_call:
-  push:
-    branches: ["main"]
 
 jobs:
   backend-quality:
@@ -30,8 +28,8 @@ jobs:
       DATABASE_URL: postgresql+psycopg://breero:test-only@localhost:5432/breero_test
       REDIS_URL: redis://localhost:6379/0
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.12"
           cache: pip
@@ -117,7 +115,7 @@ jobs:
       - name: Dependency audit
         run: pip-audit
       - name: Secret scan
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: fs
           scan-ref: .
@@ -126,7 +124,7 @@ jobs:
       - run: docker build -t breero-api:${{ github.sha }} .
         working-directory: apps/api
       - name: Container HIGH/CRITICAL scan
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: breero-api:${{ github.sha }}
           trivyignores: .trivyignore
