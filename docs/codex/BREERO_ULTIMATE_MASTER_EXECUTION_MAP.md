@@ -299,6 +299,10 @@ fe/leads-commercial-admin
 
 Lead and booking concepts remain distinct. Sponsored placement never overrides safety, qualification, coverage, license, compliance, schedule or capacity eligibility.
 
+### Phase M.1 — shared durable delivery foundation
+
+Complete `integration/outbox-inbox-webhooks` after identity and authorization, before finance. This branch owns the common transactional outbox, durable inbox, deduplication, retry, dead-letter and replay acceptance evidence. Phase P adds provider-specific adapters on this accepted foundation.
+
 ### Phase N — disabled finance infrastructure
 
 ```text
@@ -329,7 +333,7 @@ Own structured logs/traces/metrics/health, queue/lease age, marketplace KPIs, PI
 Common reliability:
 
 ```text
-integration/outbox-inbox-webhooks
+integration/provider-adapter-reconciliation
 ```
 
 Provider-specific branches:
