@@ -67,7 +67,6 @@ PACKAGE_DIRS: tuple[Path, ...] = (
     APP_ROOT / "integrations" / "telnexa",
     APP_ROOT / "integrations" / "n8n",
     APP_ROOT / "workers",
-    APP_ROOT / "observability",
 )
 
 TEST_DIRS: tuple[Path, ...] = (
