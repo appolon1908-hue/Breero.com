@@ -65,7 +65,15 @@ async def enforce_rate_limit(request: Request) -> str:
     return source
 
 
+def validate_channel_contract(data) -> None:
+    if (data.transactional_sms_consent or data.marketing_sms_consent) and not getattr(data, "phone", None):
+        raise DomainError("PHONE_REQUIRED_FOR_SMS_CONSENT", "A phone number is required for SMS consent", 422)
+    if getattr(data, "contact_preference", None) == "text" and not data.transactional_sms_consent:
+        raise DomainError("SMS_CONSENT_REQUIRED", "Text contact requires transactional SMS consent", 422)
+
+
 async def accept(data, submission_type, key, source, session):
+    validate_channel_contract(data)
     if not key or len(key) > 255:
         raise DomainError(
             "IDEMPOTENCY_KEY_REQUIRED",

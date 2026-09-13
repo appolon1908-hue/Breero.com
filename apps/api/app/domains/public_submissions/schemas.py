@@ -57,7 +57,7 @@ class TrackingFields(BaseModel):
             )
 
         if any(getattr(self, flag) for flag in CONSENT_FLAGS):
-            policy_version = (self.policy_version or "").strip()
+            policy_version = self.policy_version or ""
             if not policy_version:
                 raise ValueError("A policy version is required for consent")
             if policy_version not in CONSENT_DISCLOSURES_BY_POLICY:
