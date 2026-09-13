@@ -22,9 +22,12 @@ This is the normative ownership boundary for BREERO on Codestra.
 | Alerts | Alertmanager | Notifications route through Middleware |
 | Operational visualization | Grafana | Read-only visualization |
 | Business analytics | Superset/reporting store | Separate from operational telemetry |
+| Infrastructure metrics | Codestra exporters | External platform dependency; no business-data writes |
 
 ## Mandatory Odoo boundary
 
 No Prometheus, Grafana, Loki, Tempo, Alloy, exporter, browser, or BREERO business handler may write Odoo directly. The only approved production direction is `business/operational event -> Middleware -> authorized Odoo adapter`. Middleware owns authentication, authorization, mapping, schema translation, deduplication, idempotency, retry, audit, dead letters, replay, and write policy.
 
-The source-level `app.integrations.odoo` adapter and `/internal/odoo` router are classified as legacy risk until a later milestone proves they are inbound-only or unreachable in production. They are not evidence of an approved production write path.
+The legacy `app.integrations.odoo` adapter retains direct JSON-RPC methods and shared pure mapping/envelope helpers. Current Settings rejects direct Odoo enablement and credentials before reading secret files in every environment. The actual `/internal/v1/integrations/odoo` router reads/retries BREERO outbox records; it is not an Odoo business-write endpoint. The worker uses Middleware. Keep internal routes behind approved ingress and separate legacy helpers before removing the adapter; source restrictions are not deployed-runtime certification.
+
+Stripe settlement and Geoapify currently use direct provider adapters. Preserve their accepted foundations while the owning integration workstreams reconcile them with the mission's governed cross-system boundary. No new transport authority is introduced by this inventory.
