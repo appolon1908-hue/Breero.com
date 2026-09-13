@@ -434,7 +434,7 @@ async function getSession(request: Request, config: PortalRuntimeConfig): Promis
   return json(sessionView(session), 200, headers);
 }
 
-async function logout(request: Request, config: PortalRuntimeConfig): Promise<Response> {
+async function logout(request: Request): Promise<Response> {
   const env = environment();
   const headers = new Headers();
   const profile = unseal<ProfileCookie>(cookies(request).get(names(env).profile), env.key);
@@ -473,7 +473,7 @@ export async function handlePortalAuthGet(request: Request, action: string, conf
 
 export async function handlePortalAuthPost(request: Request, action: string, config: PortalRuntimeConfig): Promise<Response> {
   try {
-    return action === "logout" ? await logout(request, config) : problem(405, "Method not allowed", undefined, "METHOD_NOT_ALLOWED");
+    return action === "logout" ? await logout(request) : problem(405, "Method not allowed", undefined, "METHOD_NOT_ALLOWED");
   } catch (error) {
     console.error("portal_auth_unavailable", { portal: config.kind, action, reason: error instanceof Error ? error.message : "unknown" });
     return problem(503, "Portal authentication is unavailable", undefined, "AUTH_UNAVAILABLE");
