@@ -95,7 +95,7 @@ Celery/background workers
 
 V1 compatibility
 
-/api/v2 mounted
+/api/v2 mount must be verified at the accepted source SHA; historical bootstrap inventories are not proof of implementation
 
 request IDs
 
@@ -380,17 +380,19 @@ P0_CONCURRENCY=PASS
 
 P0_AUDIT=PASS
 
+P0_INTEGRATION_RELIABILITY=PASS
+
 P0_OUTBOX=PASS
 
 P0_INBOX=PASS
+
+P0_WEBHOOKS=PASS
 
 P0_STORAGE=PASS
 
 P0_NOTIFICATIONS=PASS
 
-P0_OPERATIONAL_EXCEPTIONS=PASS
-
-P0_ADAPTERS=PASS
+P0_OPERATIONS=PASS
 
 P0_OBSERVABILITY=PASS
 
@@ -398,11 +400,7 @@ P0_DATABASE=PASS
 
 P0_SECURITY=PASS
 
-P0_BACKUP_RESTORE=PASS
-
-P0_GATEWAY=PASS
-
-P0_DEPLOYMENT=PASS
+P0_DEPLOYABILITY=PASS
 
 P0_FINAL=PASS
 
