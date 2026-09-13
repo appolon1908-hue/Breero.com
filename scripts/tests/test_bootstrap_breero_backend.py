@@ -107,6 +107,19 @@ class ExecutionContextTests(unittest.TestCase):
 
 
 class FileSafetyTests(unittest.TestCase):
+    def test_planned_directory_occupied_by_file_fails_before_writes(self) -> None:
+        for directory in (*bootstrap.PACKAGE_DIRS, *bootstrap.TEST_DIRS):
+            with self.subTest(directory=directory), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                target = root / directory
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text("existing content")
+                before = sorted(str(p.relative_to(root)) for p in root.rglob("*"))
+                with self.assertRaises(bootstrap.BootstrapError):
+                    bootstrap.plan_actions(root)
+                self.assertEqual(before, sorted(str(p.relative_to(root)) for p in root.rglob("*")))
+                self.assertEqual(target.read_text(), "existing content")
+
     def test_safe_relative_rejects_escape(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

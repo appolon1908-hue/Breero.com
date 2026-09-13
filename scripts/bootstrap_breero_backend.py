@@ -334,7 +334,10 @@ def plan_actions(root: Path) -> list[Action]:
 
     for directory in (*PACKAGE_DIRS, *TEST_DIRS):
         relative = safe_relative(root, directory)
-        if not (root / relative).exists():
+        target = root / relative
+        if target.exists() and not target.is_dir():
+            raise BootstrapError(f"Planned directory is occupied by a file: {relative}")
+        if not target.exists():
             actions.append(Action("mkdir", relative, "create directory"))
 
     for marker in PACKAGE_MARKERS:
