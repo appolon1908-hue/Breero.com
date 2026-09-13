@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
+from app.domains.auth.access_service import BRAND_KEY
 from app.domains.auth.dependencies import require_any_permission
 from app.domains.auth.models import User
 from app.domains.common.outbox import IntegrationEvent
@@ -113,23 +114,22 @@ async def list_outbox(
     user: User = Depends(require_any_permission("email.outbox.read")),
 ) -> list[EmailOutboxRead]:
     service = TenantEmailService(session)
-    rows = list(
-        (
-            await session.execute(
-                select(IntegrationEvent, EmailMessage)
-                .join(EmailMessage, EmailMessage.id == IntegrationEvent.aggregate_id)
-                .where(IntegrationEvent.aggregate_type == "email_message")
-                .order_by(IntegrationEvent.created_at.desc())
-                .limit(200)
-            )
-        ).all()
+    # Apply the caller's tenant scope in SQL before LIMIT: filtering afterward would
+    # let another tenant's more-recent events crowd this caller's own events out of
+    # the top 200, leaving them with an incomplete or empty outbox.
+    vendor_ids = await service.scoped_vendor_ids(user, BRAND_KEY)
+    query = (
+        select(IntegrationEvent, EmailMessage)
+        .join(EmailMessage, EmailMessage.id == IntegrationEvent.aggregate_id)
+        .where(IntegrationEvent.aggregate_type == "email_message")
     )
+    if vendor_ids is not None:
+        if not vendor_ids:
+            return []
+        query = query.where(EmailMessage.vendor_id.in_(vendor_ids))
+    rows = list((await session.execute(query.order_by(IntegrationEvent.created_at.desc()).limit(200))).all())
     result: list[EmailOutboxRead] = []
     for event, message in rows:
-        try:
-            await service.assert_scope(user, message.brand_key, message.vendor_id)
-        except HTTPException:
-            continue
         result.append(
             EmailOutboxRead(
                 id=event.id,

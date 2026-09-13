@@ -8,8 +8,8 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
-revision = "019_tenant_email_provisioning"
-down_revision = "018_auth_identity_tenancy_rbac"
+revision = "023_tenant_email_provisioning"
+down_revision = "022_provider_services_skills"
 branch_labels = None
 depends_on = None
 

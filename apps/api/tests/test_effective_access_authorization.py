@@ -5,7 +5,7 @@ import pytest
 from fastapi import HTTPException, status
 
 from app.domains.auth import dependencies
-from app.domains.auth.access_service import AccessService, NO_ACCESS_DASHBOARD
+from app.domains.auth.access_service import NO_ACCESS_DASHBOARD, AccessService
 from app.domains.auth.models import AccessProfile, AccessRole, User, UserRole
 
 

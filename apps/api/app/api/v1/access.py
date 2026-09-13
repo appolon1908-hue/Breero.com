@@ -45,9 +45,13 @@ async def user_access(
 async def replace_user_access(
     user_id: uuid.UUID,
     data: AccessProfileUpdate,
-    _: Annotated[User, Depends(admin_only)],
+    actor: Annotated[User, Depends(admin_only)],
     session: Annotated[AsyncSession, Depends(get_db)],
 ) -> PortalContext:
+    if any(item.role == AccessRole.superadmin for item in data.assignments):
+        actor_context = await AccessService(session).context(actor, data.brand_key)
+        if "*" not in actor_context.permissions:
+            raise HTTPException(403, "Only superadmin can grant the superadmin role")
     return await AccessService(session).replace_assignments(
         user_id=user_id,
         brand_key=data.brand_key,
