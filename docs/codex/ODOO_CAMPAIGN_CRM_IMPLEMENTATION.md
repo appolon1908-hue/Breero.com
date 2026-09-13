@@ -427,6 +427,11 @@ This ordering is not activated against the current BREERO producer until the fol
 
 ### Stage B — separately review queued acknowledgment support
 
+Stage B also requires a versioned producer request envelope before any queued acknowledgment rollout. BREERO publishes a business event to Middleware with `schema_version`, `event_id`, `event_type`, `tenant_id`, `legal_entity_id`, `campaign_id` when campaign-scoped, `correlation_id`, `occurred_at`, and `data`. Middleware validates the producer's authenticated tenant grant, derives the authorized Odoo company/campaign mapping from its registry, and sends the mapped versioned envelope to Odoo. Raw payload text and Odoo request context are not scope authority.
+
+Deploy receiver schema validation first, then the Middleware mapping, then the BREERO producer contract in separately reviewed changes. Existing unscoped Stage A events cannot enter campaign processing: retain them in restricted quarantine until an authorized mapping/replay supplies validated scope. Never infer global scope for backward compatibility. Require matching producer/consumer contract tests, rejection of missing/conflicting scope, duplicate-event tests, and a staged replay receipt before switching acknowledgments. Rollback restores the previous producer/receiver protocol without replaying scoped records through an unscoped path.
+
+
 Introduce a separately reviewed producer contract that can explicitly accept:
 
 ```json
