@@ -86,17 +86,17 @@ class SecretFileTests(unittest.TestCase):
         from app.config import Settings
 
         with patch.dict(os.environ, {}, clear=True):
-            settings = Settings(_env_file=None, database_url_file=str(self.path))
+            settings = Settings(app_env="test", _env_file=None, database_url_file=str(self.path))
             self.assertEqual(settings.database_url, "invalid-local-fixture")
             self.assertNotIn("invalid-local-fixture", repr(settings))
             with self.assertRaises(ValueError):
-                Settings(_env_file=None, database_url="inline", database_url_file=str(self.path))
+                Settings(app_env="test", _env_file=None, database_url="inline", database_url_file=str(self.path))
 
     def test_file_environment_uses_application_prefix(self):
         from app.config import Settings
 
         with patch.dict(os.environ, {"DATABASE_URL_FILE": str(self.path)}, clear=True):
-            settings = Settings(_env_file=None)
+            settings = Settings(app_env="test", _env_file=None)
             self.assertEqual(settings.database_url, "invalid-local-fixture")
 
 
@@ -111,7 +111,7 @@ class OdooCredentialBoundaryTests(unittest.TestCase):
         ):
             with self.subTest(values=values), patch.dict(os.environ, {}, clear=True):
                 with self.assertRaisesRegex(ValueError, "Direct Odoo credentials"):
-                    Settings(_env_file=None, **values)
+                    Settings(app_env="test", _env_file=None, **values)
 
     def test_odoo_environment_credentials_are_rejected(self):
         from app.config import Settings
@@ -119,7 +119,7 @@ class OdooCredentialBoundaryTests(unittest.TestCase):
         for key in ("ODOO_API_KEY", "ODOO_API_KEY_FILE"):
             with self.subTest(key=key), patch.dict(os.environ, {key: "invalid-fixture"}, clear=True):
                 with self.assertRaisesRegex(ValueError, "Direct Odoo credentials"):
-                    Settings(_env_file=None)
+                    Settings(app_env="test", _env_file=None)
 
     def test_secret_contract_does_not_provision_odoo_credentials(self):
         import json
