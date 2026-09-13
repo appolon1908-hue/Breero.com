@@ -2,25 +2,33 @@ const issuer = process.env.NEXT_PUBLIC_KEYCLOAK_ISSUER?.replace(/\/$/, "") ?? ""
 const clientId = process.env.NEXT_PUBLIC_KEYCLOAK_CLIENT_ID ?? "breero-web-production";
 const enabled = process.env.NEXT_PUBLIC_KEYCLOAK_ENABLED === "true";
 
+const VERIFIER_KEY = "breero_oidc_verifier";
+const STATE_KEY = "breero_oidc_state";
+const RETURN_TO_KEY = "breero_oidc_return_to";
+
 const base64url = (bytes: Uint8Array) =>
   btoa(String.fromCharCode(...bytes))
     .replaceAll("+", "-")
     .replaceAll("/", "_")
     .replaceAll("=", "");
 
+const safeInternalPath = (value: string | null | undefined, fallback = "/account") =>
+  value && value.startsWith("/") && !value.startsWith("//") ? value : fallback;
+
 export const keycloak = {
   enabled,
   issuer,
   clientId,
-  async login() {
+  async login(returnTo = "/account") {
     if (!enabled || !issuer) throw new Error("Keycloak login is unavailable");
     const verifier = base64url(crypto.getRandomValues(new Uint8Array(48)));
     const challenge = base64url(
       new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier))),
     );
     const state = base64url(crypto.getRandomValues(new Uint8Array(24)));
-    sessionStorage.setItem("breero_oidc_verifier", verifier);
-    sessionStorage.setItem("breero_oidc_state", state);
+    sessionStorage.setItem(VERIFIER_KEY, verifier);
+    sessionStorage.setItem(STATE_KEY, state);
+    sessionStorage.setItem(RETURN_TO_KEY, safeInternalPath(returnTo));
     const redirectUri = `${window.location.origin}/account/callback`;
     const query = new URLSearchParams({
       client_id: clientId,
@@ -34,10 +42,10 @@ export const keycloak = {
     window.location.assign(`${issuer}/protocol/openid-connect/auth?${query}`);
   },
   async exchange(code: string, state: string) {
-    const expected = sessionStorage.getItem("breero_oidc_state");
-    const verifier = sessionStorage.getItem("breero_oidc_verifier");
-    sessionStorage.removeItem("breero_oidc_state");
-    sessionStorage.removeItem("breero_oidc_verifier");
+    const expected = sessionStorage.getItem(STATE_KEY);
+    const verifier = sessionStorage.getItem(VERIFIER_KEY);
+    sessionStorage.removeItem(STATE_KEY);
+    sessionStorage.removeItem(VERIFIER_KEY);
     if (!expected || !verifier || state !== expected) throw new Error("Invalid login state");
     const response = await fetch(`${issuer}/protocol/openid-connect/token`, {
       method: "POST",
@@ -57,6 +65,11 @@ export const keycloak = {
       id_token?: string;
     }>;
   },
+  consumeReturnTo() {
+    const returnTo = safeInternalPath(sessionStorage.getItem(RETURN_TO_KEY));
+    sessionStorage.removeItem(RETURN_TO_KEY);
+    return returnTo;
+  },
   async refresh(refreshToken: string) {
     const response = await fetch(`${issuer}/protocol/openid-connect/token`, {
       method: "POST",
@@ -70,11 +83,13 @@ export const keycloak = {
     if (!response.ok) throw new Error("Session refresh failed");
     return response.json() as Promise<{ access_token: string; refresh_token?: string }>;
   },
-  logout() {
-    sessionStorage.clear();
+  logout(postLogoutPath = "/") {
+    sessionStorage.removeItem(VERIFIER_KEY);
+    sessionStorage.removeItem(STATE_KEY);
+    sessionStorage.removeItem(RETURN_TO_KEY);
     const query = new URLSearchParams({
       client_id: clientId,
-      post_logout_redirect_uri: `${window.location.origin}/`,
+      post_logout_redirect_uri: `${window.location.origin}${safeInternalPath(postLogoutPath, "/")}`,
     });
     window.location.assign(`${issuer}/protocol/openid-connect/logout?${query}`);
   },
