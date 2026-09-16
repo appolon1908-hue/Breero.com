@@ -1,4 +1,4 @@
-"""Compatibility facade for structured application settings.
+﻿"""Compatibility facade for structured application settings.
 
 New validation belongs in ``app.settings`` modules. Existing imports from
 ``app.config`` remain stable.
