@@ -9,8 +9,6 @@ from app import main
 @pytest.mark.parametrize("path", ["/ready", "/health/ready"])
 @pytest.mark.parametrize("failure", [None, "postgres", "schema", "redis"])
 def test_readiness_routes_preserve_dependency_checks(monkeypatch, path, failure):
-    closed = []
-
     class Connection:
         async def __aenter__(self):
             if failure == "postgres":
@@ -29,11 +27,8 @@ def test_readiness_routes_preserve_dependency_checks(monkeypatch, path, failure)
                 raise ConnectionError("test redis unavailable")
             return True
 
-        async def aclose(self):
-            closed.append(True)
-
     monkeypatch.setattr(main, "engine", SimpleNamespace(connect=Connection))
-    monkeypatch.setattr(main.redis, "from_url", lambda *_args, **_kwargs: Redis())
+    monkeypatch.setattr(main.app.state, "redis", Redis(), raising=False)
 
     response = TestClient(main.app).get(path)
     assert response.status_code == (503 if failure else 200)
@@ -44,8 +39,6 @@ def test_readiness_routes_preserve_dependency_checks(monkeypatch, path, failure)
             "schema": "ok",
             "redis": "ok",
         }
-    if failure != "postgres":
-        assert closed == [True]
 
 
 def test_documented_readiness_route_is_read_only():
