@@ -94,7 +94,7 @@ async def current_user(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required"
         )
-    claims = decode_access_token(token)
+    claims = await decode_access_token(token)
     repository = UserRepository(session)
     user: User | None
     issuer = str(claims.get("iss") or "").rstrip("/")

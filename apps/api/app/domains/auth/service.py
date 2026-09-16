@@ -30,6 +30,7 @@ from app.domains.auth.security import (
     hash_token,
     new_opaque_token,
     verify_password,
+    verify_password_and_update,
 )
 from app.domains.booking.models import Address, Booking, Customer, ProviderServiceCoverage
 from app.domains.booking.timezones import timezone
@@ -57,7 +58,7 @@ class AuthService:
                     email=email,
                     phone=data.phone,
                     full_name=data.full_name.strip(),
-                    password_hash=hash_password(data.password),
+                    password_hash=await hash_password(data.password),
                     role=UserRole.customer,
                 )
             )
@@ -118,7 +119,7 @@ class AuthService:
                     email=email,
                     phone=data.phone,
                     full_name=data.contact_name.strip(),
-                    password_hash=hash_password(data.password),
+                    password_hash=await hash_password(data.password),
                     role=UserRole.vendor_admin,
                 )
             )
@@ -214,12 +215,33 @@ class AuthService:
         self, data: LoginRequest, user_agent: str | None = None, ip: str | None = None
     ) -> TokenResponse:
         user = await self.users.by_email(data.email.lower())
-        if not user or not verify_password(data.password, user.password_hash) or not user.is_active:
+        valid_password = False
+        updated_password_hash: str | None = None
+        if user:
+            valid_password, updated_password_hash = await verify_password_and_update(
+                data.password,
+                user.password_hash,
+            )
+        if not user or not valid_password or not user.is_active:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials"
             )
+        if updated_password_hash is not None:
+            user.password_hash = updated_password_hash
         token = await self._tokens(user, user_agent, ip)
         user.last_login_at = datetime.now(UTC)
+        self._audit(
+            actor_id=user.id,
+            actor_type="user",
+            action="auth.login",
+            resource_type="user",
+            resource_id=user.id,
+            metadata={
+                "user_agent_present": bool(user_agent),
+                "ip_present": bool(ip),
+                "password_rehashed": updated_password_hash is not None,
+            },
+        )
         await self.session.commit()
         return token
 
@@ -230,6 +252,7 @@ class AuthService:
         user.last_login_at = datetime.now(UTC)
         await self.session.commit()
         return token
+
 
     async def refresh(
         self, raw_token: str, user_agent: str | None = None, ip: str | None = None
@@ -293,18 +316,38 @@ class AuthService:
         if not user:
             raise HTTPException(400, "Invalid or expired reset token")
         token.used_at = now
-        await self._set_password(user, password, now)
+        await self._set_password(user, password, now, action="auth.password.reset")
 
-    async def change_password(self, user: User, current: str, new: str) -> None:
-        if not verify_password(current, user.password_hash):
+    async def change_password(
+        self,
+        user: User,
+        current: str,
+        new: str,
+    ) -> None:
+        if not await verify_password(current, user.password_hash):
             raise HTTPException(400, "Current password is incorrect")
-        await self._set_password(user, new, datetime.now(UTC))
+        await self._set_password(
+            user,
+            new,
+            datetime.now(UTC),
+            action="auth.password.change",
+        )
 
-    async def set_initial_password(self, user: User, new: str) -> None:
+    async def set_initial_password(
+        self,
+        user: User,
+        new: str,
+    ) -> None:
         if not user.password_set_required:
             raise HTTPException(409, "Account password is already set")
         user.password_set_required = False
-        await self._set_password(user, new, datetime.now(UTC))
+        await self._set_password(
+            user,
+            new,
+            datetime.now(UTC),
+            action="auth.password.set",
+        )
+
 
     async def verify_email(self, raw: str) -> None:
         token = await self.users.verification_by_hash(hash_token(raw))
@@ -345,15 +388,30 @@ class AuthService:
         )
         await self.session.commit()
 
-    async def _set_password(self, user: User, password: str, now: datetime) -> None:
-        user.password_hash = hash_password(password)
+    async def _set_password(
+        self,
+        user: User,
+        password: str,
+        now: datetime,
+        *,
+        action: str,
+    ) -> None:
+        user.password_hash = await hash_password(password)
         user.credential_version += 1
         await self.session.execute(
             update(Session)
             .where(Session.user_id == user.id, Session.revoked_at.is_(None))
             .values(revoked_at=now)
         )
-        self._event(user, "password_changed", {})
+        self._event(user, "password_changed", {"reason": action})
+        self._audit(
+            actor_id=user.id,
+            actor_type="user",
+            action=action,
+            resource_type="user",
+            resource_id=user.id,
+            metadata={"sessions_revoked": True},
+        )
         await self.session.commit()
 
     async def _tokens(
@@ -454,5 +512,27 @@ class AuthService:
                 status=EventStatus.PENDING,
                 attempts=0,
                 available_at=datetime.now(UTC),
+            )
+        )
+
+    def _audit(
+        self,
+        *,
+        actor_id: uuid.UUID | None,
+        actor_type: str,
+        action: str,
+        resource_type: str,
+        resource_id: uuid.UUID,
+        metadata: dict,
+    ) -> None:
+        self.session.add(
+            AuditLog(
+                actor_id=actor_id,
+                actor_type=actor_type,
+                action=action,
+                resource_type=resource_type,
+                resource_id=resource_id,
+                metadata_json=metadata,
+                created_at=datetime.now(UTC),
             )
         )
