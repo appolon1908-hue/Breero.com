@@ -9,14 +9,17 @@ from app.config import settings
 from app.db.base import Base
 from app.domains.auth import models as auth_models  # noqa: F401
 from app.domains.booking import models as booking_models  # noqa: F401
+from app.domains.booking_intents import models as booking_intent_models  # noqa: F401
 from app.domains.catalog import models as catalog_models  # noqa: F401
 from app.domains.common import outbox as outbox_models  # noqa: F401
 from app.domains.compliance import models as compliance_models  # noqa: F401
 from app.domains.dispatch import models as dispatch_models  # noqa: F401
 from app.domains.finance import models as finance_models  # noqa: F401
+from app.domains.geography import models as geography_models  # noqa: F401
 from app.domains.jobs import models as job_models  # noqa: F401
 from app.domains.payments import models as payment_models  # noqa: F401
 from app.domains.professional_leads import models as professional_lead_models  # noqa: F401
+from app.domains.provider_catalog import models as provider_catalog_models  # noqa: F401
 from app.domains.public_submissions import models as public_submission_models  # noqa: F401
 from app.domains.workforce import models as workforce_models  # noqa: F401
 
@@ -69,7 +72,6 @@ def do_run_migrations(connection) -> None:
             )
         ).scalars()
     )
-    # End the catalog-read transaction before Alembic owns the migration transaction.
     connection.commit()
     context.configure(
         connection=connection,
