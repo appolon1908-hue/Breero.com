@@ -1,12 +1,11 @@
 import uuid
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
-from app.domains.auth.access_service import BRAND_KEY, AccessService
-from app.domains.auth.dependencies import require_roles
+from app.domains.auth.dependencies import require_roles, resolve_access_context
 from app.domains.auth.models import AccessRole, User, UserRole
 from app.domains.booking.models import Customer
 from app.domains.jobs.models import JobStatus
@@ -41,8 +40,12 @@ async def worker_for_user(session: AsyncSession, user_id: uuid.UUID) -> Worker:
     return worker
 
 
-async def effective_roles(session: AsyncSession, user: User) -> set[AccessRole]:
-    context = await AccessService(session).context(user, BRAND_KEY)
+async def effective_roles(
+    request: Request,
+    session: AsyncSession,
+    user: User,
+) -> set[AccessRole]:
+    context = await resolve_access_context(request, user, session)
     return set(context.roles)
 
 
@@ -91,6 +94,7 @@ async def list_jobs(
 @router.get("/{job_id}", response_model=JobRead)
 async def get_job(
     job_id: uuid.UUID,
+    request: Request,
     session: AsyncSession = Depends(get_db),
     user: User = Depends(
         require_roles(
@@ -103,7 +107,7 @@ async def get_job(
     job = await JobRepository(session).get(job_id)
     if not job:
         raise HTTPException(404, "Job not found")
-    roles = await effective_roles(session, user)
+    roles = await effective_roles(request, session, user)
     if not roles & PRIVILEGED_JOB_ROLES:
         if not await _job_visible_to_nonprivileged(session, job, user, roles):
             raise HTTPException(403, "Job is not visible to this account")
@@ -186,6 +190,7 @@ async def create_work_request(
 @router.get("/{job_id}/work-requests", response_model=list[WorkRequestRead])
 async def list_work_requests(
     job_id: uuid.UUID,
+    request: Request,
     session: AsyncSession = Depends(get_db),
     user: User = Depends(
         require_roles(
@@ -202,7 +207,7 @@ async def list_work_requests(
     job = await JobRepository(session).get(job_id)
     if not job:
         raise HTTPException(404, "Job not found")
-    roles = await effective_roles(session, user)
+    roles = await effective_roles(request, session, user)
     if not roles & PRIVILEGED_JOB_ROLES:
         if not await _job_visible_to_nonprivileged(session, job, user, roles):
             raise HTTPException(403, "Job is not visible to this account")
