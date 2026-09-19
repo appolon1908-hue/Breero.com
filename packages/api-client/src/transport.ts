@@ -55,8 +55,12 @@ export class ApiTransport implements Transport {
       headers.set("Accept", "application/json");
       if (options.body !== undefined) headers.set("Content-Type", "application/json");
       if (token) headers.set("Authorization", `Bearer ${token}`);
+      if (typeof document !== "undefined" && !IDEMPOTENT.has(method)) {
+        const csrf = document.cookie.split("; ").find((item) => item.startsWith("breero_csrf="))?.split("=")[1];
+        if (csrf) headers.set("X-CSRF-Token", decodeURIComponent(csrf));
+      }
       const url = this.options.baseUrl ? `${this.options.baseUrl.replace(/\/$/, "")}/${path.replace(/^\//, "")}` : path;
-      const response = await this.fetcher(url, { ...options, method, headers, body: options.body === undefined ? undefined : JSON.stringify(options.body), signal: controller.signal });
+      const response = await this.fetcher(url, { ...options, credentials: "include", method, headers, body: options.body === undefined ? undefined : JSON.stringify(options.body), signal: controller.signal });
       if (!response.ok) {
         const error = await apiErrorFromResponse(response);
         throw error;
