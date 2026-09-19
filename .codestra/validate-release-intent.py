@@ -410,8 +410,8 @@ EXPECTED_REQUIRED_CHECK_SOURCE_CLOSURE_SHA256 = {
         "19ad25962daeeff809b9a9d391b1e2f0"
     ),
     "ingtrader21-spec/Breero.com": (
-        "3fccb30ad0dd920a06acdabef0b0b6a9"
-        "df8c42dd3112894370a35c4ca11fe187"
+        "aeed86f0900cc0604765f223c99335fa"
+        "aae271fbc4d65682d58161c1c402ec37"
     ),
     "appolon1908-hue/Moneybee-Backend": (
         "a283e388028892ced3ac8445893ec2fa"
